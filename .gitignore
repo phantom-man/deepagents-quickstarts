@@ -167,3 +167,6 @@ cython_debug/
 .langgraph_api/
 .vscode/
 .DS_Store
+# DeepAgents specific
+references/
+ini .env
