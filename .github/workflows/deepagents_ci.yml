@@ -30,10 +30,10 @@ jobs:
 
     # To run your actual agents, you need to add secrets to the DeepAgents environment in GitHub Settings
     # and then uncomment the lines below:
-    # - name: Run Agent Check
-    #   env:
-    #     GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-    #     TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
-    #   run: |
-    #     cd DeepAgents
-    #     python DeepAgents.py
+    - name: Run Agent Check
+      env:
+        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      run: |
+        cd DeepAgents
+        python DeepAgents.py
