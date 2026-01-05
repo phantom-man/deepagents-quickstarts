@@ -1,0 +1,91 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\.vscode\\settings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|solutionrelative:.vscode\\settings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\DeepAgents.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|solutionrelative:DeepAgents.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\VeoAgent.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{9B07C90D-27C9-4AB0-902A-571617C8E8BD}|DeepAgents.pyproj|solutionrelative:VeoAgent.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 5,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{3ae79031-e1bc-11d0-8f78-00a0c9110057}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{40ea2e6b-2121-4bb8-a43e-c83c04b51041}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{75504045-d02f-44e5-bf60-5f60df380e8b}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "settings.json",
+              "DocumentMoniker": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\.vscode\\settings.json",
+              "RelativeDocumentMoniker": ".vscode\\settings.json",
+              "ToolTip": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\.vscode\\settings.json",
+              "RelativeToolTip": ".vscode\\settings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-01-04T20:50:13.187Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "VeoAgent.py",
+              "DocumentMoniker": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\VeoAgent.py",
+              "RelativeDocumentMoniker": "VeoAgent.py",
+              "ToolTip": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\VeoAgent.py",
+              "RelativeToolTip": "VeoAgent.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAANAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAd\u002BSURBVGhD7ZhtbFPXGcd/594bxzHGOC\u002BNksCSUAIhoEFojLpJTUHqmNSVSmUDhDa1IKRMYtJG96EIoWmC9cPWadM0aVI3RZO20bVfgHWMFQrTVlQQieh42RDvY6U4hPcmToyT2D5nH3yvfX1iJ87lpZu0v/To\u002BD73\u002BJznf87zcs6F/2UopXTV//G4IXRFIXR1dT3KrfobsLK7u/u\u002B/qIUlEygoqLiypw5c2L6O684c\u002BZMu9/vj42MjISAQzaJMb3fZCiZwPz583s3bdr0tP7OKzZv3syyZctIp9Onjxw5shj4E7B6qiQMXfG4sWbNmsVLliw5CbwI7Orq6vLpfSbCZ04AYMOGDUu8kvivIMADkDB1RSF0dHRsr6mp6Vu6dOksgGg0yrlz5\u002Bjr6ytJ0uk04XA4b8wDBw7Q3NxMW1tbVtfe3l5/8\u002BbNkzdu3FgGLOzo6Nh94sSJCTOgpx0IBoPU1dWVLKFQSB\u002BiKOydOAV8FfhdV1fXhIvsiUA4HKapqalkqays1IeYEOvXr29vbW09CXwd\u002BI7\u002B3o3PNI2WiB3d3d3bdaUDTwRisRixWOk1LRgMjouBPXv25D3rSKVSHD16lEdCIBqN0tfXp3crirq6OpqamnT1hEgkEmzdupVHQkBKOaWTrBACw5hauJVKYGqj2jAMA9M0SxbHeMMwsCwLy7IoKysbJ5ZlYZoTJp1x8ERgqjBNE7/fT3l5OUNjivM3hjl84Tb7T/ez90SUQ//sp/fyHT6\u002Bcx9hWtm\u002BpcCTC00lBqqqqli0aBFHLt7mnWNX\u002Bfh2DCVlxg3tVsp09new3GLdM3P5xrPz2b17FwcPHnz4LjSVQtbS0sLpawO8se8sfffitNROzzNeaRKLj/DL/ad5c/8pVq1aRWNj44RV0BOBqRSyQCDA8St3UVLy2gtt/PyVpaz7wux8EkrZrUSqjP7tw2dJJCWdnZ2t\u002BvxueCIwVQwlxpBK4jOdYM7cx5XKGK1sEtmdUJJUKs31u0OEw\u002BEZ\u002BnhueCIQi8WIRqMlCfbHAyUlr//hFN/9bQ87D18cFweZNtPPeQawLMvSps\u002BDZwL6ibOYACjbsJHRJGc\u002BuVvQ952dkPbOSCWByWuNpyxUrJAZhoHP58M0TUZTkrTM9Bm8P0ZiLAVA5m/2f5XiR3uOc/5ajlSuTfP7LS/ROjOQm0D4YyCOAt8XQnyEVwKFYJomVlkZe09e549/v8atwftF3CSdtwNSS6Pu9u2tq2gt\u002B2FuElEBwRUQeHYEWCGEOOLJhXQ4K//mXy/z6w8uc3swgZJ2ZhlnWC5Yc0RsnbJ1WRfSIOMwuBsSJ/3Ab5RSlicC0WiU3t7erMTjcS7dHObA6euFDXN0Tpos2OZIKCkdX8tBpUGlQCVh6H2AOcAKTwTchayhoYHKyko\u002BvHCruGHudFlAcjvkkMgYH/DZgSxTIJO2pGD0IqQHAF7wREAvZEIILvQPTmpYsec8sY2f9USIWaGbGaOVLXkkLgFEPBFwwzlpXr09PLFhWQPzd0bfMYBp/jJef/kZxNC\u002BfKMdF5JJGL0KsNhTFnLfyKqqqqiuruYrP/6LnVEkypVp3O2TtdNZ2FiFzzSQSoHjXlJlV76\u002BOsjzT9VQnd4FI2czvi8d/0/nYiH0Zaj5prc06j6NNjc309zczPNvHEKm3Ybnfpebgm2rIyyfew/GLgFpfYoMVBpSdzPuIcdcgWsbLl2/Q89B7be9VeKGhgYikQiRSIT6\u002BnoAQn5TW/VcBtq2OsLyxg9g8C1I9ELiI02OQ7wH4sdg5BzIUZfPuwLY7UJiGng9SrhvZEJkNrGxelou22R9WtFSP4Plcz\u002BFkX/ow2SgZPFAzeq0LKRSUD4b4FNPBNyQ9qFrfkO4YAC3zay03aYAlNuwAoHqGK7s1c8SSUGgHeCwJwLuQtbT08Pw8DDLFtSNy0JSSsosA8icg7JwVr2gcROsvqMLPAVWJcBeTwT0G1k8HqelbgadbXX553xVrKK6V1hf5WKr7\u002BjT8MQrAIPALk8E9EIWCoWQUrLtaxFWPf0kIX9ZbheyBNwVtYirSC1QdX1ZLcz8HgQ\u002BD7BdCDHkKY0WghACn89X\u002BPvP4Dtw/1guLUonn6ehch34F9gnbOW6AyjwzQJR8OvET4HXhBDqoRFwYBgGhmFks5NlWTDwFsSPugqRTsSd613Ps38F/rk7gDAwBvQD\u002B4UQ57PzuSd/GJBSkkqlSCaTJJPJjDJr8CSBatVCxcKcC9kQQrwqhNgihPiZ23geBYGCUOkiAekOVAFNv4DGn0AgYrvS5A4yeQ/bhQKBwLl58\u002Bbd0t9Nho0bN37RP3bYx72d\u002Ba4yzoUUzNmZCdR/fwtG/wWt\u002B8Co2CGEKPphq2QCuq5UrF27li891wn9P4DEhfEk3H5vlIMRzJyHGrYgZ6zEMIwHJ/AgUEoFgQ9RyXYG3oWB92CsXyPhXB8FBJdCzcswbQnAn4UQK/NHzMcjJ0CGxHQ79W0EZTL6CSTOQvJOxv/NIJQ3QcUCMKcDXAVeFUK8q4\u002Bl47EQcKCU\u002BhywFugEOoBawAcMAFeAHuA94H0hhHb\u002BKIz/ALvsii78KzggAAAAAElFTkSuQmCC",
+              "WhenOpened": "2026-01-04T18:11:36.318Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "DeepAgents.py",
+              "DocumentMoniker": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\DeepAgents.py",
+              "RelativeDocumentMoniker": "DeepAgents.py",
+              "ToolTip": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\DeepAgents.py",
+              "RelativeToolTip": "DeepAgents.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAtAAAAAAAAAA==",
+              "Icon": "00000000-0000-0000-0000-000000000000.000000|iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAd\u002BSURBVGhD7ZhtbFPXGcd/594bxzHGOC\u002BNksCSUAIhoEFojLpJTUHqmNSVSmUDhDa1IKRMYtJG96EIoWmC9cPWadM0aVI3RZO20bVfgHWMFQrTVlQQieh42RDvY6U4hPcmToyT2D5nH3yvfX1iJ87lpZu0v/To\u002BD73\u002BJznf87zcs6F/2UopXTV//G4IXRFIXR1dT3KrfobsLK7u/u\u002B/qIUlEygoqLiypw5c2L6O684c\u002BZMu9/vj42MjISAQzaJMb3fZCiZwPz583s3bdr0tP7OKzZv3syyZctIp9Onjxw5shj4E7B6qiQMXfG4sWbNmsVLliw5CbwI7Orq6vLpfSbCZ04AYMOGDUu8kvivIMADkDB1RSF0dHRsr6mp6Vu6dOksgGg0yrlz5\u002Bjr6ytJ0uk04XA4b8wDBw7Q3NxMW1tbVtfe3l5/8\u002BbNkzdu3FgGLOzo6Nh94sSJCTOgpx0IBoPU1dWVLKFQSB\u002BiKOydOAV8FfhdV1fXhIvsiUA4HKapqalkqays1IeYEOvXr29vbW09CXwd\u002BI7\u002B3o3PNI2WiB3d3d3bdaUDTwRisRixWOk1LRgMjouBPXv25D3rSKVSHD16lEdCIBqN0tfXp3crirq6OpqamnT1hEgkEmzdupVHQkBKOaWTrBACw5hauJVKYGqj2jAMA9M0SxbHeMMwsCwLy7IoKysbJ5ZlYZoTJp1x8ERgqjBNE7/fT3l5OUNjivM3hjl84Tb7T/ez90SUQ//sp/fyHT6\u002Bcx9hWtm\u002BpcCTC00lBqqqqli0aBFHLt7mnWNX\u002Bfh2DCVlxg3tVsp09new3GLdM3P5xrPz2b17FwcPHnz4LjSVQtbS0sLpawO8se8sfffitNROzzNeaRKLj/DL/ad5c/8pVq1aRWNj44RV0BOBqRSyQCDA8St3UVLy2gtt/PyVpaz7wux8EkrZrUSqjP7tw2dJJCWdnZ2t\u002BvxueCIwVQwlxpBK4jOdYM7cx5XKGK1sEtmdUJJUKs31u0OEw\u002BEZ\u002BnhueCIQi8WIRqMlCfbHAyUlr//hFN/9bQ87D18cFweZNtPPeQawLMvSps\u002BDZwL6ibOYACjbsJHRJGc\u002BuVvQ952dkPbOSCWByWuNpyxUrJAZhoHP58M0TUZTkrTM9Bm8P0ZiLAVA5m/2f5XiR3uOc/5ajlSuTfP7LS/ROjOQm0D4YyCOAt8XQnyEVwKFYJomVlkZe09e549/v8atwftF3CSdtwNSS6Pu9u2tq2gt\u002B2FuElEBwRUQeHYEWCGEOOLJhXQ4K//mXy/z6w8uc3swgZJ2ZhlnWC5Yc0RsnbJ1WRfSIOMwuBsSJ/3Ab5RSlicC0WiU3t7erMTjcS7dHObA6euFDXN0Tpos2OZIKCkdX8tBpUGlQCVh6H2AOcAKTwTchayhoYHKyko\u002BvHCruGHudFlAcjvkkMgYH/DZgSxTIJO2pGD0IqQHAF7wREAvZEIILvQPTmpYsec8sY2f9USIWaGbGaOVLXkkLgFEPBFwwzlpXr09PLFhWQPzd0bfMYBp/jJef/kZxNC\u002BfKMdF5JJGL0KsNhTFnLfyKqqqqiuruYrP/6LnVEkypVp3O2TtdNZ2FiFzzSQSoHjXlJlV76\u002BOsjzT9VQnd4FI2czvi8d/0/nYiH0Zaj5prc06j6NNjc309zczPNvHEKm3Ybnfpebgm2rIyyfew/GLgFpfYoMVBpSdzPuIcdcgWsbLl2/Q89B7be9VeKGhgYikQiRSIT6\u002BnoAQn5TW/VcBtq2OsLyxg9g8C1I9ELiI02OQ7wH4sdg5BzIUZfPuwLY7UJiGng9SrhvZEJkNrGxelou22R9WtFSP4Plcz\u002BFkX/ow2SgZPFAzeq0LKRSUD4b4FNPBNyQ9qFrfkO4YAC3zay03aYAlNuwAoHqGK7s1c8SSUGgHeCwJwLuQtbT08Pw8DDLFtSNy0JSSsosA8icg7JwVr2gcROsvqMLPAVWJcBeTwT0G1k8HqelbgadbXX553xVrKK6V1hf5WKr7\u002BjT8MQrAIPALk8E9EIWCoWQUrLtaxFWPf0kIX9ZbheyBNwVtYirSC1QdX1ZLcz8HgQ\u002BD7BdCDHkKY0WghACn89X\u002BPvP4Dtw/1guLUonn6ehch34F9gnbOW6AyjwzQJR8OvET4HXhBDqoRFwYBgGhmFks5NlWTDwFsSPugqRTsSd613Ps38F/rk7gDAwBvQD\u002B4UQ57PzuSd/GJBSkkqlSCaTJJPJjDJr8CSBatVCxcKcC9kQQrwqhNgihPiZ23geBYGCUOkiAekOVAFNv4DGn0AgYrvS5A4yeQ/bhQKBwLl58\u002Bbd0t9Nho0bN37RP3bYx72d\u002Ba4yzoUUzNmZCdR/fwtG/wWt\u002B8Co2CGEKPphq2QCuq5UrF27li891wn9P4DEhfEk3H5vlIMRzJyHGrYgZ6zEMIwHJ/AgUEoFgQ9RyXYG3oWB92CsXyPhXB8FBJdCzcswbQnAn4UQK/NHzMcjJ0CGxHQ79W0EZTL6CSTOQvJOxv/NIJQ3QcUCMKcDXAVeFUK8q4\u002Bl47EQcKCU\u002BhywFugEOoBawAcMAFeAHuA94H0hhHb\u002BKIz/ALvsii78KzggAAAAAElFTkSuQmCC",
+              "WhenOpened": "2026-01-04T17:04:41.27Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
