@@ -1,0 +1,39 @@
+name: DeepAgents CI
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    environment: DeepAgents  # This connects this job to the "DeepAgents" environment in GitHub
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f DeepAgents/requirements.txt ]; then pip install -r DeepAgents/requirements.txt; fi
+
+    - name: Verify Imports
+      run: |
+        cd DeepAgents
+        python -c "import google.genai; import langchain_tavily; print('Dependencies installed successfully')"
+
+    # To run your actual agents, you need to add secrets to the DeepAgents environment in GitHub Settings
+    # and then uncomment the lines below:
+    # - name: Run Agent Check
+    #   env:
+    #     GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+    #     TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+    #   run: |
+    #     cd DeepAgents
+    #     python DeepAgents.py
