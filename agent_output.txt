@@ -1,0 +1,26 @@
+c:\Users\User\source\repos\deepagents-quickstarts\DeepAgents\CommercialAgents\research_agent\tools.py:8: LangChainDeprecationWarning: The class `TavilySearchResults` was deprecated in LangChain 0.3.25 and will be removed in 1.0. An updated version of the class exists in the `langchain-tavily package and should be used instead. To use it run `pip install -U `langchain-tavily` and import as `from `langchain_tavily import TavilySearch``.
+  tavily_search = TavilySearchResults(max_results=5)
+Traceback (most recent call last):
+  File "c:\Users\User\source\repos\deepagents-quickstarts\DeepAgents\CommercialAgents\research_agent\agent.py", line 11, in <module>
+    from DeepAgents.CommercialAgents.research_agent.tools import tavily_search, scrape_webpage
+  File "c:\Users\User\source\repos\deepagents-quickstarts\DeepAgents\CommercialAgents\research_agent\tools.py", line 8, in <module>
+    tavily_search = TavilySearchResults(max_results=5)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\langchain_core\_api\deprecation.py", line 239, in warn_if_direct_instance
+    return wrapped(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\langchain_community\tools\tavily_search\tool.py", line 165, in __init__
+    super().__init__(**kwargs)
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\langchain_core\tools\base.py", line 541, in __init__
+    super().__init__(**kwargs)
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\langchain_core\load\serializable.py", line 117, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\User\AppData\Local\Programs\Python\Python311\Lib\site-packages\pydantic\main.py", line 250, in __init__
+    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+pydantic_core._pydantic_core.ValidationError: 1 validation error for TavilySearchAPIWrapper
+  Value error, Did not find tavily_api_key, please add an environment variable `TAVILY_API_KEY` which contains it, or pass `tavily_api_key` as a named parameter. [type=value_error, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/value_error

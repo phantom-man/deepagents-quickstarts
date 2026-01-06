@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "reindeer-db": {
+      "command": "node",
+      "args": [
+        "c:\\\\Users\\\\User\\\\.vscode\\\\extensions\\\\reindeer.reindeer-db-0.2.4\\\\dist\\\\mcp\\\\proxy.js"
+      ],
+      "env": {
+        "MCP_PORT": "3000"
+      }
+    }
+  }
+}

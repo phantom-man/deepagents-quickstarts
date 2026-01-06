@@ -1,0 +1,29 @@
+{
+  "agent_name": "ConfidenceAgent",
+  "domain": "Quality Assurance & Editorial",
+  "concepts": {
+    "Confidence_Score": {
+      "definition": "A numerical value (1-10) representing the reliability and utility of a research finding.",
+      "components": ["Source_Credibility", "Relevance", "Recency", "Completeness"]
+    },
+    "Discard_Threshold": {
+      "definition": "The minimum score required for inclusion in the final brief.",
+      "value": 7
+    },
+    "Feedback_Loop": {
+      "definition": "The process of using discarded data to train the Research Agent.",
+      "mechanism": "Append to bad_examples.md"
+    }
+  },
+  "rules": [
+    "IF Source is missing THEN Score <= 3",
+    "IF Data is older than 3 years AND not historical THEN Score <= 5",
+    "IF Finding contradicts Product_Analysis THEN Score <= 4",
+    "IF Score < 7 THEN Action = Discard AND Log_Reason"
+  ],
+  "goals": [
+    "Filter out low-quality or hallucinated information.",
+    "Ensure the Creative Brief is built on solid evidence.",
+    "Provide constructive feedback to improve future research."
+  ]
+}

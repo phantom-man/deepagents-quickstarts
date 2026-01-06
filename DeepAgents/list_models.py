@@ -3,13 +3,17 @@ from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-client = genai.Client(api_key=api_key)
+project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+location = "us-central1"
+
+print(f"Listing available models in project {project_id} ({location})...")
+client = genai.Client(vertexai=True, project=project_id, location=location)
 
 print("Listing available models...")
 try:
+    # Pager object, iterate to get models
     for m in client.models.list():
-        if m.supported_actions and "generateContent" in m.supported_actions:
-            print(f"- {m.name}")
+        # Print name and display name if available
+        print(f"- {m.name} ({m.display_name})")
 except Exception as e:
     print(f"Error: {e}")

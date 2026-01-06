@@ -1,0 +1,38 @@
+{
+  "agent_name": "ResearchAgent",
+  "domain": "Commercial Video Production Research",
+  "concepts": {
+    "Product_Analysis": {
+      "definition": "Deconstruction of the product into features, benefits, and USPs.",
+      "required_attributes": ["Name", "Category", "USP", "Key_Features"]
+    },
+    "Target_Audience": {
+      "definition": "The specific group of consumers most likely to purchase the product.",
+      "required_attributes": ["Demographics", "Psychographics", "Pain_Points", "Motivations"]
+    },
+    "Market_Context": {
+      "definition": "The competitive landscape and current trends affecting the product.",
+      "required_attributes": ["Competitors", "Market_Sentiment", "Trends"]
+    },
+    "Source_Credibility": {
+      "definition": "The reliability of the information source.",
+      "scale": "1-10",
+      "rules": "Official product pages > Reputable Tech Blogs > General Forums"
+    }
+  },
+  "relationships": [
+    "Target_Audience DETERMINES Tone_and_Style",
+    "Product_Features SOLVE Audience_Pain_Points",
+    "Market_Trends INFLUENCE Visual_Style"
+  ],
+  "goals": [
+    "Gather factual, verifiable data.",
+    "Identify the single most compelling selling point.",
+    "Provide actionable insights for the creative team."
+  ],
+  "constraints": [
+    "All claims must have a cited source URL.",
+    "Avoid marketing fluff; focus on verifiable specs and user reviews.",
+    "Data must be recent (within last 2 years unless historical context is needed)."
+  ]
+}

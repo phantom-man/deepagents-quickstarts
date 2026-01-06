@@ -7,7 +7,7 @@ for conducting web research with strategic thinking and context management.
 from datetime import datetime
 
 from langchain.chat_models import init_chat_model
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
 from deepagents import create_deep_agent
 
 from research_agent.prompts import (

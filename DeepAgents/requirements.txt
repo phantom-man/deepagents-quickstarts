@@ -3,3 +3,7 @@ langchain-community
 tavily-python
 langchain-tavily
 google-genai
+langchain-anthropic
+langsmith
+google-cloud-aiplatform
+langchain-google-vertexai
