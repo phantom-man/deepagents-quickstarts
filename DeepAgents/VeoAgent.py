@@ -64,7 +64,11 @@ def refine_prompt_with_thinking(raw_prompt):
     """
     
     response = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=raw_prompt)])
-    optimized_prompt = response.content.strip()
+    # Ensure content is string to avoid type errors
+    content = response.content
+    if isinstance(content, list):
+         content = " ".join([str(x) for x in content])
+    optimized_prompt = str(content).strip()
     print(f"✨ Optimized Prompt: {optimized_prompt}")
     return optimized_prompt
 
@@ -131,29 +135,29 @@ def generate_storyboard(prompt, output_file):
         if response.generated_images:
             gen_img = response.generated_images[0]
             # Handle different SDK versions for Image object
-            img_data = None
             
-            # Check for image property (common in new SDK)
-            if hasattr(gen_img, "image") and hasattr(gen_img.image, "image_bytes"):
-                img_data = gen_img.image.image_bytes
-            # Check for direct image_bytes
-            elif hasattr(gen_img, "image_bytes"):
-                img_data = gen_img.image_bytes
-            
-            if img_data:
-                with open(output_file, "wb") as f:
-                    f.write(img_data)
-                print(f"✅ Storyboard saved to {output_file}")
-                return True
-            else:
-                 # Attempt PIL Save if available
-                if hasattr(gen_img, "image") and hasattr(gen_img.image, "save"):
-                    gen_img.image.save(output_file)
+            # 1. Try Google GenAI SDK v1 pattern (img.image.image_bytes)
+            if hasattr(gen_img, "image") and gen_img.image is not None:
+                img_obj = gen_img.image
+                if hasattr(img_obj, "image_bytes"):
+                    with open(output_file, "wb") as f:
+                        f.write(img_obj.image_bytes) # type: ignore
                     print(f"✅ Storyboard saved to {output_file}")
                     return True
-                else:
-                    print(f"⚠️ Image object structure unknown: {dir(gen_img)}")
-                    return False
+                elif hasattr(img_obj, "save"):
+                    img_obj.save(output_file) # type: ignore
+                    print(f"✅ Storyboard saved to {output_file}")
+                    return True
+
+            # 2. Try direct image_bytes (older or alternative SDK)
+            if hasattr(gen_img, "image_bytes"):
+                with open(output_file, "wb") as f:
+                    f.write(gen_img.image_bytes) # type: ignore
+                print(f"✅ Storyboard saved to {output_file}")
+                return True
+            
+            print(f"⚠️ Image object structure unknown: {dir(gen_img)}")
+            return False
         else:
             print("⚠️ No images returned.")
 
