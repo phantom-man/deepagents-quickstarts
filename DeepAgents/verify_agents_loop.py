@@ -2,7 +2,6 @@ import subprocess
 import time
 import sys
 import os
-import psycopg2
 from agent_brain import AgentComms
 
 def run_verification():
@@ -49,8 +48,11 @@ def run_verification():
     print("📡 Monitoring Nervous System (Postgres) for Cinematographer ack...")
     
     comms = AgentComms(password="d1204l0723")
-    comms.connect()
-    
+    if not comms.connect():
+        print("❌ CRITICAL: Could not connect to Postgres DB. Is the server running?")
+        cine_process.terminate()
+        return
+
     # We look for a message FROM Cinematographer TO Director
     # Poll for 30 seconds
     max_retries = 6
@@ -60,14 +62,18 @@ def run_verification():
         print(f"   Polling ({i+1}/{max_retries})...")
         time.sleep(5)
         
-        with comms.conn.cursor() as cur:
-            cur.execute("SELECT content FROM agent_messages WHERE sender = 'Cinematographer' AND recipient = 'Director' AND status = 'unread' ORDER BY id DESC LIMIT 1")
-            row = cur.fetchone()
-            
-        if row:
-            print(f"✅ VERIFIED! Message received from Cinematographer: '{row[0]}'")
-            found = True
-            break
+        if comms.conn:
+             with comms.conn.cursor() as cur:
+                cur.execute("SELECT content FROM agent_messages WHERE sender = 'Cinematographer' AND recipient = 'Director' AND status = 'unread' ORDER BY id DESC LIMIT 1")
+                row = cur.fetchone()
+                
+             if row:
+                print(f"✅ VERIFIED! Message received from Cinematographer: '{row[0]}'")
+                found = True
+                break
+        else:
+             print("❌ Lost connection to DB.")
+             break
             
     if not found:
         print("⚠️ No response detected within timeout. Dumping recent logs:")
