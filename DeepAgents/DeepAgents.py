@@ -1,8 +1,19 @@
 import os
+import sys
+import time
 from dotenv import load_dotenv
+from langchain_google_vertexai import ChatVertexAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_community.tools.tavily_search import TavilySearchResults
 
-# Load environment variables from .env file
+# Import the new Brain components
+try:
+    from agent_brain import AgentMemory, AgentComms
+except ImportError as e:
+    print(f"❌ Could not import agent_brain: {e}")
+    sys.exit(1)
+
+# Load environment variables
 load_dotenv()
 
 def load_canonical_ontology(role_name):
@@ -16,80 +27,86 @@ def load_canonical_ontology(role_name):
         print(f"⚠️ Warning: Ontology for {role_name} not found at {path}")
         return ""
 
-# Verify keys are loaded (printing partial keys for security)
-tavily_key = os.getenv("TAVILY_API_KEY")
-google_project = os.getenv("GOOGLE_CLOUD_PROJECT")
-
-# Optional: LangChain Tracing
-if os.getenv("LANGCHAIN_TRACING_V2") == "true":
-    print("LangChain Tracing is enabled.")
-
-print(f"Google Project: {google_project}")
-
-if not tavily_key:
-    # Tavily is optional if we just want to chat, but good to check
-    pass
-
-# Load the Director Ontology
-director_ontology = load_canonical_ontology("Director")
-print(f"✅ Director Ontology Loaded ({len(director_ontology)} chars)")
-
-try:
-    # Initialize the Tavily Search Tool
-    tool = TavilySearch(
-        api_key=tavily_key,
-        max_results=5,
-        search_depth="advanced",
-        include_answer=True,
-        include_raw_content=True
-    )
-
-    # Initialize Gemini 3 Pro Preview (Director Agent)
-    model = ChatGoogleGenerativeAI(
-        model="gemini-3-pro-preview",
-        temperature=0.7
-    )
-
-    # --- Director Mode ---
-    print("\n--- Director Agent Initialized ---")
+def run_director_agent(task_override=None):
+    print("\n🎬 --- INITIALIZING DIRECTOR AGENT ---")
     
-    # The Task (This would normally come from the user)
-    task = "We need to conceive a short scene about a robot discovering a flower in a wasteland."
+    # 1. Connect to the Brain
+    print("🧠 Connecting to Local Brain...")
+    brain = AgentMemory()
+    comms = AgentComms(password="d1204l0723") # Using confirmed password
+    comms_active = comms.connect()
+    
+    if comms_active:
+        comms.setup_tables()
+    
+    # 2. Retrieve Context (Learning)
+    # The Director checks memory for relevant lessons or style preferences before starting.
+    # We query for general style or past mistakes.
+    query = "style preferences and technical constraints"
+    print(f"🔍 Recalling memories about: '{query}'...")
+    memories = brain.recall(query, limit=3)
+    
+    memory_context = ""
+    if memories:
+        memory_list = [f"- {m.get('text', '')}" for m in memories]
+        memory_context = "\n".join(memory_list)
+        print(f"💡 Found {len(memories)} relevant memories:\n{memory_context}")
+    else:
+        print("🤷 No relevant memories found searching fresh.")
 
-    # Construct the Prompt with Ontology Injection
+    # 3. Initialize LLM
+    # Switched to VertexAI to leverage the authenticated ADC credentials
+    llm = ChatVertexAI(
+        model="gemini-2.0-flash-001",
+        temperature=0.7,
+        location="us-central1"
+    )
+    
+    # Load Ontology
+    ontology = load_canonical_ontology("Director")
+    
+    # 4. Define the Task
+    task = task_override if task_override else "We need to conceive a short scene about a robot discovering a flower in a wasteland."
+    
+    # 5. Construct Prompt with Memory Injection
+    system_content = f"""You are the **Director Agent**.
+Your goal is to conceive creative scenes and give clear instructions to your crew (Cinematographer).
+
+**YOUR ONTOLOGY (Philosophy):**
+{ontology}
+
+**YOUR LONG-TERM MEMORY (Lessons & Preferences):**
+{memory_context if memory_context else "No prior memories available."}
+
+**INSTRUCTIONS:**
+1. Analyze the input task.
+2. Incorporate any relevant "Memories" (e.g., if the user prefers sci-fi, lean into that).
+3. Output a clear "Director's Treatment" of the scene.
+4. Conclude with a specific directive for the 'Cinematographer'.
+"""
+
     messages = [
-        SystemMessage(content=f"You are the Director Agent.\n\n{director_ontology}"),
+        SystemMessage(content=system_content),
         HumanMessage(content=task)
     ]
     
-    print(f"Input Task: {task}")
-    print("Thinking...")
+    print(f"\n📢 Input Task: {task}")
+    print("🤔 Director is thinking...")
     
-    response = model.invoke(messages)
+    response = llm.invoke(messages)
+    treatment = response.content
+    print(f"\n🎬 Director's Vision:\n{treatment}")
     
-    print("\n--- Director's Vision ---")
-    print(response.content)
-
-except Exception as e:
-    print(f"Error: {e}")
-
+    # 6. Store the Decision (Learning)
+    brain.memorize(f"Director Decision for '{task}': {treatment[:100]}...", "Director", ["decision", "history"])
     
-        # Integrate: Use Gemini to process the search results
-        print("\n--- Generating Summary with Gemini 3 Pro ---")
-        context = "\n\n".join([f"Source: {r.get('url')}\nContent: {r.get('content')}" for r in results['results']])
-        prompt = f"Based on the following search results, provide a concise summary of the latest AI news:\n\n{context}"
-
-        # LangSmith Feature: Adding tags and metadata to the run
-        response = model.invoke(
-            prompt, 
-            config={
-                "tags": ["summary", "gemini"], 
-                "metadata": {"context_length": len(context)}
-            }
-        )
-        print(response.content)
+    # 7. Communicate (Telepathy)
+    if comms_active:
+        print("\n📡 Sending orders to Cinematographer...")
+        comms.send_message("Director", "Cinematographer", treatment)
+        print("✅ Orders sent successfully.")
     else:
-        print("No results found from Tavily.")
+        print("\n⚠️ Comms offline. Orders written to log only.")
 
-except Exception as e:
-    print(f"An error occurred: {e}")
+if __name__ == "__main__":
+    run_director_agent()
