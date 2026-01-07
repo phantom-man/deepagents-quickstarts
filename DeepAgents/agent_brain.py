@@ -20,7 +20,7 @@ registry_model = get_registry().get("sentence-transformers").create(name="all-Mi
 
 class MemoryItem(LanceModel):
     text: str = registry_model.SourceField()
-    vector: Vector(registry_model.ndims()) = registry_model.VectorField()
+    vector: Vector(384) = registry_model.VectorField() # type: ignore
     agent: str
     timestamp: float
     tags: str # JSON string
@@ -68,9 +68,13 @@ class AgentMemory:
         )
         
         try:
-            self.table.add([item])
-            logger.info(f"💾 Memory Stored: '{text[:50]}...'")
-            return True
+            if self.table is not None:
+                self.table.add([item])
+                logger.info(f"💾 Memory Stored: '{text[:50]}...'")
+                return True
+            else:
+                logger.error("Memory table not initialized.")
+                return False
         except Exception as e:
             logger.error(f"Failed to memorize: {e}")
             return False
@@ -109,7 +113,12 @@ class AgentComms:
     def connect(self):
         """Establish connection to the Nervous System (Postgres)."""
         try:
-            self.conn = psycopg2.connect(**self.conn_params)
+            self.conn = psycopg2.connect(
+                dbname=self.conn_params['dbname'],
+                user=self.conn_params['user'],
+                password=self.conn_params['password'],
+                host=self.conn_params['host']
+            )
             self.conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             logger.info("📡 Connected to Nervous System (Postgres).")
             return True
