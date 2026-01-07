@@ -2,9 +2,16 @@ import os
 import requests
 from dotenv import load_dotenv
 
-load_dotenv("DeepAgents/.env")
+# Robustly load .env from the script's directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, ".env")
+load_dotenv(env_path)
 
 api_key = os.getenv("LANGCHAIN_API_KEY")
+
+if not api_key:
+    print(f"❌ Error: LANGCHAIN_API_KEY not found in environment or at {env_path}")
+    exit(1)
 url = "https://api.smith.langchain.com/orgs/current/workspaces"  # Attempt to list workspaces for current org
 # Alternatively tried /tenants or /workspaces
 
