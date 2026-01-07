@@ -1,5 +1,7 @@
 import os
 import time
+import argparse
+import uuid
 from google import genai
 from dotenv import load_dotenv
 from langchain_google_vertexai import ChatVertexAI
@@ -114,48 +116,129 @@ def generate_video(model_name, prompt, output_file="output_video.mp4"):
         return False
     return True
 
-def run_cinematographer_loop():
-    print("\n🎥 --- CINEMATOGRAPHER AGENT STANDING BY ---")
+def generate_storyboard(prompt, output_file):
+    """Generates a storyboard image using Imagen 3."""
+    print(f"\n--- Generating Storyboard with imagen-3.0-generate-001 ---")
+    print(f"Prompt: {prompt}")
+
+    try:
+        response = client.models.generate_images(
+            model="imagen-3.0-generate-001",
+            prompt=prompt,
+            config={'aspect_ratio': '16:9'}
+        )
+
+        if response.generated_images:
+            gen_img = response.generated_images[0]
+            # Handle different SDK versions for Image object
+            img_data = None
+            
+            # Check for image property (common in new SDK)
+            if hasattr(gen_img, "image") and hasattr(gen_img.image, "image_bytes"):
+                img_data = gen_img.image.image_bytes
+            # Check for direct image_bytes
+            elif hasattr(gen_img, "image_bytes"):
+                img_data = gen_img.image_bytes
+            
+            if img_data:
+                with open(output_file, "wb") as f:
+                    f.write(img_data)
+                print(f"✅ Storyboard saved to {output_file}")
+                return True
+            else:
+                 # Attempt PIL Save if available
+                if hasattr(gen_img, "image") and hasattr(gen_img.image, "save"):
+                    gen_img.image.save(output_file)
+                    print(f"✅ Storyboard saved to {output_file}")
+                    return True
+                else:
+                    print(f"⚠️ Image object structure unknown: {dir(gen_img)}")
+                    return False
+        else:
+            print("⚠️ No images returned.")
+
+    except Exception as e:
+        print(f"❌ Storyboard Generation Failed: {e}")
+        return False
+    return False
+
+def run_cinematographer_loop(mode="full"):
+    print(f"\n🎥 --- CINEMATOGRAPHER AGENT STANDING BY (Mode: {mode.upper()}) ---")
     print("Waiting for orders from Director...")
+    
+    # Ensure assets directory exists
+    assets_dir = os.path.join(os.path.dirname(__file__), "generated_assets")
+    os.makedirs(assets_dir, exist_ok=True)
     
     while True:
         # Check for messages
-        # messages = brain.comms.get_messages(receiver="Cinematographer", unread_only=True)
-        messages = comms.check_inbox(recipient="Cinematographer")
+        try:
+            messages = comms.check_inbox(recipient="Cinematographer")
+        except Exception as e:
+            print(f"Connection error: {e}, retrying...")
+            time.sleep(5)
+            continue
         
         if messages:
             for msg in messages:
                 print(f"\n📩 Message Received from {msg['sender']}:")
-                # check_inbox returns dicts with 'content'
                 print(f"📄 Content: {msg['content'][:100]}...") 
                 
                 # 1. Refine the prompt
                 refined_prompt = refine_prompt_with_thinking(msg['content'])
                 
-                # 2. Generate Video
-                print(f"🎬 Rolling Camera on: {refined_prompt}")
-                # Use Veo 2 (stable) or whatever is available, probe_veo suggested 'veo-2.0-generate-001'
-                success = generate_video("veo-2.0-generate-001", refined_prompt)
+                # Unique ID for this job
+                job_id = str(uuid.uuid4())[:8]
+                report_lines = []
                 
-                # 3. Report back
-                if success:
-                    report = f"Video generated successfully for prompt: {refined_prompt}"
-                    # brain.speak(from_agent="Cinematographer", to_agent="Director", content=report)
-                    comms.send_message(sender="Cinematographer", recipient="Director", content=report)
-                    print("✅ Confirmation sent to Director")
-                else:
-                    report = f"Failed to generate video for prompt: {refined_prompt} (Resource Exhausted/Error)"
-                    # brain.speak(from_agent="Cinematographer", to_agent="Director", content=report)
-                    comms.send_message(sender="Cinematographer", recipient="Director", content=report)
-                    print("⚠️ Failure report sent to Director")
-                    
-                # Store update in memory
-                # brain.remember(f"Cinematographer Job: {msg['content']} -> Result: {success}")
-                memory.memorize(f"Cinematographer Job: {msg['content']} -> Result: {success}", "Cinematographer", ["video_log"])
+                # 2. Generate Storyboard (Always if mode is storyboard or full)
+                if mode in ["storyboard", "full"]:
+                    sb_filename = f"storyboard_{job_id}.png"
+                    sb_path = os.path.join(assets_dir, sb_filename)
+                    if generate_storyboard(refined_prompt, sb_path):
+                        report_lines.append(f"Storyboard created: {sb_filename}")
+                        # Store in Memory
+                        memory.memorize(
+                            f"Created Storyboard for '{msg['content']}'", 
+                            "Cinematographer", 
+                            tags=["asset", "storyboard", sb_path]
+                        )
+                    else:
+                        report_lines.append("Storyboard generation failed.")
+
+                # 3. Generate Video (Only if mode is full)
+                if mode == "full":
+                    vid_filename = f"video_{job_id}.mp4"
+                    vid_path = os.path.join(assets_dir, vid_filename)
+                    # Note: generate_video from earlier in file needs a signature update or we handle signature mismatch
+                    # Actually, the original signature was generate_video(model_name, prompt, output_file="output_video.mp4")
+                    # We should match that.
+                    if generate_video("veo-2.0-generate-001", refined_prompt, vid_path):
+                        report_lines.append(f"Video created: {vid_filename}")
+                        # Store in Memory
+                        memory.memorize(
+                            f"Created Video for '{msg['content']}'", 
+                            "Cinematographer", 
+                            tags=["asset", "video", vid_path]
+                        )
+                    else:
+                        report_lines.append("Video generation failed.")
+                elif mode == "storyboard":
+                    report_lines.append("Video generation skipped (Mode: Storyboard Only).")
+
+                # 4. Report back
+                final_report = " | ".join(report_lines)
+                comms.send_message(sender="Cinematographer", recipient="Director", content=final_report)
+                print(f"✅ Report sent to Director: {final_report}")
                 
         else:
             time.sleep(5) # Poll every 5 seconds
 
 if __name__ == "__main__":
-    run_cinematographer_loop()
+    parser = argparse.ArgumentParser(description="Cinematographer Agent")
+    parser.add_argument("--mode", type=str, choices=["storyboard", "full"], default="storyboard", 
+                        help="Operation mode: 'storyboard' (images only) or 'full' (images + video)")
+    args = parser.parse_args()
+    
+    run_cinematographer_loop(mode=args.mode)
 

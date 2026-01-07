@@ -1,6 +1,7 @@
 import subprocess
 import time
 import sys
+import os
 import psycopg2
 from agent_brain import AgentComms
 
@@ -8,13 +9,20 @@ def run_verification():
     print("🧪 --- Starting Agent Mesh Verification ---")
 
     # 1. Start Cinematographer (Background)
-    print("🎥 Launching Cinematographer Agent (Subprocess)...")
+    print("🎥 Launching Cinematographer Agent (Subprocess, Mode=Storyboard)...")
+    
+    # Force UTF-8 encoding for inner process
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
     # Using python executable specifically
     cine_process = subprocess.Popen(
-        [sys.executable, "DeepAgents/VeoAgent.py"],
+        [sys.executable, "DeepAgents/VeoAgent.py", "--mode", "storyboard"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        text=True
+        text=True,
+        encoding='utf-8',
+        env=env
     )
     
     print("⏳ Waiting 10s for Cinematographer to hydrate and connect...")

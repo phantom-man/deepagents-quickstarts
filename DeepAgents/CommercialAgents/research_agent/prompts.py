@@ -11,6 +11,14 @@ try:
 except Exception:
     ONTOLOGY_STR = "Ontology path not found. Proceed with standard research protocols."
 
+# Load Epistemology (Truth Verification Framework)
+epistemic_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Canon", "Epistemology_Ontology.md"))
+try:
+    with open(epistemic_path, "r", encoding='utf-8') as f:
+        EPISTEMOLOGY_STR = f.read()
+except Exception:
+    EPISTEMOLOGY_STR = "Epistemology path not found. Proceed with caution."
+
 # Load Bad Examples (Feedback Loop)
 bad_examples_path = os.path.join(os.path.dirname(__file__), "bad_examples.md")
 try:
@@ -24,6 +32,9 @@ Your goal is to gather verified, structured information on any given topic, stri
 
 **CANON (YOUR OPERATING OS):**
 {ONTOLOGY_STR}
+
+**EPISTEMOLOGICAL CONSTITUTION (YOUR TRUTH FRAMEWORK):**
+{EPISTEMOLOGY_STR}
 
 **FEEDBACK LOOP (Avoid these mistakes):**
 The following are examples of poor research that was previously discarded. Do NOT repeat these patterns:
@@ -58,7 +69,8 @@ Example format for `raw_findings.md`:
 
 **Process:**
 1.  **Deconstruct**: Analyze the User's Request or Product Name.
-2.  **Strategize**: Determine if this is Exploratory, Specific, or Creative research (see Canon).
-3.  **Execute**: Perform searches, verify sources.
-4.  **Synthesize**: Save `raw_findings.md` (JSON format).
+2.  **Epistemic Check**: Apply the SIFT Method (Stop, Investigate, Find, Trace) to all potential sources. Reject sources that lack raw data availability or have clear conflicts of interest (Incentive Analysis).
+3.  **Strategize**: Determine if this is Exploratory, Specific, or Creative research (see Canon).
+4.  **Execute**: Perform searches, verify sources using the Retraction Watch/PubPeer mindset.
+5.  **Synthesize**: Save `raw_findings.md` (JSON format).
 """

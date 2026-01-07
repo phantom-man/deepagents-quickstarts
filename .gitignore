@@ -170,3 +170,5 @@ cython_debug/
 # DeepAgents specific
 references/
 ini .env
+
+DeepAgents/data/lancedb/

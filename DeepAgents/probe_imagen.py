@@ -18,18 +18,29 @@ try:
     client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
     
     print(f"Requesting IMAGE from {MODEL_ID}...")
-    response = client.models.generate_image(
+    response = client.models.generate_images(
         model=MODEL_ID,
         prompt="A cinematic storyboard sketch of a robot discovering a gentle flower in a harsh wasteland, detailed, atmospheric",
         config={'aspect_ratio': '16:9'}
     )
     
     if response.generated_images:
-        image = response.generated_images[0]
+        gen_img = response.generated_images[0]
         output_file = "storyboard_test.png"
-        image.save(output_file)
-        print(f"✅ SUCCESS! Image saved to {output_file}")
-    else:
+        
+        # Robust Save
+        img_data = None
+        if hasattr(gen_img, "image") and hasattr(gen_img.image, "image_bytes"):
+            img_data = gen_img.image.image_bytes
+        elif hasattr(gen_img, "image_bytes"):
+            img_data = gen_img.image_bytes
+            
+        if img_data:
+            with open(output_file, "wb") as f:
+                f.write(img_data)
+            print(f"✅ SUCCESS! Image saved to {output_file}")
+        else:
+            print(f"⚠️ Image object structure unknown: {dir(gen_img)}")
         print("⚠️ No images returned.")
 
 except Exception as e:
