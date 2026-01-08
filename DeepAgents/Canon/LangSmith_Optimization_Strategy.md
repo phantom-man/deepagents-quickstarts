@@ -1,9 +1,11 @@
 # LangSmith Optimization & Tracing Strategy
 
 ## Purpose
+
 To enable granular evaluation of agent efficiency, cost, and accuracy, all agent executions must be traced with standardized metadata and tags in LangSmith.
 
 ## Tagging Schema
+
 Tags are high-level filtering labels.
 
 - **System Tags**:
@@ -22,6 +24,7 @@ Tags are high-level filtering labels.
   - `workflow:verification`: Phase where the "Trust-But-Verify" logic is active.
 
 ## Metadata Schema
+
 Metadata provides specific key-value context for querying and regression testing.
 
 | Key | Description | Example |
@@ -33,7 +36,9 @@ Metadata provides specific key-value context for querying and regression testing
 | `user_intent` | Category of user request (optional) | `research_request`, `creative_writing` |
 
 ## Evaluation Strategy
+
 To evaluate efficiency:
+
 1. **Filter by `session_id`** to see the full trace of a user interaction.
 2. **Group by `model_name`** to compare latency and token usage between Gemini and other models.
 3. **Inspect `workflow:verification`** tags to audit the "Trust-But-Verify" loops specifically.

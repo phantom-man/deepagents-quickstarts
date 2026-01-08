@@ -30,10 +30,10 @@ class AgentMemory:
     The 'Hippocampus' of the Agent.
     Uses LanceDB (Embedded Vector Store) to store and retrieve semantic memories.
     """
-    def __init__(self, db_path="data/lancedb"):
+    def __init__(self, db_path="../data/lancedb"):
         # Ensure directory exists
         base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.db_path = os.path.join(base_dir, db_path)
+        self.db_path = os.path.abspath(os.path.join(base_dir, db_path))
         os.makedirs(self.db_path, exist_ok=True)
         
         # Connect to LanceDB
@@ -93,6 +93,69 @@ class AgentMemory:
         except Exception as e:
             logger.error(f"Failed to recall: {e}")
             return []
+
+
+class AgentConfig:
+    """
+    Manages persistent configuration for Agents (Providers, Models).
+    Stores data in a local JSON file (acting as a simple database).
+    """
+    def __init__(self, config_path="../data/agent_config.json"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.config_path = os.path.abspath(os.path.join(base_dir, config_path))
+        self.config = self._load_config()
+
+    def _load_config(self):
+        """Loads configuration from disk."""
+        if not os.path.exists(self.config_path):
+            return self._default_config()
+        try:
+            with open(self.config_path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load config: {e}")
+            return self._default_config()
+
+    def _default_config(self):
+        """Returns default configuration."""
+        return {
+            "Director": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
+            "Researcher": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
+            "Confidence": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
+            "Cinematographer": {
+                "provider": "Google", "model": "gemini-2.0-flash-exp",
+                "image_provider": "Google", "image_model": "imagen-3.0-generate-001",
+                "video_provider": "Google", "video_model": "veo-2.0-generate-001"
+            }
+        }
+
+    def save_config(self):
+        """Persists configuration to disk."""
+        try:
+            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
+            with open(self.config_path, "w") as f:
+                json.dump(self.config, f, indent=4)
+            logger.info("⚙️ Configuration saved.")
+        except Exception as e:
+            logger.error(f"Failed to save config: {e}")
+
+    def get_agent_config(self, agent_role):
+        """Returns config for specific agent."""
+        return self.config.get(agent_role, {"provider": "Google", "model": "gemini-1.5-pro"})
+
+    def set_agent_config(self, agent_role, provider, model, **kwargs):
+        """Updates config for specific agent."""
+        # Start with existing or new dict
+        cfg = self.config.get(agent_role, {})
+        # Update basics
+        cfg["provider"] = provider
+        cfg["model"] = model
+        # Update extras (like image_provider)
+        for k, v in kwargs.items():
+            cfg[k] = v
+            
+        self.config[agent_role] = cfg
+        self.save_config()
 
 
 class AgentComms:

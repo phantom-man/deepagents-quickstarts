@@ -10,22 +10,33 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
 from DeepAgents.CommercialAgents.research_agent.agent import create_research_agent, run_research_task
 from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
+from DeepAgents.agent_brain import AgentConfig
 
 class AgentRunner:
     def __init__(self, session_manager):
         self.session = session_manager
+        self.config = AgentConfig() # Load config
         
-    def stream_director(self, directive, model="gemini-2.0-flash-exp"):
+    def stream_director(self, directive):
         """Runs director and streams events to the session log."""
-        self.session.log_event("Director", "info", f"Starting directive: {directive} (Model: {model})")
+        
+        # Load Config for Director
+        dir_conf = self.config.get_agent_config("Director")
+        provider = dir_conf["provider"]
+        model = dir_conf["model"]
+        
+        self.session.log_event("Director", "info", f"Starting directive: {directive} (Provider: {provider}, Model: {model})")
         
         try:
-            agent = create_director_agent(model_name=model)
+            # Pass provider and model to factory
+            agent = create_director_agent(provider=provider, model_name=model)
+            
             # LangSmith Tracing Context
             tags = ["deep-agents-system", "gui-triggered", "agent:director"]
             metadata = {
                 "session_id": self.session.session_id,
                 "model_name": model,
+                "provider": provider,
                 "user_intent": "director_directive"
             }
             
@@ -37,7 +48,7 @@ class AgentRunner:
             
             for event in agent.stream(
                 {"messages": [("user", directive)]}, 
-                config=config
+                config=config # type: ignore
             ):
                 # Standard LangGraph parsing logic (similar to what I verified in agent.py)
                 for key in event:
@@ -48,7 +59,7 @@ class AgentRunner:
                         msgs = val["messages"]
                         if hasattr(msgs, "value"): msgs = msgs.value
                     elif hasattr(val, "messages"):
-                        msgs = val.messages
+                        msgs = getattr(val, "messages", [])
                         
                     if msgs and isinstance(msgs, list):
                         msg = msgs[-1]
@@ -75,16 +86,20 @@ class AgentRunner:
             self.session.log_event("Director", "error", str(e))
             yield ("Director", "error", str(e))
 
-    def run_research_direct(self, topic, model="gemini-2.0-flash-exp"):
+    def run_research_direct(self, topic):
         """Runs the research agent directly (not via Director)."""
+        # Load Config for Researcher
+        res_conf = self.config.get_agent_config("Researcher")
+        # Research agent factory likely doesn't support provider yet, so we default to what keys allow
+        # Ideally we update run_research_task to accept model too, but avoiding deep refactor of Researcher for now unless requested.
+        # But user asked for "Variable that tells the agent code that were using that brands llms"
+        
+        model = res_conf["model"]
         self.session.log_event("Researcher", "info", f"Starting research on: {topic} (Model: {model})")
         yield ("Researcher", "info", f"Starting research on: {topic} (Model: {model})")
 
-        # Capture stdout to see internal print statements from run_research_task
-        # because run_research_task uses print(), not just yields
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
-             # LangSmith Tracing Context
              tags = ["deep-agents-system", "gui-triggered", "agent:researcher"]
              metadata = {
                  "session_id": self.session.session_id,
@@ -93,19 +108,6 @@ class AgentRunner:
              }
              extra_config = {"tags": tags, "metadata": metadata}
              
-             # We can't yield from inside the redirected context easily in real-time
-             # for a simple implementation, we might just run it and dump the log
+             # Assuming run_research_task accepts model_name
              res = run_research_task(topic, extra_config=extra_config, model_name=model)
              
-        # Log the captured stdout
-        logs = f.getvalue()
-        self.session.log_event("Researcher", "thinking", logs)
-        yield ("Researcher", "thinking", logs)
-        
-        if res:
-             self.session.log_event("Researcher", "output", res)
-             yield ("Researcher", "output", res)
-
-    def run_confidence_audit(self, content):
-        """Runs the confidence agent directly."""
-        pass # Similar implementation

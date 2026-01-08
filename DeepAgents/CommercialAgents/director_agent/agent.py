@@ -1,7 +1,7 @@
 import os
 import sys
 from dotenv import load_dotenv
-# from langchain_anthropic import ChatAnthropic
+from langchain_anthropic import ChatAnthropic
 from langchain_google_vertexai import ChatVertexAI
 # from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.tools import tool
@@ -36,17 +36,27 @@ def consult_research_agent(topic: str) -> str:
         return result
     return "Research Agent could not find significant information."
 
-def create_director_agent(model_name="gemini-2.0-flash-exp"):
-    """Creates and returns the Director Agent (Veo Fast Specialist)."""
+def create_director_agent(provider="Google", model_name="gemini-2.0-flash-exp"):
+    """Creates and returns the Director Agent."""
     
-    # Initialize the model 
-    # Switching to 'gemini-2.0-flash-exp' on Vertex AI (gemini-3-pro-preview might not be on Vertex yet or requires specific region)
-    # Using the same model as Research Agent for stability
-    model = ChatVertexAI(
-        model=model_name,
-        temperature=0.7,
-        # model_kwargs={"thinking_mode": "high"} # Not supported on Vertex Flash yet
-    )
+    # Initialize LLM based on Provider
+    if provider == "Anthropic":
+        print(f"🎬 Initializing Anthropic Model: {model_name}")
+        model = ChatAnthropic(
+            model_name=model_name,
+            temperature=0.7,
+            timeout=None,
+            stop=None,
+            # api_key loaded from env
+        )
+    else:
+        # Default to Google VertexAI
+        print(f"🎬 Initializing Google VertexAI Model: {model_name}")
+        model = ChatVertexAI(
+            model=model_name,
+            temperature=0.7,
+            location="us-central1"
+        )
     
     # Create the Deep Agent
     agent = create_deep_agent(
@@ -58,8 +68,9 @@ def create_director_agent(model_name="gemini-2.0-flash-exp"):
     return agent
 
 if __name__ == "__main__":
-    print("Initializing Director Agent (Veo Fast Specialist)...")
-    agent = create_director_agent()
+    print("Initializing Director Agent...")
+    # Default test runs with Google
+    agent = create_director_agent("Google", "gemini-2.0-flash-exp")
     
     if len(sys.argv) > 1:
         concept = sys.argv[1]
@@ -70,8 +81,8 @@ if __name__ == "__main__":
         
         final_response = ""
         for event in agent.stream(
-            {"messages": [("user", f"Create a Veo Fast shot list for this commercial concept: {concept}")]}, 
-            config=config
+            {"messages": [("user", f"Create a short commercial concept: {concept}")]},
+            config=config # type: ignore
         ):
             # Print tool calls
             for key in event:
@@ -85,7 +96,7 @@ if __name__ == "__main__":
                     if hasattr(msgs, "value"):
                          msgs = msgs.value
                 elif hasattr(val, "messages"):
-                    msgs = val.messages
+                    msgs = getattr(val, "messages", [])
                 
                 if msgs and isinstance(msgs, list):
                     msg = msgs[-1]
