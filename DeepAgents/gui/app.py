@@ -2,6 +2,10 @@ import streamlit as st # type: ignore
 import time
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add parent path to allow imports from DeepAgents
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -10,9 +14,12 @@ from DeepAgents.gui.diagnostics_service import run_diagnostics
 from DeepAgents.gui.history_manager import SessionManager, list_sessions
 from DeepAgents.gui.agent_runner import AgentRunner
 from DeepAgents.agent_brain import AgentConfig  # New Config Manager
+# from DeepAgents.list_models import get_available_models # Removed to avoid conflict with local function
+from DeepAgents.asset_manager import AssetManager
 
 # Initialize Config
 config_manager = AgentConfig()
+asset_manager = AssetManager()
 
 st.set_page_config(page_title="DeepAgents HQ", layout="wide", page_icon="🎬")
 
@@ -69,22 +76,32 @@ def get_available_models():
             
             # Fallbacks if list is empty or specific models known
             if not models["Google"]["image"]:
-                models["Google"]["image"] = ["imagen-3.0-generate-001", "imagen-2.0"]
+                models["Google"]["image"] = [
+                    "imagen-4.0-ultra-generate-001",
+                    "imagen-4.0-generate-001",
+                    "imagen-4.0-fast-generate-001",
+                    "imagen-3.0-generate-001"
+                ]
             if not models["Google"]["video"]:
-                models["Google"]["video"] = ["veo-2.0-generate-001"] # Future/Preview
+                models["Google"]["video"] = [
+                    "veo-3.1-generate-001",
+                    "veo-3.1-fast-generate-001",
+                    "veo-3.0-generate-001",
+                    "veo-2.0-generate-001"
+                ] # Future/Preview
 
         else:
              # Fallback if no project ID but maybe API key
              models["Google"]["text"] = ["gemini-1.5-pro", "gemini-1.5-flash"]
-             models["Google"]["image"] = ["imagen-3.0-generate-001"]
-             models["Google"]["video"] = ["veo-2.0-generate-001"]
+             models["Google"]["image"] = ["imagen-4.0-ultra-generate-001", "imagen-3.0-generate-001"]
+             models["Google"]["video"] = ["veo-3.1-generate-001", "veo-2.0-generate-001"]
                  
     except Exception as e:
         # st.toast(f"Google Connection Failed: {e}", icon="⚠️")
         # Fallback defaults
         models["Google"]["text"] = ["gemini-1.5-pro", "gemini-1.5-flash"]
-        models["Google"]["image"] = ["imagen-3.0-generate-001"]
-        models["Google"]["video"] = ["veo-2.0-generate-001"]
+        models["Google"]["image"] = ["imagen-4.0-ultra-generate-001", "imagen-3.0-generate-001"]
+        models["Google"]["video"] = ["veo-3.1-generate-001", "veo-2.0-generate-001"]
 
     # Check Anthropic
     try:
@@ -137,7 +154,7 @@ with col_chk1:
 st.sidebar.divider()
 st.sidebar.subheader("Agent Configuration")
 
-agents = ["Director", "Researcher", "Confidence", "Cinematographer"]
+agents = ["Director", "Researcher", "Confidence", "Cinematographer", "Composer"]
 # Load current config
 current_conf = config_manager.config 
 
@@ -157,6 +174,8 @@ else:
             # 1. Provider Selector
             # Cinematographer has different providers for now (Video/Image)
             providers = ["Google", "Anthropic"]
+            if agent == "Composer":
+                providers = ["Google", "Anthropic", "Replicate"]
                 
             try: 
                 prov_idx = providers.index(saved_provider) 
@@ -166,7 +185,23 @@ else:
             provider = st.selectbox(f"Provider ({agent})", providers, index=prov_idx, key=f"prov_{agent}")
             
             # 2. Model Selector
-            model_list = st.session_state.available_models.get(provider, {}).get("text", [])
+            if provider in ["Google", "Anthropic"]:
+                model_list = st.session_state.available_models.get(provider, {}).get("text", [])
+            elif provider == "Replicate":
+                model_list = ["meta/musicgen", "Other Audio..."]
+                
+                existing_token = os.getenv("REPLICATE_API_TOKEN")
+                if existing_token:
+                    st.success("✅ Replicate Token found in .env")
+                    if st.checkbox("Change Token"):
+                         tok = st.text_input("New Replicate Token", type="password", key="repl_tok")
+                         if tok: os.environ["REPLICATE_API_TOKEN"] = tok
+                else:
+                    st.warning("⚠️ Token missing from environment.")
+                    tok = st.text_input("Enter Replicate Token", type="password", key="repl_tok")
+                    if tok: os.environ["REPLICATE_API_TOKEN"] = tok
+            else:
+                model_list = []
             
             if not model_list:
                 model_list = [saved_model] # Fallback
@@ -256,14 +291,17 @@ runner = AgentRunner(manager)
 st.title("🤖 DeepAgents Orchestrator")
 
 # Tabs for Agents
-tab_director, tab_research, tab_confidence, tab_cinematographer, tab_comms, tab_properties = st.tabs([
+tabs = st.tabs([
     "🎬 Director (Creative)", 
     "🔎 Research (Truth)", 
     "⚖️ Confidence (Audit)",
-    "🎥 Cinematographer (Vision)", 
+    "🎥 Cinematographer (Vision)",
+    "🎻 Composer (Audio)",
     "📡 Inter-Agent Comms",
+    "🎨 Asset Gallery",
     "⚙️ Canons"
 ])
+tab_director, tab_research, tab_confidence, tab_cinematographer, tab_composer, tab_comms, tab_properties, tab_settings = tabs
 
 # --- TAB 1: DIRECTOR ---
 with tab_director:
@@ -311,6 +349,23 @@ with tab_director:
                     elif log['type'] == 'output':
                         st.markdown("### 🎬 Director Output")
                         st.markdown(log['content'])
+    
+    # --- SESSION ASSETS SECTION ---
+    st.divider()
+    st.subheader("📂 Session Assets")
+    cur_sess = manager.session_id
+    if cur_sess:
+        sess_assets = asset_manager.list_assets(session_id=cur_sess)
+        if sess_assets:
+            acols = st.columns(4)
+            for idx, asset in enumerate(sess_assets):
+                with acols[idx % 4]:
+                     st.caption(asset['asset_type'])
+                     if asset['asset_type'] in ['image', 'storyboard']: st.image(asset['path'])
+                     elif asset['asset_type'] == 'video': st.video(asset['path'])
+                     elif asset['asset_type'] == 'audio': st.audio(asset['path'])
+        else:
+            st.caption("No assets generated yet in this session.")
 
 # --- TAB 2: RESEARCH ---
 with tab_research:
@@ -352,18 +407,85 @@ with tab_cinematographer:
         if not found_cinema:
             st.write("Waiting for Director's instructions...")
 
-# --- TAB 5: AGENT COMMS (The Mesh) ---
-with tab_comms:
-    st.header("Agent Neural Link")
-    st.write("Visualizing messages passed between agents.")
+# --- TAB: COMPOSER ---
+with tab_composer:
+    st.header("Composer Agent")
+    st.info("Generates Musical Scores and ABC Notation.")
     
-    logs = manager.load_history()
-    for log in logs:
-        if log.get("tool_calls"):
-            st.markdown(f"**{log['timestamp']}** | {log['agent']} ➡️ System: `{log['content']}`")
+    # Check for Director's output to use as context
+    director_context = ""
+    if session_id or st.session_state.current_session_id:
+        logs = manager.load_history()
+        for log in logs:
+            if log['agent'] == "Director" and log['type'] == 'output':
+                director_context += log['content'] + "\n"
+    
+    col_c1, col_c2 = st.columns([3, 1])
+    with col_c1:
+        st.caption("Context from Director")
+        st.text_area("Scene Context", value=director_context, height=100, disabled=True)
+    with col_c2:
+        st.write("## ")
+        compose_btn = st.button("🎵 Compose Score", type="primary", use_container_width=True, disabled=not director_context)
 
-# --- TAB 6: PROPERTIES ---
-with tab_properties:
+    # Output
+    comp_container = st.container()
+
+    if compose_btn:
+        with comp_container:
+            for agent, type_, content in runner.run_composer(director_context):
+                if type_ == "thinking":
+                    st.caption(f"💭 {content}")
+                elif type_ == "output":
+                     st.markdown(f"### 🎻 Composition")
+                     st.markdown(content)
+                elif type_ == "error":
+                    st.error(content)
+
+    if session_id or st.session_state.current_session_id and not compose_btn:
+        logs = manager.load_history()
+        found_composer = False
+        for log in logs:
+            if log['agent'] == "Composer":
+               with comp_container:
+                    found_composer = True
+                    if log['type'] == 'output':
+                        st.markdown(f"### 🎻 Musical Composition")
+                        st.markdown(log['content'])
+        
+        if not found_composer and not director_context:
+            st.write("Waiting for Director's cue...")
+
+# --- TAB: ASSET GALLERY ---
+with tab_properties: 
+    st.header("🎨 Global Asset Gallery")
+    st.info("Browse all generated artifacts across all sessions.")
+    
+    filter_type = st.selectbox("Filter by Type", ["All", "Images", "Videos", "Audio"])
+    type_map = {"Images": "image", "Videos": "video", "Audio": "audio"}
+    t_filter = type_map.get(filter_type)
+    
+    all_assets = asset_manager.list_assets(asset_type=t_filter)
+    
+    if not all_assets:
+        st.caption("No assets found.")
+    else:
+        # Grid Layout
+        cols = st.columns(4)
+        for idx, asset in enumerate(all_assets):
+            with cols[idx % 4]:
+                st.caption(f"{asset['timestamp']} | {asset['metadata'].get('model', 'Unknown')}")
+                if asset['asset_type'] == 'image' or asset['asset_type'] == 'storyboard':
+                    st.image(asset['path'], use_container_width=True)
+                elif asset['asset_type'] == 'video':
+                    st.video(asset['path'])
+                elif asset['asset_type'] == 'audio':
+                    st.audio(asset['path'])
+                with st.expander("Details"):
+                    st.json(asset)
+
+# --- TAB: CANONS ---
+with tab_settings:
     st.header("Agent Constitutions (Ontologies)")
     try:
         # Dynamically load ontologies

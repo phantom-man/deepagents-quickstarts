@@ -7,3 +7,4 @@ langchain-anthropic
 langsmith
 google-cloud-aiplatform
 langchain-google-vertexai
+replicate

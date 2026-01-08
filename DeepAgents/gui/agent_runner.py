@@ -10,12 +10,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
 from DeepAgents.CommercialAgents.research_agent.agent import create_research_agent, run_research_task
 from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
-from DeepAgents.agent_brain import AgentConfig
+from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
+from DeepAgents.CommercialAgents.cinematographer_agent.agent import create_cinematographer_agent
+from DeepAgents.agent_brain import AgentConfig, AgentMemory
 
 class AgentRunner:
     def __init__(self, session_manager):
         self.session = session_manager
         self.config = AgentConfig() # Load config
+        self.brain = AgentMemory() # Load memory for Composer
         
     def stream_director(self, directive):
         """Runs director and streams events to the session log."""
@@ -111,3 +114,60 @@ class AgentRunner:
              # Assuming run_research_task accepts model_name
              res = run_research_task(topic, extra_config=extra_config, model_name=model)
              
+        output = f.getvalue()
+        if output:
+            self.session.log_event("Researcher", "output", output)
+            yield ("Researcher", "output", output)
+        
+        self.session.log_event("Researcher", "output", str(res))
+        yield ("Researcher", "output", str(res))
+
+    def run_composer(self, director_output):
+        """Runs the composer agent."""
+        if not director_output:
+            yield ("Composer", "error", "No context to compose for.")
+            return
+
+        conf = self.config.get_agent_config("Composer")
+        self.session.log_event("Composer", "info", f"Composing Score... (Model: {conf['model']})")
+        yield ("Composer", "thinking", "Analyzing Director's Vision and checking Memory for musical motifs...")
+        
+        try:
+            agent_func = create_composer_agent(model_config=conf, brain=self.brain, session_id=self.session.session_id)
+            if not agent_func:
+                raise Exception("Failed to init Composer Agent")
+                
+            # Run
+            result = agent_func(director_output)
+            
+            self.session.log_event("Composer", "output", result)
+            yield ("Composer", "output", result)
+            
+        except Exception as e:
+            self.session.log_event("Composer", "error", str(e))
+            yield ("Composer", "error", str(e))
+
+    def run_cinematographer(self, director_output, mode="storyboard"):
+        """Runs the cinematographer agent."""
+        if not director_output:
+            yield ("Cinematographer", "error", "No context to visualize.")
+            return
+
+        conf = self.config.get_agent_config("Cinematographer")
+        self.session.log_event("Cinematographer", "info", f"Visualizing Scene... (Modes: {mode})")
+        yield ("Cinematographer", "thinking", "Translating textual vision into visual prompts and assets...")
+        
+        try:
+            agent_func = create_cinematographer_agent(model_config=conf, brain=self.brain, session_id=self.session.session_id)
+            if not agent_func:
+                raise Exception("Failed to init Cinematographer Agent")
+                
+            # Run
+            result = agent_func(director_output, mode=mode)
+            
+            self.session.log_event("Cinematographer", "output", result)
+            yield ("Cinematographer", "output", result)
+            
+        except Exception as e:
+             self.session.log_event("Cinematographer", "error", str(e))
+             yield ("Cinematographer", "error", str(e))

@@ -119,14 +119,15 @@ class AgentConfig:
     def _default_config(self):
         """Returns default configuration."""
         return {
-            "Director": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
-            "Researcher": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
-            "Confidence": {"provider": "Google", "model": "gemini-2.0-flash-exp"},
+            "Director": {"provider": "Google", "model": "gemini-3-pro-preview"},
+            "Researcher": {"provider": "Google", "model": "gemini-3-pro-preview"},
+            "Confidence": {"provider": "Google", "model": "gemini-3-pro-preview"},
             "Cinematographer": {
-                "provider": "Google", "model": "gemini-2.0-flash-exp",
-                "image_provider": "Google", "image_model": "imagen-3.0-generate-001",
-                "video_provider": "Google", "video_model": "veo-2.0-generate-001"
-            }
+                "provider": "Google", "model": "gemini-3-pro-preview",
+                "image_provider": "Google", "image_model": "imagen-4.0-ultra-generate-001",
+                "video_provider": "Google", "video_model": "veo-3.1-fast-generate-001"
+            },
+            "Composer": {"provider": "Replicate", "model": "meta/musicgen"}
         }
 
     def save_config(self):
@@ -141,7 +142,7 @@ class AgentConfig:
 
     def get_agent_config(self, agent_role):
         """Returns config for specific agent."""
-        return self.config.get(agent_role, {"provider": "Google", "model": "gemini-1.5-pro"})
+        return self.config.get(agent_role, {"provider": "Google", "model": "gemini-3-pro-preview"})
 
     def set_agent_config(self, agent_role, provider, model, **kwargs):
         """Updates config for specific agent."""
