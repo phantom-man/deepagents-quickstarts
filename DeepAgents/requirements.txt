@@ -8,3 +8,6 @@ langsmith
 google-cloud-aiplatform
 langchain-google-vertexai
 replicate
+streamlit
+moviepy
+arxiv

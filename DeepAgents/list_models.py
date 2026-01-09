@@ -15,8 +15,7 @@ try:
     # Pager object, iterate to get models
     for m in client.models.list():
         # Print name and display name if available
-        if "music" in m.name.lower() or "audio" in m.name.lower():
-            print(f"- {m.name} ({m.display_name})")
+        print(f"- {m.name} ({m.display_name})")
     print("--- END MODEL LIST ---")
 except Exception as e:
     print(f"Error: {e}")

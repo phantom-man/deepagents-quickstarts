@@ -16,6 +16,8 @@ from DeepAgents.gui.agent_runner import AgentRunner
 from DeepAgents.agent_brain import AgentConfig  # New Config Manager
 # from DeepAgents.list_models import get_available_models # Removed to avoid conflict with local function
 from DeepAgents.asset_manager import AssetManager
+from DeepAgents.model_registry import REPLICATE_MODELS, get_model_options, get_model_info 
+from DeepAgents.cost_calculator import estimate_cost # NEW Cost Service
 
 # Initialize Config
 config_manager = AgentConfig()
@@ -188,14 +190,20 @@ else:
             if provider in ["Google", "Anthropic"]:
                 model_list = st.session_state.available_models.get(provider, {}).get("text", [])
             elif provider == "Replicate":
-                model_list = ["meta/musicgen", "Other Audio..."]
+                # === NEW: Dynamic Model Registry Integration ===
+                if agent == "Composer":
+                     # Audio Models
+                     options = get_model_options("audio")
+                     model_list = [k for n, k in options] # Key names
+                     # Add legacy fallback just in case
+                     if "minimax/music-01" not in model_list: model_list.append("minimax/music-01")
+                else:
+                    # Default
+                    model_list = ["minimax/music-01", "meta/musicgen", "Other Audio..."]
                 
                 existing_token = os.getenv("REPLICATE_API_TOKEN")
                 if existing_token:
                     st.success("✅ Replicate Token found in .env")
-                    if st.checkbox("Change Token"):
-                         tok = st.text_input("New Replicate Token", type="password", key="repl_tok")
-                         if tok: os.environ["REPLICATE_API_TOKEN"] = tok
                 else:
                     st.warning("⚠️ Token missing from environment.")
                     tok = st.text_input("Enter Replicate Token", type="password", key="repl_tok")
@@ -214,6 +222,36 @@ else:
                 mod_idx = model_list.index(saved_model)
             
             model = st.selectbox(f"Model ({agent})", model_list, index=mod_idx, key=f"mod_{agent}")
+            
+            # SHOW DYNAMIC PARAMS (If Replicate)
+            if provider == "Replicate":
+                cat = "audio" if agent == "Composer" else None
+                if cat: 
+                    info = get_model_info(cat, model)
+                    if info and "inputs" in info:
+                        st.caption(f"🔧 {info['name']} Options")
+                        for inp in info["inputs"]:
+                            # Render widget based on type
+                            key_name = f"param_{agent}_{inp['name']}"
+                            # Try to get saved value from extras
+                            saved_val = current_conf.get(agent, {}).get(inp["name"], inp.get("default"))
+                            
+                            new_val = saved_val
+                            if inp["type"] == "text":
+                                new_val = st.text_input(inp["label"], value=saved_val, key=key_name)
+                            elif inp["type"] == "textarea":
+                                new_val = st.text_area(inp["label"], value=saved_val, key=key_name)
+                            elif inp["type"] == "number":
+                                new_val = st.number_input(inp["label"], value=saved_val, min_value=inp.get("min"), max_value=inp.get("max"), start_value=inp.get("default"), key=key_name)
+                            elif inp["type"] == "select":
+                                opts = inp.get("options", [])
+                                idx = 0
+                                if saved_val in opts: idx = opts.index(saved_val)
+                                new_val = st.selectbox(inp["label"], opts, index=idx, key=key_name)
+                            
+                            # Update Extras
+                            extras[inp["name"]] = new_val
+                            if new_val != current_conf.get(agent, {}).get(inp["name"]): needs_save = True
 
             # 3. Extra Selectors for Cinematographer (Image/Video)
             extras = {}
@@ -222,6 +260,23 @@ else:
             # Check basic Text Model changes
             if provider != saved_provider or model != saved_model:
                 needs_save = True
+
+            if agent == "Director":
+                st.markdown("---")
+                st.caption("🎬 Production Settings")
+                
+                # Shot Quota
+                saved_shots = current_conf.get(agent, {}).get("max_shots", 2)
+                shots_val = st.number_input("Max Shots per Scene (Quota)", min_value=1, max_value=10, value=saved_shots, step=1, key="dir_max_shots")
+                extras["max_shots"] = shots_val
+                if shots_val != saved_shots: needs_save = True
+                
+                # Video Duration defaults
+                saved_dur = current_conf.get(agent, {}).get("duration", 5)
+                # Durations often model dependent (Veo 3: 4s, 8s etc). We'll give generic int.
+                dur_val = st.number_input("Clip Duration (Seconds)", min_value=1, max_value=60, value=saved_dur, step=1, key="dir_dur_sec")
+                extras["duration"] = dur_val
+                if dur_val != saved_dur: needs_save = True
 
             if agent == "Cinematographer":
                 st.markdown("---")
@@ -244,12 +299,37 @@ else:
                 saved_vid_prov = current_conf.get(agent, {}).get("video_provider", "Google")
                 saved_vid_mod = current_conf.get(agent, {}).get("video_model", "veo-2.0-generate-001")
                 
-                vid_providers = ["Google", "Other"]
-                vid_provider_val = st.selectbox("Video Provider", vid_providers, index=0 if saved_vid_prov=="Google" else 1, key="cine_vid_prov")
+                vid_providers = ["Google", "Replicate", "Other"]
+                vid_provider_val = st.selectbox("Video Provider", vid_providers, index=0 if saved_vid_prov=="Google" else (1 if saved_vid_prov=="Replicate" else 2), key="cine_vid_prov")
                 
-                vid_models = st.session_state.available_models.get(vid_provider_val, {}).get("video", ["veo-2.0"])
+                if vid_provider_val == "Replicate":
+                    # Get from Registry
+                    options = get_model_options("video")
+                    vid_models = [k for n, k in options]
+                else:
+                    vid_models = st.session_state.available_models.get(vid_provider_val, {}).get("video", ["veo-2.0"])
+                
                 if saved_vid_mod not in vid_models: vid_models.append(saved_vid_mod)
                 vid_model_val = st.selectbox("Video Model", vid_models, index=vid_models.index(saved_vid_mod) if saved_vid_mod in vid_models else 0, key="cine_vid_mod")
+
+                # Replicate Video Extras
+                if vid_provider_val == "Replicate":
+                    info = get_model_info("video", vid_model_val)
+                    if info and "inputs" in info:
+                        st.caption(f"🔧 {info['name']} Options")
+                        for inp in info["inputs"]:
+                             # Don't show Prompt here as that comes from Agent logic usually, but we can allow override?
+                             if inp["name"] == "prompt": continue 
+
+                             key_name = f"param_vid_{inp['name']}"
+                             saved_val = current_conf.get(agent, {}).get(inp["name"], inp.get("default"))
+                             new_val = saved_val
+                             
+                             if inp["type"] == "text": new_val = st.text_input(inp["label"], value=saved_val, key=key_name)
+                             elif inp["type"] == "number": new_val = st.number_input(inp["label"], value=saved_val, min_value=inp.get("min"), max_value=inp.get("max"), start_value=inp.get("default"), key=key_name)
+                             
+                             extras[inp["name"]] = new_val
+                             if new_val != saved_val: needs_save = True
 
                 # Populate Extras and Check for Changes
                 extras["image_provider"] = img_provider_val
@@ -313,7 +393,19 @@ with tab_director:
     with col2:
         st.write("## ")
         run_btn = st.button("ACTION!", type="primary", use_container_width=True, disabled=(mode == "Review History"))
-
+        # Cost Estimator
+        if st.button("💰 Estimate Project", key="est_dir"):
+            est = estimate_cost("Director", config_manager.config)
+            st.toast(f"Total Project Est: ${est['total']:.2f}")
+            with st.expander("Project Cost Breakdown", expanded=True):
+                 for d in est['details']: st.write(f"- {d}")
+        
+        # Load run-time overrides from Config
+        dir_conf = config_manager.get_agent_config("Director")
+        shots_cfg = dir_conf.get("max_shots", 2)
+        dur_cfg = dir_conf.get("duration", 5)
+        st.caption(f"Settings: {shots_cfg} Shots, {dur_cfg}s clips")
+    
     # Output Containter
     output_container = st.container()
 
@@ -326,7 +418,9 @@ with tab_director:
         
         with output_container:
             st.info(f"Session started: {manager.session_id}")
-            # Stream events
+            
+            # --- PHASE 1: DIRECTION ---
+            director_result = ""
             for agent, type_, content in runner.stream_director(directive): 
                 if type_ == "thinking":
                     with st.expander(f"💭 {agent} Thinking...", expanded=False):
@@ -334,8 +428,29 @@ with tab_director:
                 elif type_ == "output":
                      st.markdown(f"### 🎬 {agent} Output")
                      st.markdown(content)
+                     director_result += content
                 elif type_ == "error":
                     st.error(content)
+            
+            # --- PHASE 2: CINEMATOGRAPHY (AUTO-HANDOFF) ---
+            if director_result:
+                st.divider()
+                st.info("🎬 Director > 🎥 Handoff to Cinematographer...")
+                # We use the configured quotas
+                for agent, type_, content in runner.run_cinematographer(
+                    director_result, 
+                    mode="both", # Default to both for full production
+                    max_shots=shots_cfg, 
+                    duration_sec=dur_cfg
+                ): 
+                    if type_ == "thinking":
+                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                             st.markdown(content)
+                    elif type_ == "output":
+                         st.markdown(f"### 🎥 Visual Output")
+                         st.markdown(content)
+                    elif type_ == "error":
+                         st.error(content)
 
     elif mode == "Review History" and session_id:
         # Replay Log
@@ -367,73 +482,224 @@ with tab_director:
         else:
             st.caption("No assets generated yet in this session.")
 
+if "research_input" not in st.session_state: st.session_state.research_input = ""
+
 # --- TAB 2: RESEARCH ---
 with tab_research:
     st.header("Research Agent")
     st.info("The Researcher verifies facts and finds references.")
+    
+    col_r1, col_r2 = st.columns([3, 1])
+    with col_r1:
+        res_topic = st.text_input("Research Topic", key="research_input")
+    with col_r2:
+        st.write("## ")
+        run_res = st.button("🔎 Research", type="primary", use_container_width=True)
+        
+    res_container = st.container()
+    
+    if run_res and res_topic:
+        with res_container:
+            # We use the generic runner method for direct research
+             for agent, type_, content in runner.run_research_direct(res_topic):
+                 if type_ == "info": st.caption(content)
+                 elif type_ == "output": st.markdown(content)
+
     if session_id or st.session_state.current_session_id:
         logs = manager.load_history()
         for log in logs:
-            if log['agent'] == "Researcher":
+            if log['agent'] == "Researcher" and not run_res: # Avoid dupe if just ran
                 with st.expander(f"📚 Research Report ({log['timestamp']})"):
                     st.markdown(log['content'])
+
+if "confidence_input" not in st.session_state: st.session_state.confidence_input = ""
 
 # --- TAB 3: CONFIDENCE ---
 with tab_confidence:
     st.header("Confidence / Audit Agent")
     st.info("The Audit Agent critiques the plan for feasibility.")
+    
+    col_cf1, col_cf2 = st.columns([3, 1])
+    with col_cf1:
+         # Default to last Director output if available
+         def_text = ""
+         if session_id or st.session_state.current_session_id:
+             logs = manager.load_history()
+             for log in reversed(logs):
+                 if log['agent'] == "Director" and log['type'] == "output":
+                     def_text = log['content']
+                     break
+         
+         audit_plan = st.text_area("Plan to Audit", value=def_text, height=150, key="confidence_input")
+         
+    with col_cf2:
+        st.write("## ")
+        run_audit = st.button("🛡️ Audit Plan", type="primary", use_container_width=True)
+        
+    audit_container = st.container()
+    
+    if run_audit and audit_plan:
+        # We need to implement run_confidence_direct in runner if not exists, 
+        # or just instantiate here. The user asked for "prompting form GUI".
+        # Let's assume runner has it or we add it? 
+        # Checking runner file... it has create_confidence_agent but maybe not a direct run method.
+        # I'll implement a quick inline runner pattern for now.
+        from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
+        
+        with audit_container:
+            with st.spinner("Auditing..."):
+                conf = config_manager.get_agent_config("Confidence")
+                # Need model config
+                # Mocking the agent creation
+                c_agent = create_confidence_agent() # Default args
+                # Confidence agent usually takes a plan string
+                # We need to check its signature. Assuming it's a Runnable or similar.
+                # In current codebase, it's usually a compiled graph or chain.
+                # Let's try invoking it.
+                try: 
+                    # Assuming standard invoke
+                     res = c_agent.invoke({"messages": [("user", f"Audit this plan: {audit_plan}")]})
+                     # Extract output
+                     if hasattr(res, "content"): out = res.content
+                     elif isinstance(res, dict) and "messages" in res: out = res["messages"][-1].content
+                     else: out = str(res)
+                     
+                     st.markdown("### 🛡️ Audit Report")
+                     st.markdown(out)
+                     # Log it
+                     manager.log_event("Confidence", "output", out)
+                except Exception as e:
+                    st.error(f"Audit Failed: {e}")
+
     if session_id or st.session_state.current_session_id:
         logs = manager.load_history()
         for log in logs:
-            if log['agent'] == "Confidence":
-                st.markdown(f"### 🛡️ Audit Report")
+            if log['agent'] == "Confidence" and not run_audit:
+                st.markdown(f"### 🛡️ Audit Report ({log['timestamp']})")
                 st.markdown(log['content'])
+
+if "cinematographer_input" not in st.session_state: st.session_state.cinematographer_input = ""
 
 # --- TAB 4: CINEMATOGRAPHER (New) ---
 with tab_cinematographer:
     st.header("Cinematographer Agent")
     st.info("Translates the Director's vision into visual descriptions and video.")
     
+    col_cm1, col_cm2 = st.columns([3, 1])
+    with col_cm1:
+        # Default to director output
+        def_vis = ""
+        if session_id or st.session_state.current_session_id:
+             logs = manager.load_history()
+             for log in reversed(logs):
+                 if log['agent'] == "Director" and log['type'] == "output":
+                     def_vis = log['content']
+                     break
+        
+        vis_req = st.text_area("Scene Description", value=def_vis, height=150, key="cinematographer_input")
+        
+        # Local controls for manual run
+        c1, c2, c3 = st.columns(3)
+        with c1: 
+             man_mode = st.selectbox("Mode", ["storyboard", "video", "both"], index=0, key="cine_man_mode")
+        with c2:
+             man_shots = st.number_input("Shots", 1, 10, 1, key="cine_man_shots")
+        with c3:
+             man_dur = st.number_input("Duration (s)", 1, 60, 5, key="cine_man_dur")
+
+    with col_cm2:
+        st.write("## ")
+        run_cine = st.button("🎥 Action", type="primary", use_container_width=True)
+        # Cost Estimator
+        if st.button("💰 Estimate", key="est_cine"):
+            # Mock config for estimate
+            temp_conf = config_manager.config.copy()
+            # Override with local manual inputs
+            temp_conf["Cinematographer"]["max_shots"] = man_shots
+            temp_conf["Cinematographer"]["duration"] = man_dur
+            # Mode specific?
+            # If mode is storyboard, cost is low. If video, calculate.
+            # We assume cost calc assumes video generation if configured.
+            est = estimate_cost("Cinematographer", temp_conf)
+            st.toast(f"Total Est: ${est['total']:.2f}")
+            with st.expander("Cost Breakdown", expanded=True):
+                for d in est['details']: st.write(f"- {d}")
+                if man_mode == "storyboard": st.warning("(Note: Estimates assume Video Generation)")
+
+    cine_container = st.container()
+
+    if run_cine and vis_req:
+        with cine_container:
+            # Use runner
+            for agent, type_, content in runner.run_cinematographer(
+                    vis_req, 
+                    mode=man_mode, 
+                    max_shots=man_shots, 
+                    duration_sec=man_dur
+                ): 
+                    if type_ == "thinking":
+                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                             st.markdown(content)
+                    elif type_ == "output":
+                         st.markdown(f"### 🎥 Visual Output")
+                         st.markdown(content)
+                    elif type_ == "error":
+                         st.error(content)
+
+    
     if session_id or st.session_state.current_session_id:
         logs = manager.load_history()
         found_cinema = False
         for log in logs:
-            if log['agent'] == "Cinematographer":
+            if log['agent'] == "Cinematographer" and not run_cine:
                 found_cinema = True
-                if log['type'] == 'output':
-                    st.markdown(f"### 🎥 Visual Treatment")
-                    st.markdown(log['content'])
+                with cine_container:
+                    if log['type'] == 'output':
+                        st.markdown(f"### 🎥 Visual Treatment ({log['timestamp']})")
+                        st.markdown(log['content'])
         
-        if not found_cinema:
+        if not found_cinema and not run_cine:
             st.write("Waiting for Director's instructions...")
+
+if "composer_input" not in st.session_state: st.session_state.composer_input = ""
 
 # --- TAB: COMPOSER ---
 with tab_composer:
     st.header("Composer Agent")
     st.info("Generates Musical Scores and ABC Notation.")
     
-    # Check for Director's output to use as context
+    # Check for Director's output to use as default context
     director_context = ""
     if session_id or st.session_state.current_session_id:
         logs = manager.load_history()
-        for log in logs:
+        for log in reversed(logs):
             if log['agent'] == "Director" and log['type'] == 'output':
-                director_context += log['content'] + "\n"
+                director_context = log['content']
+                break
     
     col_c1, col_c2 = st.columns([3, 1])
     with col_c1:
-        st.caption("Context from Director")
-        st.text_area("Scene Context", value=director_context, height=100, disabled=True)
+        # Allow manual editing, default to director context if available and input empty
+        val_to_show = director_context if not st.session_state.composer_input else st.session_state.composer_input
+        if not val_to_show and director_context: val_to_show = director_context
+        
+        comp_req = st.text_area("Composition Directive / Scene Context", value=val_to_show, height=100, key="composer_input")
     with col_c2:
         st.write("## ")
-        compose_btn = st.button("🎵 Compose Score", type="primary", use_container_width=True, disabled=not director_context)
+        compose_btn = st.button("🎵 Compose Score", type="primary", use_container_width=True)
+        # Cost Estimator
+        if st.button("💰 Estimate", key="est_comp"):
+            est = estimate_cost("Composer", config_manager.config)
+            st.toast(f"Total Est: ${est['total']:.2f}")
+            with st.expander("Cost Breakdown", expanded=True):
+                 for d in est['details']: st.write(f"- {d}")
 
     # Output
     comp_container = st.container()
 
-    if compose_btn:
+    if compose_btn and comp_req:
         with comp_container:
-            for agent, type_, content in runner.run_composer(director_context):
+            for agent, type_, content in runner.run_composer(comp_req):
                 if type_ == "thinking":
                     st.caption(f"💭 {content}")
                 elif type_ == "output":
@@ -450,11 +716,11 @@ with tab_composer:
                with comp_container:
                     found_composer = True
                     if log['type'] == 'output':
-                        st.markdown(f"### 🎻 Musical Composition")
+                        st.markdown(f"### 🎻 Musical Composition ({log['timestamp']})")
                         st.markdown(log['content'])
         
         if not found_composer and not director_context:
-            st.write("Waiting for Director's cue...")
+            st.write("Waiting for Director's cue or manual input...")
 
 # --- TAB: ASSET GALLERY ---
 with tab_properties: 

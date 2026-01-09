@@ -147,23 +147,23 @@ class AgentRunner:
             self.session.log_event("Composer", "error", str(e))
             yield ("Composer", "error", str(e))
 
-    def run_cinematographer(self, director_output, mode="storyboard"):
+    def run_cinematographer(self, director_output, mode="storyboard", max_shots=1, duration_sec=5):
         """Runs the cinematographer agent."""
         if not director_output:
             yield ("Cinematographer", "error", "No context to visualize.")
             return
 
         conf = self.config.get_agent_config("Cinematographer")
-        self.session.log_event("Cinematographer", "info", f"Visualizing Scene... (Modes: {mode})")
-        yield ("Cinematographer", "thinking", "Translating textual vision into visual prompts and assets...")
+        self.session.log_event("Cinematographer", "info", f"Visualizing Scene... (Modes: {mode}, Shots: {max_shots})")
+        yield ("Cinematographer", "thinking", f"Translating textual vision into visual prompts and assets ({max_shots} shots)...")
         
         try:
             agent_func = create_cinematographer_agent(model_config=conf, brain=self.brain, session_id=self.session.session_id)
             if not agent_func:
                 raise Exception("Failed to init Cinematographer Agent")
                 
-            # Run
-            result = agent_func(director_output, mode=mode)
+            # Run with extended parameters
+            result = agent_func(director_output, mode=mode, max_shots=max_shots, duration_sec=duration_sec)
             
             self.session.log_event("Cinematographer", "output", result)
             yield ("Cinematographer", "output", result)

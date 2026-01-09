@@ -1,0 +1,2 @@
+{"timestamp": "2026-01-08T08:01:15.261785", "agent": "Composer", "type": "info", "content": "Composing Score... (Model: meta/musicgen)", "tool_calls": []}
+{"timestamp": "2026-01-08T08:01:16.233584", "agent": "Composer", "type": "output", "content": "Error generating audio: ReplicateError Details:\ntitle: Insufficient credit\nstatus: 402\ndetail: You have insufficient credit to run this model. Go to https://replicate.com/account/billing#billing to purchase credit. Once you purchase credit, please wait a few minutes before trying again.", "tool_calls": []}

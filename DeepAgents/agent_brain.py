@@ -1,97 +1,119 @@
+"""
+Agent Brain Module.
+Handles the 'Hippocampus' (Memory) and 'Telepathy' (Communication)
+systems for the Agent Swarm.
+"""
+
 import os
 import time
 import json
 import logging
+from typing import List, Dict, Any, Optional
+
 import lancedb
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from lancedb.pydantic import LanceModel, Vector
-from lancedb.embeddings import get_registry
-from sentence_transformers import SentenceTransformer
+# from lancedb.embeddings import get_registry
+
+# from sentence_transformers import SentenceTransformer
+from langchain_google_vertexai import VertexAIEmbeddings
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AgentBrain")
 
-# Force explicit embedding model for robustness
-embedder = SentenceTransformer("all-MiniLM-L6-v2")
+# Force explicit embedding model for robustness (Switched to Google per user request)
+# Note: Google text-embedding-004 is 768 dim.
+EMBEDDER = VertexAIEmbeddings(model_name="text-embedding-004")
+# EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
+
 # Also need the registry model for Pydantic schema definition compatibility
-registry_model = get_registry().get("sentence-transformers").create(name="all-MiniLM-L6-v2")
+# LanceDB registry for VertexAI might not be standard, so we might need to rely on manual embedding
+# or custom registry if available. For now, we will handle embedding manually in add_memory
+# and use Vector(768) in schema.
+
 
 class MemoryItem(LanceModel):
-    text: str = registry_model.SourceField()
-    vector: Vector(384) = registry_model.VectorField() # type: ignore
+    """Schema for a single memory item in LanceDB."""
+
+    text: str  # = REGISTRY_MODEL.SourceField()
+    vector: Vector(768)  # = REGISTRY_MODEL.VectorField() # type: ignore
     agent: str
     timestamp: float
-    tags: str # JSON string
+    tags: str  # JSON string
+
 
 class AgentMemory:
     """
     The 'Hippocampus' of the Agent.
     Uses LanceDB (Embedded Vector Store) to store and retrieve semantic memories.
     """
-    def __init__(self, db_path="../data/lancedb"):
+
+    def __init__(self, db_path: str = "../data/lancedb"):
         # Ensure directory exists
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.db_path = os.path.abspath(os.path.join(base_dir, db_path))
         os.makedirs(self.db_path, exist_ok=True)
-        
+
         # Connect to LanceDB
-        logger.info(f"🧠 Connecting to Memory (LanceDB) at {self.db_path}...")
+        logger.info("🧠 Connecting to Memory (LanceDB) at %s...", self.db_path)
         self.db = lancedb.connect(self.db_path)
-        
+
         self.table_name = "agent_memories"
-        
+
         try:
             if self.table_name in self.db.table_names():
                 self.table = self.db.open_table(self.table_name)
             else:
                 self.table = self.db.create_table(self.table_name, schema=MemoryItem)
-        except Exception as e:
-            logger.error(f"Failed to initialize memory table: {e}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to initialize memory table: %s", e)
             self.table = None
 
-    def memorize(self, text, agent_role, tags=None):
+    def memorize(
+        self, text: str, agent_role: str, tags: Optional[List[str]] = None
+    ) -> bool:
         """Stores a new memory."""
         if tags is None:
             tags = []
-            
+
         # Explicitly compute vector to ensure robustness
-        vec = embedder.encode(text)
-        
+        # vec = EMBEDDER.encode(text) # SentenceTransformers syntax
+        vec = EMBEDDER.embed_query(text)  # VertexAIEmbeddings syntax
+
         item = MemoryItem(
             text=text,
             vector=vec,
             agent=agent_role,
             timestamp=time.time(),
-            tags=json.dumps(tags)
+            tags=json.dumps(tags),
         )
-        
+
         try:
             if self.table is not None:
                 self.table.add([item])
-                logger.info(f"💾 Memory Stored: '{text[:50]}...'")
+                logger.info("💾 Memory Stored: '%s...'", text[:50])
                 return True
-            else:
-                logger.error("Memory table not initialized.")
-                return False
-        except Exception as e:
-            logger.error(f"Failed to memorize: {e}")
+            logger.error("Memory table not initialized.")
+            return False
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to memorize: %s", e)
             return False
 
-    def recall(self, query, limit=3):
+    def recall(self, query: str, limit: int = 3) -> List[Any]:
         """Retrieves relevant memories."""
         if self.table is None:
             return []
-        
+
         try:
             # Explicitly embed the query
-            query_vec = embedder.encode(query)
+            query_vec = EMBEDDER.encode(query)
             # Search using vector
             results = self.table.search(query_vec).limit(limit).to_list()
             return results
-        except Exception as e:
-            logger.error(f"Failed to recall: {e}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to recall: %s", e)
             return []
 
 
@@ -100,51 +122,59 @@ class AgentConfig:
     Manages persistent configuration for Agents (Providers, Models).
     Stores data in a local JSON file (acting as a simple database).
     """
-    def __init__(self, config_path="../data/agent_config.json"):
+
+    def __init__(self, config_path: str = "../data/agent_config.json"):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.config_path = os.path.abspath(os.path.join(base_dir, config_path))
         self.config = self._load_config()
 
-    def _load_config(self):
+    def _load_config(self) -> Dict[str, Any]:
         """Loads configuration from disk."""
         if not os.path.exists(self.config_path):
             return self._default_config()
         try:
-            with open(self.config_path, "r") as f:
+            with open(self.config_path, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load config: {e}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to load config: %s", e)
             return self._default_config()
 
-    def _default_config(self):
+    def _default_config(self) -> Dict[str, Any]:
         """Returns default configuration."""
         return {
             "Director": {"provider": "Google", "model": "gemini-3-pro-preview"},
             "Researcher": {"provider": "Google", "model": "gemini-3-pro-preview"},
             "Confidence": {"provider": "Google", "model": "gemini-3-pro-preview"},
             "Cinematographer": {
-                "provider": "Google", "model": "gemini-3-pro-preview",
-                "image_provider": "Google", "image_model": "imagen-4.0-ultra-generate-001",
-                "video_provider": "Google", "video_model": "veo-3.1-fast-generate-001"
+                "provider": "Google",
+                "model": "gemini-3-pro-preview",
+                "image_provider": "Google",
+                "image_model": "imagen-4.0-ultra-generate-001",
+                "video_provider": "Google",
+                "video_model": "veo-3.1-fast-generate-001",
             },
-            "Composer": {"provider": "Replicate", "model": "meta/musicgen"}
+            "Composer": {"provider": "Replicate", "model": "meta/musicgen"},
         }
 
-    def save_config(self):
+    def save_config(self) -> None:
         """Persists configuration to disk."""
         try:
             os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, "w") as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self.config, f, indent=4)
             logger.info("⚙️ Configuration saved.")
-        except Exception as e:
-            logger.error(f"Failed to save config: {e}")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to save config: %s", e)
 
-    def get_agent_config(self, agent_role):
+    def get_agent_config(self, agent_role: str) -> Dict[str, Any]:
         """Returns config for specific agent."""
-        return self.config.get(agent_role, {"provider": "Google", "model": "gemini-3-pro-preview"})
+        return self.config.get(
+            agent_role, {"provider": "Google", "model": "gemini-3-pro-preview"}
+        )
 
-    def set_agent_config(self, agent_role, provider, model, **kwargs):
+    def set_agent_config(
+        self, agent_role: str, provider: str, model: str, **kwargs
+    ) -> None:
         """Updates config for specific agent."""
         # Start with existing or new dict
         cfg = self.config.get(agent_role, {})
@@ -154,7 +184,7 @@ class AgentConfig:
         # Update extras (like image_provider)
         for k, v in kwargs.items():
             cfg[k] = v
-            
+
         self.config[agent_role] = cfg
         self.save_config()
 
@@ -164,122 +194,136 @@ class AgentComms:
     The 'Telepathy' of the Agent.
     Uses PostgreSQL to handle robust message passing and state.
     """
-    def __init__(self, db_name="postgres", user="postgres", password="d1204l0723", host="localhost"):
+
+    def __init__(
+        self,
+        db_name: str = "postgres",
+        user: str = "postgres",
+        password: str = "d1204l0723",
+        host: str = "localhost",
+    ):
         # Defaulting to 'postgres' db for initial check
         self.conn_params = {
             "dbname": db_name,
             "user": user,
             "password": password,
-            "host": host
+            "host": host,
         }
         self.conn = None
 
-    def connect(self):
+    def connect(self) -> bool:
         """Establish connection to the Nervous System (Postgres)."""
         try:
             self.conn = psycopg2.connect(
-                dbname=self.conn_params['dbname'],
-                user=self.conn_params['user'],
-                password=self.conn_params['password'],
-                host=self.conn_params['host']
+                dbname=self.conn_params["dbname"],
+                user=self.conn_params["user"],
+                password=self.conn_params["password"],
+                host=self.conn_params["host"],
             )
             self.conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
             logger.info("📡 Connected to Nervous System (Postgres).")
             return True
         except psycopg2.OperationalError as e:
-            logger.warning(f"⚠️ Could not connect to Postgres: {e}")
+            logger.warning("⚠️ Could not connect to Postgres: %s", e)
             # logger.warning("Please ensure PostgreSQL is installed and running.")
             return False
 
-    def setup_tables(self):
+    def setup_tables(self) -> None:
         """Create the communication channels if they don't exist."""
         if not self.conn:
             return
-            
+
         commands = [
             """
             CREATE TABLE IF NOT EXISTS agent_messages (
                 id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                recipient TEXT NOT NULL,
-                content TEXT NOT NULL,
-                status TEXT DEFAULT 'unread',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                sender VARCHAR(50),
+                recipient VARCHAR(50),
+                content TEXT,
+                status VARCHAR(20) DEFAULT 'unread',
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+            """,
             """
+            CREATE INDEX IF NOT EXISTS idx_recipient_status 
+            ON agent_messages(recipient, status);
+            """,
         ]
-        
         try:
             with self.conn.cursor() as cur:
-                for cmd in commands:
-                    cur.execute(cmd)
-            logger.info("✅ Nervous System channels (Tables) configured.")
-        except Exception as e:
-            logger.error(f"Failed to setup tables: {e}")
+                for command in commands:
+                    cur.execute(command)
+            logger.info("✅ Nervous System channels (tables) verified.")
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to setup tables: %s", e)
 
-    def send_message(self, sender, recipient, content):
-        """Send a telepathic message."""
+    def send_message(self, sender: str, recipient: str, content: str) -> None:
+        """Sends a telepathic message."""
         if not self.conn:
-            logger.error("Cannot send: Disconnected.")
+            logger.warning("Comms offline. Cannot send message.")
             return
 
-        sql = "INSERT INTO agent_messages (sender, recipient, content) VALUES (%s, %s, %s)"
-        with self.conn.cursor() as cur:
-            cur.execute(sql, (sender, recipient, content))
-            # Optional: Postgres NOTIFY
-            try:
-                cur.execute(f"NOTIFY agent_channel, '{recipient}';")
-            except:
-                pass
-        logger.info(f"📨 Sent from {sender} to {recipient}")
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO agent_messages (sender, recipient, content) VALUES (%s, %s, %s)",
+                    (sender, recipient, content),
+                )
+            logger.info("📨 Message Sent: %s -> %s", sender, recipient)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to send message: %s", e)
 
-    def check_inbox(self, recipient):
-        """Check for new messages."""
+    def receive_messages(
+        self, recipient: str, mark_read: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Checks for incoming thoughts."""
         if not self.conn:
             return []
-            
-        sql = "SELECT id, sender, content, created_at FROM agent_messages WHERE recipient = %s AND status = 'unread'"
+
         messages = []
-        with self.conn.cursor() as cur:
-            cur.execute(sql, (recipient,))
-            rows = cur.fetchall()
-            for r in rows:
-                messages.append({"id": r[0], "sender": r[1], "content": r[2], "ts": r[3]})
-                # Mark as read
-                cur.execute("UPDATE agent_messages SET status = 'read' WHERE id = %s", (r[0],))
-        
-        return messages
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, sender, content, timestamp FROM agent_messages "
+                    "WHERE recipient = %s AND status = 'unread' ORDER BY timestamp ASC",
+                    (recipient,),
+                )
+                rows = cur.fetchall()
 
-# Test Block
+                for row in rows:
+                    messages.append(
+                        {
+                            "id": row[0],
+                            "sender": row[1],
+                            "content": row[2],
+                            "timestamp": row[3],
+                        }
+                    )
+                    if mark_read:
+                        # Mark as read immediately
+                        # In a real system, you might wait until processed
+                        cur.execute(
+                            "UPDATE agent_messages SET status = 'read' WHERE id = %s",
+                            (row[0],),
+                        )
+            if messages:
+                logger.info("📬 Received %d messages for %s.", len(messages), recipient)
+            return messages
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to receive messages: %s", e)
+            return []
+
+
 if __name__ == "__main__":
-    print("--- Initializing DeepAgents Brain ---")
-    
-    # 1. Test Memory (Works without Postgres)
+    # Test Brain
     try:
-        brain = AgentMemory()
-        brain.memorize("The user prefers sci-fi themes over westerns.", "Director", ["preference", "style"])
-        brain.memorize("Veo model 3.1 struggles with complex hand gestures.", "Cinematographer", ["bug", "restriction"])
-    
-        print("\n--- Testing Recall ---")
-        query = "What should I avoid regarding hands?"
-        thoughts = brain.recall(query)
-        
-        print(f"Query: '{query}'")
-        for t in thoughts:
-            # LanceDB return dictionaries
-            txt = t.get('text', 'Unknown')
-            dist = t.get('_distance', 0)
-            print(f"💡 Recalled: {txt} (Distance: {dist})")
-    except Exception as e:
-        print(f"Memory Error: {e}")
+        mem = AgentMemory()
+        mem.memorize("Test memory", "System", ["test"])
+        RECALLED = mem.recall("Test")
+        print(f"Recalled: {RECALLED}")
 
-    # 2. Test Comms (Will fail gracefully if no Postgres)
-    print("\n--- Testing Nervous System (Comms) ---")
-    comms = AgentComms() 
-    if comms.connect():
-        comms.setup_tables()
-        comms.send_message("Director", "Cinematographer", "Prepare a shot list for the wasteland scene.")
-        msgs = comms.check_inbox("Cinematographer")
-        print(f"\n📬 Inbox: {msgs}")
-    else:
-        print("❌ Waiting for PostgreSQL Installation to enable Comms.")
+        brain_comms = AgentComms()
+        if brain_comms.connect():
+            brain_comms.setup_tables()
+    except Exception as err:  # pylint: disable=broad-exception-caught
+        print(f"Detailed check failed: {err}")

@@ -1,20 +1,39 @@
+"""
+Verifies the communication loop between Director and Cinematographer agents.
+Invokes both agents as subprocesses and checks for message exchange in DB.
+"""
 import subprocess
 import time
 import sys
 import os
-from agent_brain import AgentComms
+import logging
+
+try:
+    from agent_brain import AgentComms
+except ImportError:
+    # Fallback to local import if run from root without module context
+    from DeepAgents.agent_brain import AgentComms
 
 def run_verification():
-    print("🧪 --- Starting Agent Mesh Verification ---")
+    """
+    Main verification logic.
+    Launches Cinematographer (bg) and Director (fg).
+    Monitors Postgres for communication.
+    """
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logger = logging.getLogger("Verifier")
+
+    logger.info("🧪 --- Starting Agent Mesh Verification ---")
 
     # 1. Start Cinematographer (Background)
-    print("🎥 Launching Cinematographer Agent (Subprocess, Mode=Storyboard)...")
-    
+    logger.info("🎥 Launching Cinematographer Agent (Subprocess, Mode=Storyboard)...")
+
     # Force UTF-8 encoding for inner process
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
 
     # Using python executable specifically
+    # pylint: disable=consider-using-with
     cine_process = subprocess.Popen(
         [sys.executable, "DeepAgents/VeoAgent.py", "--mode", "storyboard"],
         stdout=subprocess.PIPE,
@@ -23,33 +42,33 @@ def run_verification():
         encoding='utf-8',
         env=env
     )
-    
-    print("⏳ Waiting 10s for Cinematographer to hydrate and connect...")
+
+    logger.info("⏳ Waiting 10s for Cinematographer to hydrate and connect...")
     time.sleep(10)
-    
+
     # Check if it died
     if cine_process.poll() is not None:
         stdout, stderr = cine_process.communicate()
-        print(f"❌ Cinematographer died early!\nSTDOUT: {stdout}\nSTDERR: {stderr}")
+        logger.error("❌ Cinematographer died early!\nSTDOUT: %s\nSTDERR: %s", stdout, stderr)
         return
 
     # 2. Start Director (Foreground)
-    print("🎬 Launching Director Agent (Block)...")
+    logger.info("🎬 Launching Director Agent (Block)...")
     try:
         # Run Director to send a task
         subprocess.run([sys.executable, "DeepAgents/DeepAgents.py"], check=True)
-        print("✅ Director finished thinking and sending orders.")
+        logger.info("✅ Director finished thinking and sending orders.")
     except subprocess.CalledProcessError as e:
-        print(f"❌ Director crashed: {e}")
+        logger.error("❌ Director crashed: %s", e)
         cine_process.terminate()
         return
 
     # 3. Monitor for Response
-    print("📡 Monitoring Nervous System (Postgres) for Cinematographer ack...")
-    
+    logger.info("📡 Monitoring Nervous System (Postgres) for Cinematographer ack...")
+
     comms = AgentComms(password="d1204l0723")
     if not comms.connect():
-        print("❌ CRITICAL: Could not connect to Postgres DB. Is the server running?")
+        logger.error("❌ CRITICAL: Could not connect to Postgres DB. Is the server running?")
         cine_process.terminate()
         return
 
@@ -57,44 +76,47 @@ def run_verification():
     # Poll for 30 seconds
     max_retries = 6
     found = False
-    
+
     for i in range(max_retries):
-        print(f"   Polling ({i+1}/{max_retries})...")
+        logger.info("   Polling (%d/%d)...", i + 1, max_retries)
         time.sleep(5)
-        
+
         if comms.conn:
-             with comms.conn.cursor() as cur:
-                cur.execute("SELECT content FROM agent_messages WHERE sender = 'Cinematographer' AND recipient = 'Director' AND status = 'unread' ORDER BY id DESC LIMIT 1")
+            with comms.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT content FROM agent_messages "
+                    "WHERE sender = 'Cinematographer' AND recipient = 'Director' "
+                    "AND status = 'unread' ORDER BY id DESC LIMIT 1"
+                )
                 row = cur.fetchone()
-                
-             if row:
-                print(f"✅ VERIFIED! Message received from Cinematographer: '{row[0]}'")
+
+            if row:
+                logger.info("✅ VERIFIED! Message received from Cinematographer: '%s'", row[0])
                 found = True
                 break
         else:
-             print("❌ Lost connection to DB.")
-             break
-            
+            logger.error("❌ Lost connection to DB.")
+            break
+
     if not found:
-        print("⚠️ No response detected within timeout. Dumping recent logs:")
-        # Dump Cinematographer output non-blocking? Hard with basic subprocess.
-        # We'll just kill it.
-        
+        logger.warning("⚠️ No response detected within timeout. Dumping recent logs:")
+
     # 4. Cleanup
-    print("🛑 Shutting down Cinematographer...")
+    logger.info("🛑 Shutting down Cinematographer...")
     cine_process.terminate()
     try:
         outs, errs = cine_process.communicate(timeout=5)
-        print(f"--- Cinematographer Logs ---\n{outs}\n{errs}\n----------------------------")
-    except:
+        logger.info("--- Cinematographer Logs ---\n%s\n%s\n----------------------------",
+                   outs, errs)
+    except subprocess.TimeoutExpired:
         cine_process.kill()
-        print("Killed forcefully.")
+        logger.info("Killed forcefully.")
 
     if found:
-        print("🎉 TEST PASSED: Agents are communicating!")
+        logger.info("🎉 TEST PASSED: Agents are communicating!")
         sys.exit(0)
     else:
-        print("❌ TEST FAILED: Loop did not complete.")
+        logger.error("❌ TEST FAILED: Loop did not complete.")
         sys.exit(1)
 
 if __name__ == "__main__":
