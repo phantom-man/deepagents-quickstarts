@@ -15,16 +15,24 @@ import logging
 import sys
 import threading
 
+# Add current dir to path to import atlas_db
+sys.path.append(os.path.dirname(__file__))
+try:
+    from atlas_db import add_command, init_db
+except ImportError:
+    # Fallback if running from root
+    from DeepAgents.atlas_db import add_command, init_db
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VoiceBridge")
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), "voice_log.txt")
-INJECTION_FILE = os.path.join(os.path.dirname(__file__), "user_injections.txt")
 
 def input_loop():
     """Runs in a separate thread to capture user input."""
+    init_db()
     print("🎤 Voice Bridge Interactive Mode Active.")
-    print("   Type a message and press ENTER to inject it into the running Agent.")
+    print("   Type a message and press ENTER to inject it into the running Agent (Atlas).")
     print("   (Type 'exit' to quit voice bridge)")
     
     while True:
@@ -35,10 +43,8 @@ def input_loop():
                 os._exit(0) # Force exit main process
                 
             if user_input.strip():
-                # Write to injection file
-                with open(INJECTION_FILE, "w", encoding="utf-8") as f:
-                    f.write(user_input)
-                logger.info("💉 Injected User Command: %s", user_input)
+                add_command(user_input)
+                logger.info("💉 Injected User Command (Atlas DB): %s", user_input)
                 
         except (EOFError, KeyboardInterrupt):
             break

@@ -31,13 +31,18 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 # pylint: disable=wrong-import-position
 from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
 from DeepAgents.system_diagnostics import SystemDiagnostics  # Import Diagnostics
+try:
+    from DeepAgents.atlas_db import pop_command
+except ImportError:
+    # Use relative if needed or ensure path
+    from atlas_db import pop_command
+from langchain_core.messages import HumanMessage
 # pylint: enable=wrong-import-position
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DeepAgents-Orchestrator")
 VOICE_LOG_PATH = os.path.join(os.path.dirname(__file__), "voice_log.txt")
-INJECTION_FILE = os.path.join(os.path.dirname(__file__), "user_injections.txt")
 
 def voice_update(message: str):
     """Writes a message to the voice log for the Voice Bridge to speak."""
@@ -48,19 +53,12 @@ def voice_update(message: str):
         pass # Don't crash on logging
         
 def check_for_injections() -> str | None:
-    """Checks if the user has injected a command via the Voice Bridge."""
-    if os.path.exists(INJECTION_FILE):
-        try:
-            with open(INJECTION_FILE, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-            if content:
-                # Consume it (file deletion is one way, truncating is safer concurrently)
-                # Ideally, we rename it or empty it.
-                os.remove(INJECTION_FILE)
-                return content
-        except Exception:
-            pass
-    return None
+    """Checks the Atlas DB for pending commands."""
+    try:
+        cmd = pop_command()
+        return cmd
+    except Exception:
+        return None
 
 def main():
     parser = argparse.ArgumentParser(description="DeepAgents Production Studio")
@@ -132,28 +130,45 @@ def main():
             for event in director.stream(
                 {"messages": [("user", final_prompt)]},
                 config=config
-            ):                # 0. Check for User Diversion/Injection
+            ):
+                # 0. Check for User Diversion/Injection (Atlas DB)
                 user_divert = check_for_injections()
                 if user_divert:
                     print(f"\n⚡ USER INTERRUPT: {user_divert}")
-                    voice_update(f"Interruption received: {user_divert}")
-                    # Note: We cannot easily modify the RUNNING stream of LangGraph 
-                    # unless using interrupt_before logic. 
-                    # For now, we log it. A fully reactive agent would need a loop structure here.
-                                # Parse LangGraph events
+                    voice_update(f"Hold on. I received an update: {user_divert}")
+                    
+                    # Inject into State
+                    # This tells the graph's memory about the new instruction
+                    director.update_state(
+                        config, 
+                        {"messages": [HumanMessage(content=f"URGENT USER UPDATE: {user_divert}")]}
+                    )
+                    voice_update("I have updated my plan. Please continue.")
+
+                # 1. Parse LangGraph events for Atlas Voice
                 for key, value in event.items():
+                    # Handle different node types
                     if key == "agent":
-                        # Assistant Message
+                        # Main Agent Node
                         if "messages" in value:
                             msg = value["messages"][-1]
-                            if hasattr(msg, "content"):
-                             print(f"\n[APOLLO]: {msg.content}")
-                             voice_update(f"Apollo says: {msg.content[:100]}") # Speak first 100 chars
-                elif key == "tools":
-                        # Tool Output
+                            content = getattr(msg, "content", "")
+                            if content:
+                                print(f"\n[APOLLO]: {content}")
+                                # Voice summary
+                                clean_content = content.replace("*", "").replace("#", "").split("\n")[0]
+                                voice_update(f"Atlas here. {clean_content[:150]}")
+                    
+                    elif key == "tools":
+                        # Tool Execution
                         if "messages" in value:
                             msg = value["messages"][-1]
                             print(f"\n[TOOL RESULT]: {msg.content[:200]}...")
+                            voice_update("Tool finished. Analyzing results.")
+                    
+                    else:
+                        # Other nodes (Research, etc - depends on graph structure)
+                        voice_update(f"Moving to phase: {key}")
             if cb.traced_runs:
                 run_id = cb.traced_runs[0].id
 
