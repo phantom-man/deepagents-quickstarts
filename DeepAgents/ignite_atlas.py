@@ -41,10 +41,18 @@ def main():
     
     # We run this in the SAME process loop or Subprocess?
     # Subprocess allows us to keep the Session Manager distinct.
+    
+    # FIX: Ensure PYTHONPATH includes the current root so "DeepAgents" is resolvable
+    env = os.environ.copy()
+    root_dir = os.getcwd()
+    env["PYTHONPATH"] = root_dir + os.pathsep + env.get("PYTHONPATH", "")
+
     try:
         # Pass through all arguments given to ignition
-        cmd = [sys.executable, "DeepAgents/run_atlas.py"] + sys.argv[1:]
-        subprocess.run(cmd, check=True)
+        # Run as MODULE to fix package resolution issues
+        # e.g. python -m DeepAgents.run_atlas
+        cmd = [sys.executable, "-m", "DeepAgents.run_atlas"] + sys.argv[1:]
+        subprocess.run(cmd, check=True, env=env)
     except KeyboardInterrupt:
         pass
     except subprocess.CalledProcessError as e:

@@ -45,8 +45,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@traceable(run_type="tool", name="Validate Scene Logic")
 @tool
+@traceable(run_type="tool", name="Validate Scene Logic")
 def validate_scene_logic(scene_description: str) -> str:
     """
     Validates the narrative continuity and logic of a proposed scene.
