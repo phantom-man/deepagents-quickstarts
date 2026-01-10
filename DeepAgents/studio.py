@@ -101,17 +101,17 @@ def main():
             lesson_text = "\n".join([f"- {m.get('text','')}" for m in lessons])
             print(f"🧠 Studio Memory: Retrieved {len(lessons)} production lessons.")
 
-    # 3. Create the Director Agent (Apollo)
-    # Apollo is equipped with tools to call Research, Music, and Editor.
-    print(f"🤖 Initializing Director (Apollo) on {args.provider}...")
-    voice_update("Director Agent Initialized. Apollo is ready.")
+    # 3. Create the Director Agent (Atlas)
+    # Atlas is equipped with tools to call Research, Music, and Editor.
+    print(f"🤖 Initializing Atlas (Director) on {args.provider}...")
+    voice_update("I am waking up. Atlas is online and ready for your command.")
     checkpointer = MemorySaver()
     director = create_director_agent(provider=args.provider,
                                      model_name=args.model,
                                      checkpointer=checkpointer)
 
     # 4. Execute the Task
-    print("🎬 Apollo is directing...")
+    print("🎬 Atlas is working...")
     
     config = {"configurable": {"thread_id": "production_run_LotR_002"}}
     
@@ -119,6 +119,7 @@ def main():
     final_prompt = (
         f"TASK: {task_input}\n\n"
         f"STUDIO MEMORY (Learn from this): {lesson_text}\n"
+        "You are ATLAS, the AI Orchestrator. Speak in the first person ('I will...').\n"
         "Execute the production. Use your tools (Research, Compose, Merge) to create the final video asset."
     )
 
@@ -135,7 +136,7 @@ def main():
                 user_divert = check_for_injections()
                 if user_divert:
                     print(f"\n⚡ USER INTERRUPT: {user_divert}")
-                    voice_update(f"Hold on. I received an update: {user_divert}")
+                    voice_update(f"Hold on. You sent me an update: {user_divert}")
                     
                     # Inject into State
                     # This tells the graph's memory about the new instruction
@@ -143,7 +144,7 @@ def main():
                         config, 
                         {"messages": [HumanMessage(content=f"URGENT USER UPDATE: {user_divert}")]}
                     )
-                    voice_update("I have updated my plan. Please continue.")
+                    voice_update("I have updated my plan. Continuing work.")
 
                 # 1. Parse LangGraph events for Atlas Voice
                 for key, value in event.items():
@@ -154,7 +155,7 @@ def main():
                             msg = value["messages"][-1]
                             content = getattr(msg, "content", "")
                             if content:
-                                print(f"\n[APOLLO]: {content}")
+                                print(f"\n[ATLAS]: {content}")
                                 # Voice summary
                                 clean_content = content.replace("*", "").replace("#", "").split("\n")[0]
                                 voice_update(f"Atlas here. {clean_content[:150]}")
