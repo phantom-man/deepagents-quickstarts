@@ -37,6 +37,7 @@ from DeepAgents.system_diagnostics import SystemDiagnostics  # Import Diagnostic
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DeepAgents-Orchestrator")
 VOICE_LOG_PATH = os.path.join(os.path.dirname(__file__), "voice_log.txt")
+INJECTION_FILE = os.path.join(os.path.dirname(__file__), "user_injections.txt")
 
 def voice_update(message: str):
     """Writes a message to the voice log for the Voice Bridge to speak."""
@@ -45,6 +46,21 @@ def voice_update(message: str):
             f.write(f"{message}\n")
     except Exception:
         pass # Don't crash on logging
+        
+def check_for_injections() -> str | None:
+    """Checks if the user has injected a command via the Voice Bridge."""
+    if os.path.exists(INJECTION_FILE):
+        try:
+            with open(INJECTION_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+            if content:
+                # Consume it (file deletion is one way, truncating is safer concurrently)
+                # Ideally, we rename it or empty it.
+                os.remove(INJECTION_FILE)
+                return content
+        except Exception:
+            pass
+    return None
 
 def main():
     parser = argparse.ArgumentParser(description="DeepAgents Production Studio")
@@ -116,8 +132,15 @@ def main():
             for event in director.stream(
                 {"messages": [("user", final_prompt)]},
                 config=config
-            ):
-                # Parse LangGraph events
+            ):                # 0. Check for User Diversion/Injection
+                user_divert = check_for_injections()
+                if user_divert:
+                    print(f"\n⚡ USER INTERRUPT: {user_divert}")
+                    voice_update(f"Interruption received: {user_divert}")
+                    # Note: We cannot easily modify the RUNNING stream of LangGraph 
+                    # unless using interrupt_before logic. 
+                    # For now, we log it. A fully reactive agent would need a loop structure here.
+                                # Parse LangGraph events
                 for key, value in event.items():
                     if key == "agent":
                         # Assistant Message

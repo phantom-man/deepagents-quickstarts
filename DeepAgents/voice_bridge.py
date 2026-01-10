@@ -12,10 +12,36 @@ import logging
 # import speech_recognition as sr # Requires PyAudio/PocketSphinx, tricky on some envs.
 # from edge_tts import Communicate # Creating async wrapper
 
+import sys
+import threading
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VoiceBridge")
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), "voice_log.txt")
+INJECTION_FILE = os.path.join(os.path.dirname(__file__), "user_injections.txt")
+
+def input_loop():
+    """Runs in a separate thread to capture user input."""
+    print("🎤 Voice Bridge Interactive Mode Active.")
+    print("   Type a message and press ENTER to inject it into the running Agent.")
+    print("   (Type 'exit' to quit voice bridge)")
+    
+    while True:
+        try:
+            user_input = input(">> ")
+            if user_input.lower() in ["exit", "quit"]:
+                logger.info("Exiting Input Loop...")
+                os._exit(0) # Force exit main process
+                
+            if user_input.strip():
+                # Write to injection file
+                with open(INJECTION_FILE, "w", encoding="utf-8") as f:
+                    f.write(user_input)
+                logger.info("💉 Injected User Command: %s", user_input)
+                
+        except (EOFError, KeyboardInterrupt):
+            break
 
 async def speak_text(text: str):
     """Speaks text using Edge TTS (free, high quality)."""
@@ -45,15 +71,14 @@ async def speak_text(text: str):
 
 async def watch_log():
     """Watches the log file for new lines."""
+    # CLEAR LOG ON STARTUP (User Requirement)
+    with open(LOG_FILE, "w", encoding="utf-8") as f:
+        f.write("") # Wipe it clean
+    logger.info("🧹 Wiped previous voice logs.")
     logger.info("👂 Watching for voice updates in: %s", LOG_FILE)
-    
-    # Ensure file exists
-    if not os.path.exists(LOG_FILE):
-        with open(LOG_FILE, "w", encoding="utf-8") as f:
-            f.write("Voice Bridge Started.\n")
             
     with open(LOG_FILE, "r", encoding="utf-8") as f:
-        # Move to end
+        # Move to end (in case anything was written in the microsecond between wipe and read)
         f.seek(0, os.SEEK_END)
         
         while True:
@@ -69,7 +94,13 @@ if __name__ == "__main__":
     print("--- DEEPAGENTS VOICE BRIDGE ---")
     print("1. Monitors 'DeepAgents/voice_log.txt'")
     print("2. Speaks updates via Edge-TTS")
+    print("3. Accepts User Input for Diversion")
     print("-------------------------------")
+    
+    # Start Input Thread
+    input_thread = threading.Thread(target=input_loop, daemon=True)
+    input_thread.start()
+    
     try:
         asyncio.run(watch_log())
     except KeyboardInterrupt:
