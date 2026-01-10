@@ -77,20 +77,28 @@ class SystemDiagnostics:
         Uses a lightweight model call to check if we are rate-limited.
         """
         self.log("🤖 Probing Google Vertex AI (Quota Check)...")
+        # Optimization: Don't probe if user requested a Skip
+        if os.environ.get("SKIP_PROBE", "false").lower() == "true":
+            self.log("⚠️ Skipping Google Vertex Probe (SKIP_PROBE=true). Assuming Online.")
+            self.status["google_vertex"] = True
+            return True
 
         # List of models to try in order of preference/cost
-        models_to_test = ["gemini-2.0-flash-exp", "gemini-1.5-flash", "gemini-1.5-pro"]
+        # Minimizing this list to avoid triggering spam filters
+        models_to_test = ["gemini-2.0-flash-exp"]
 
         project = os.getenv("GOOGLE_CLOUD_PROJECT")
         location = os.getenv("GOOGLE_CLOUD_LOCATION")
 
+        success = False
         for model_name in models_to_test:
             try:
                 llm = ChatGoogleGenerativeAI(
                     model=model_name, 
                     temperature=0.0,
                     project=project,
-                    location=location
+                    location=location,
+                    max_retries=0 # Do not retry 429s during a probe
                 )
                 # Simple "Hello" query
                 self.log(f"   > Pinging model: {model_name}...")
@@ -98,6 +106,15 @@ class SystemDiagnostics:
 
                 self.status["google_vertex"] = True
                 self.log(f"✅ Google Vertex AI Online (Model: {model_name})")
+                success = True
+                break # Stop on first success
+            except Exception as e:
+                self.log(f"⚠️ Quota Exceeded/Error for {model_name}: {e}")
+        
+        if not success:
+             self.log("❌ Google Vertex Probe Failed. (You may still proceed, but Agent might crash)", "ERROR")
+             return False # Soft fail?
+        return True
                 return True
 
             except Exception as e:
