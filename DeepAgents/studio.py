@@ -36,6 +36,15 @@ from DeepAgents.system_diagnostics import SystemDiagnostics  # Import Diagnostic
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("DeepAgents-Orchestrator")
+VOICE_LOG_PATH = os.path.join(os.path.dirname(__file__), "voice_log.txt")
+
+def voice_update(message: str):
+    """Writes a message to the voice log for the Voice Bridge to speak."""
+    try:
+        with open(VOICE_LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(f"{message}\n")
+    except Exception:
+        pass # Don't crash on logging
 
 def main():
     parser = argparse.ArgumentParser(description="DeepAgents Production Studio")
@@ -56,6 +65,7 @@ def main():
 
     print("\n🎬 --- DEEPAGENTS STUDIOS: PRODUCTION STARTED ---")
     print(f"📋 Task: {task_input}")
+    voice_update(f"Studio Started. Task is: {task_input}")
 
     # 0. System Pre-Flight Check (New Constraint)
     diag = SystemDiagnostics()
@@ -80,6 +90,7 @@ def main():
     # 3. Create the Director Agent (Apollo)
     # Apollo is equipped with tools to call Research, Music, and Editor.
     print(f"🤖 Initializing Director (Apollo) on {args.provider}...")
+    voice_update("Director Agent Initialized. Apollo is ready.")
     checkpointer = MemorySaver()
     director = create_director_agent(provider=args.provider,
                                      model_name=args.model,
@@ -113,8 +124,9 @@ def main():
                         if "messages" in value:
                             msg = value["messages"][-1]
                             if hasattr(msg, "content"):
-                                print(f"\n[APOLLO]: {msg.content}")
-                    elif key == "tools":
+                             print(f"\n[APOLLO]: {msg.content}")
+                             voice_update(f"Apollo says: {msg.content[:100]}") # Speak first 100 chars
+                elif key == "tools":
                         # Tool Output
                         if "messages" in value:
                             msg = value["messages"][-1]
