@@ -97,15 +97,13 @@ async def watch_log():
                 await asyncio.sleep(1)
 
 if __name__ == "__main__":
-    print("--- DEEPAGENTS VOICE BRIDGE ---")
+    print("--- DEEPAGENTS VOICE BRIDGE (SPEAKER ONLY) ---")
     print("1. Monitors 'DeepAgents/voice_log.txt'")
     print("2. Speaks updates via Edge-TTS")
-    print("3. Accepts User Input for Diversion")
-    print("-------------------------------")
+    print("----------------------------------------------")
     
-    # Start Input Thread
-    input_thread = threading.Thread(target=input_loop, daemon=True)
-    input_thread.start()
+    # NOTE: Input is now handled via DeepAgents/run_atlas.py in the main console.
+    # We no longer need the input thread here.
     
     try:
         asyncio.run(watch_log())
