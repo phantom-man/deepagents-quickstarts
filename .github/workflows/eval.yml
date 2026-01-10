@@ -9,11 +9,7 @@ on:
 jobs:
   run-eval:
     runs-on: ubuntu-latest
-    env:
-        LANGCHAIN_TRACING_V2: true
-        LANGCHAIN_API_KEY: ${{ secrets.LANGCHAIN_API_KEY }}
-        GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-        DEEPAGENTS_API_KEY: ${{ secrets.DEEPAGENTS_API_KEY }}
+
 
     steps:
     - uses: actions/checkout@v4
@@ -31,4 +27,9 @@ jobs:
         pip install langsmith pytest langchain-google-genai
 
     - name: Run Director Agent Evaluation
+      env:
+        LANGCHAIN_TRACING_V2: "true"
+        LANGCHAIN_API_KEY: "${{ secrets.LANGCHAIN_API_KEY }}"
+        GOOGLE_API_KEY: "${{ secrets.GOOGLE_API_KEY }}"
+        DEEPAGENTS_API_KEY: "${{ secrets.DEEPAGENTS_API_KEY }}"
       run: python DeepAgents/evaluations/run_director_eval.py

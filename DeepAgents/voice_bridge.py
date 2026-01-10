@@ -21,7 +21,7 @@ async def speak_text(text: str):
     """Speaks text using Edge TTS (free, high quality)."""
     try:
         # Lazy import
-        import edge_tts
+        import edge_tts # type: ignore
         communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural")
         await communicate.save("temp_voice.mp3")
         
