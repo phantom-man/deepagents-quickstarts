@@ -1,4 +1,11 @@
-COMPOSER_INSTRUCTIONS = """You are the **Composer Agent** [ORPHEUS].
+"""Prompts for the Composer Agent [ORPHEUS]."""
+import os
+import logging
+from langsmith import Client
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_COMPOSER_INSTRUCTIONS = """You are the **Composer Agent** [ORPHEUS].
 Your role is to create a musical composition plan and generate audio assets.
 
 **YOUR OBJECTIVE:**
@@ -12,3 +19,17 @@ Your role is to create a musical composition plan and generate audio assets.
 - The prompt must include genre, instruments, and mood.
 - You are responsible for the *entire* auditory experience.
 """
+
+def _get_instructions():
+    # Attempt to pull from LangChain Hub
+    if os.getenv("LANGCHAIN_API_KEY"):
+        try:
+            client = Client()
+            prompt_obj = client.pull_prompt("deep-agents-composer-system")
+            return prompt_obj.invoke({}).to_messages()[0].content
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.warning("Failed to pull Composer prompt from Hub: %s. using local fallback.", e)
+    
+    return DEFAULT_COMPOSER_INSTRUCTIONS
+
+COMPOSER_INSTRUCTIONS = _get_instructions()

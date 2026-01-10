@@ -1,6 +1,11 @@
 """Prompts for the Director Agent (Video Specialist)."""
+import os
+import logging
+from langsmith import Client
 
-DIRECTOR_INSTRUCTIONS = """You are an expert AI Film Director specializing in AI Video Generation.
+logger = logging.getLogger(__name__)
+
+DEFAULT_DIRECTOR_INSTRUCTIONS = """You are an expert AI Film Director specializing in AI Video Generation.
 Your goal is to craft a visual storyboard and specific video generation prompts for a commercial or film teaser.
 
 **Your Medium: AI Video Generation (Standard/Lumiere)**
@@ -58,3 +63,19 @@ For each shot, provide:
 *   **Input Strategy:** Use [Last Frame of Shot 1] as [First Frame] for this shot to ensure he enters the booth seamlessly from where he stood.
 *   **Primary Prompt:** "Medium shot. The man slides into the red leather booth. He looks tired. The neon light flickers on his face."
 """
+
+def _get_instructions():
+    # Attempt to pull from LangChain Hub
+    if os.getenv("LANGCHAIN_API_KEY"):
+        try:
+            client = Client()
+            prompt_obj = client.pull_prompt("deep-agents-director-system")
+            # Format with empty context to get the raw content string
+            return prompt_obj.invoke({}).to_messages()[0].content
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.warning("Failed to pull Director prompt from Hub: %s. using local fallback.", e)
+    
+    return DEFAULT_DIRECTOR_INSTRUCTIONS
+
+# Exposed constant
+DIRECTOR_INSTRUCTIONS = _get_instructions()
