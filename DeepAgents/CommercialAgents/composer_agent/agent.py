@@ -7,24 +7,22 @@ import os
 import re
 import random
 import time
-import shutil
 import uuid
-import mimetypes
+import logging
+import glob
 from typing import Optional, Dict, Any, List
 import requests
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
 
 from DeepAgents.agent_factory import create_deep_agent
-from DeepAgents.agent_brain import AgentMemory
-from DeepAgents.editor_tools import AssetManager
+from DeepAgents.asset_manager import AssetManager
 
 # Setup Logging
-import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ComposerAgent")
 
@@ -33,8 +31,15 @@ def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio
     Downloads and validates audio from a URL.
     Returns local filepath if valid, None if failed/invalid.
     Enforces Limits: < max_mb MB.
+    Enforces Extension: .mp3 or .wav
     """
     try:
+        # If url is already a local file path or file object, handle gracefully
+        if not isinstance(url, str):
+            return None
+        if os.path.exists(url):
+            return url
+
         logger.info(f"⬇️ Downloading & Validating {prefix}: {url}")
         
         # 1. Head Check for Size
@@ -44,48 +49,55 @@ def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio
             max_bytes = max_mb * 1024 * 1024 
             
             if content_length > max_bytes:
-                 logger.warning(f"⚠️ Audio too large ({content_length/1024/1024:.2f}MB). Limit is {max_mb}MB.")
-                 # Proceed with caution if we can stream/truncate, but mostly fail.
-                 return None
+                logger.warning(f"⚠️ Audio too large ({content_length/1024/1024:.2f}MB). Limit is {max_mb}MB.")
+                return None
         except Exception:
             pass # Head might fail on some signed URLs, create session to try GET
-        
+
         # 2. Download
         r = requests.get(url, timeout=60, stream=True)
         if r.status_code != 200:
             logger.error(f"❌ Download failed: {r.status_code}")
             return None
-            
-        ext = "mp3"
+
+        # Fix Extension Logic: Prioritize Content-Type, fallback to URL, default to .mp3
         ct = r.headers.get("content-type", "").lower()
-        if "wav" in ct: ext = "wav"
-        
+        if "wav" in ct:
+            ext = "wav"
+        elif "mpeg" in ct or "mp3" in ct:
+            ext = "mp3"
+        else:
+            # Fallback to URL extension if valid
+            if url.lower().endswith(".wav"):
+                ext = "wav"
+            elif url.lower().endswith(".mp3"):
+                ext = "mp3"
+            else:
+                # Force .mp3 if unknown, as ffmpeg/libraries usually handle mime sniffing
+                # but Replicate NEEDS the extension in the filename.
+                ext = "mp3"
+
         tmp_name = f"temp_{prefix}_{session_id}_{uuid.uuid4().hex[:6]}.{ext}"
-        
+
         downloaded_size = 0
         with open(tmp_name, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 downloaded_size += len(chunk)
                 if downloaded_size > max_bytes:
-                     logger.warning("⚠️ File exceeded max size during download.")
-                     return None
+                    logger.warning("⚠️ File exceeded max size during download.")
+                    return None
                 f.write(chunk)
-                
+
         if downloaded_size < 100:
-             logger.warning("⚠️ File too small to be audio.")
-             return None
-             
+            logger.warning("⚠️ File too small to be audio.")
+            return None
+
         logger.info(f"✅ Audio Validated & Saved: {tmp_name} ({downloaded_size} bytes)")
         return tmp_name
-        
+
     except Exception as e:
         logger.error(f"Validation Failed: {e}")
         return None
-
-# Local imports
-from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-from DeepAgents.agent_brain import logger
-from DeepAgents.asset_manager import AssetManager
 
 # Import new history tools
 try:
@@ -104,12 +116,45 @@ except ImportError:
     replicate = None
 
 
+def check_service_status() -> Dict[str, bool]:
+    """
+    Checks if critical Replicate models are available.
+    Returns: Dict of model_slug -> is_available
+    """
+    status_map = {
+        "minimax/music-01": True,
+        "google/lyria-2": True,
+        "meta/musicgen": True
+    }
+    
+    if not replicate:
+        logger.warning("Replicate SDK not installed. Assuming all DOWN.")
+        return {k: False for k in status_map}
+
+    # A simple way to "check" without burning money is checking model existence
+    # We can't easily check for "E003" without running, but we can verify version resolution works.
+    logger.info("📡 Checking Replicate Service Status...")
+    for model in status_map.keys():
+        try:
+            m = replicate.models.get(model)
+            # Accessing latest version usually confirms API connectivity & Existence
+            v = m.latest_version 
+        except Exception as e:
+            logger.warning(f"⚠️ Service {model} seems DOWN or Unreachable: {e}")
+            status_map[model] = False
+            
+    return status_map
+
+
 @tool
 def composer_consult_research(topic: str) -> str:
     """
     Consults the Research Agent to understand musical styles, historical context,
     or specific instruments.
     """
+    # Lazy import to avoid circular dependencies
+    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
+    
     logger.info("🎻 Composer > 📞 Calling Research Agent about: %s", topic)
     extra_config = {
         "tags": ["sub-agent-call", "agent:researcher", "source:composer"],
@@ -160,235 +205,254 @@ def _generate_lyrics_and_style(input_text: str, llm: Any) -> Dict[str, str]:
         return {"prompt": input_text}
 
 
+def _generate_descriptive_filename(prompt: str, session_id: str, ext: str = "mp3") -> str:
+    """Generates a descriptive filename from the prompt."""
+    clean_prompt = "".join([c if c.isalnum() else "_" for c in prompt[:30]]).strip("_")
+    timestamp = int(time.time())
+    return f"{clean_prompt}_{session_id[:6]}_{timestamp}.{ext}"
+
+
+def _safe_replicate_run(model_id: str, input_data: Dict[str, Any], wait_time: int = 5) -> Any:
+    """Runs Replicate prediction with rate limit hygiene."""
+    logger.info(f"⏳ Waiting {wait_time}s to avoid Rate Limits...")
+    time.sleep(wait_time)
+    
+    if ":" not in model_id and "/" in model_id:
+        try:
+            model = replicate.models.get(model_id)
+            version = model.latest_version
+            model_id = f"{model_id}:{version.id}"
+            logger.info(f"   Resolved latest version: {version.id}")
+        except Exception as e:
+            logger.warning(f"Could not resolve version for {model_id}: {e}")
+
+    return replicate.run(model_id, input=input_data)
+
+
 def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     model_name: str, input_text: str, llm: Any, assets: Any, session_id: str
 ) -> str:
-    """Handle generation via Replicate (MusicGen or Minimax)."""
+    """
+    Handle generation via Replicate (Lyria, Minimax, MusicGen, Bark).
+    Implements cascading fallback, service checks, and voice library integration.
+    """
     if not os.environ.get("REPLICATE_API_TOKEN"):
-        return (
-            "Error: REPLICATE_API_TOKEN not set. "
-            "Please get a token from https://replicate.com/account/api-tokens"
-        )
+        return "Error: REPLICATE_API_TOKEN not set."
 
-    # --- PIPELINE START ---
-
-    # 0. Voice Library Selection (for Minimax)
-    voice_path = None
-    voice_url = None
-    if "minimax" in model_name:
-        try:
-            voice_dir = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "../../../data/voices")
-            )
-            if os.path.exists(voice_dir):
-                voices = [f for f in os.listdir(voice_dir) if f.endswith(".mp3")]
-                if voices:
-                    selected_voice = random.choice(voices)
-                    voice_path = os.path.join(voice_dir, selected_voice)
-                    logger.info("🎤 Selected Voice Reference: %s", selected_voice)
-
-                    # 1. Upload Voice to Replicate (or temporary host if needed)
-                    # For simplicity, we create a file handle which replicate client often uploads automatically
-                    # if passed as open file object.
-                    # pylint: disable=consider-using-with
-                    voice_url = open(voice_path, "rb")
-                else:
-                    logger.warning(
-                        "No voices found in data/voices. Please run setup_audio_assets.py"
-                    )
-        except Exception as e:
-            logger.error("Voice selection failed: %s", e)
-
-    # 1. Instrumental Generation (The 'Song File' Reference)
-    # If using Minimax, we first generate an instrumental using MusicGen/Lyria
-    instrumental_url = None
-    if "minimax" in model_name:
-        logger.info(
-            "🎹 Step 1: Generating Instrumental Reference (MusicGen/Lyria Proxy)..."
-        )
-        try:
-            # Use MusicGen as the robust fallback for 'Lyria' style instrumental
-            inst_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-
-            # Simple instrumental prompt derived from input
-            inst_prompt = f"Instrumental backing track, {input_text}"
-
-            inst_output = None
-            if replicate:
-                inst_output = replicate.run(
-                    inst_model, input={"prompt": inst_prompt, "duration": 15}
-                )
-
-            if inst_output:
-                # Ensure we convert the FileOutput object to a clear string URL
-                instrumental_url = str(inst_output)
-                logger.info(f"✅ Instrumental Generated: {instrumental_url}")
-            else:
-                logger.error("Instrumental generation returned None.")
-        except Exception as e:
-            logger.error(f"Instrumental Step Failed: {e}")
-            # If instrumental fails, we might fall back to MusicGen for the whole thing later
-
-    try:
-        # Determine model
-        current_model = (
-            model_name
-            if "/" in model_name
-            else (
-                "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-            )
-        )
-        input_args = {}
-        final_prompt = input_text
-
-        # Minimax Logic (Step 2)
-        is_minimax = any(
-            x in current_model.lower() for x in ["minimax", "music-01", "music-1.5"]
-        )
-
-        if is_minimax:
-            logger.info(
-                "Minimax model detected (%s). Engaging Lyricist Sub-routine.",
-                current_model,
-            )
-            lyric_data = _generate_lyrics_and_style(input_text, llm)
-            input_args.update(lyric_data)  # Contains 'lyrics'
-            final_prompt = lyric_data.get("prompt", input_text)
-
-            # Add References - CORRECTED for Minimax Music-01 via Schema Inspection
-            # Schema:
-            # - voice_file: Voice reference (mp3/wav)
-            # - instrumental_file: Instrumental reference (mp3/wav)
-            # - song_file: Reference song (music + vocals)
-
-            if voice_url:
-                input_args["voice_file"] = voice_url
-                logger.info("🎤 Using Voice Asset as 'voice_file' reference.")
-
-            if instrumental_url:
-                # Minimax might fail with URL references for instrumental if format isn't autodetected.
-                # Safe bet: Download it to temp file and upload as file handle.
-                # Use robust validation helper
-                local_instr = _download_and_validate_asset(instrumental_url, session_id, prefix="instr")
-                
-                if local_instr:
-                     input_args["instrumental_file"] = open(local_instr, "rb")
-                     logger.info("🎹 Instrumental Attached as File Handle.")
-                else:
-                     logger.warning("Could not validate instrumental. Skipping instrumental_file.")
-
-            # Remove any old attempts at 'song_file' or 'audio_sample'
-            input_args.pop("song_file", None)
-            input_args.pop("audio_sample", None)
-
+    # --- 1. Service Availability Check ---
+    status_map = check_service_status()
+    
+    # --- 2. Strategy Selection & Fallback ---
+    # Default selection logic
+    target_model = model_name
+    # if generic, pick based on intent
+    if "/" not in target_model:
+        lower_input = input_text.lower()
+        if "voice" in lower_input or "speech" in lower_input:
+            target_model = "suno-ai/bark"
+        elif "lyria" in target_model.lower() or "music" in target_model.lower():
+            target_model = "google/lyria-2"
+        elif "minimax" in target_model.lower():
+            target_model = "minimax/music-01"
         else:
-            # MusicGen defaults
-            if "musicgen" not in current_model.lower() and "/" not in current_model:
-                # Fallback to MusicGen default ID if generic name provided
-                current_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-            input_args["prompt"] = input_text
-            input_args["model_version"] = "stereo-large"
-            input_args["duration"] = 30
+            target_model = "google/lyria-2"
 
-        logger.info(
-            "Calling Replicate Model: %s with args: %s",
-            current_model,
-            list(input_args.keys()),
-        )
+    logger.info(f"🎼 Initial Strategy: {target_model}")
 
-        if not replicate:
-            return "Error: Replicate module not installed."
+    # Apply Service Status Fallbacks
+    if "minimax" in target_model and status_map.get("minimax/music-01") is False:
+        logger.warning("🚨 Minimax Music-01 is DOWN. Falling back to Lyria-2.")
+        target_model = "google/lyria-2"
 
-        output = None
-        max_retries = 5  # retries
-        base_wait_time = 60  # Minimum 60 seconds as requested
+    if "lyria" in target_model and status_map.get("google/lyria-2") is False:
+        logger.warning("🚨 Lyria-2 is DOWN. Falling back to MusicGen.")
+        target_model = "meta/musicgen"
+    
+    logger.info(f"✅ Final Strategy: {target_model}")
 
-        for attempt in range(max_retries):
-            try:
-                logger.info(
-                    f"🚀 Attempt {attempt+1}/{max_retries} - Generating with {current_model}..."
-                )
+    # --- 3. Voice Generation (Bark) - Only if explicitly requested separate from Minimax ---
+    if ("bark" in target_model or "suno-ai" in target_model) and "minimax" not in target_model:
+        try:
+            logger.info(f"🗣️ Generating Voice with {target_model}...")
+            output = _safe_replicate_run(
+                "suno-ai/bark",
+                input_data={"prompt": input_text, "text_temp": 0.7}
+            )
+            if output:
+                # Bark can return dict or AudioOut object
+                url = output["audio_out"] if isinstance(output, dict) else str(output)
+                fname = _generate_descriptive_filename(f"voice_{input_text}", session_id, "wav")
+                local_path = _download_and_validate_asset(url, session_id, prefix="voice")
+                if local_path:
+                    final_path = os.path.join(os.path.dirname(local_path), fname)
+                    os.rename(local_path, final_path)
+                    return f"**Voice Generated:**\n- [Play]({url})\n- Local: {final_path}"
+        except Exception as e:
+            logger.error(f"Voice Gen Failed: {e}")
+            return f"Voice Generation Error: {e}"
 
-                # Run Replicate (blocking call)
-                output = replicate.run(current_model, input=input_args)
+    # --- 4. Music Generation Pipeline ---
+    
+    # A. Generate Instrumental Base (if Minimax needs it >15s)
+    instrumental_file_path = None
+    
+    if "minimax" in target_model:
+        logger.info("🎹 Step 1: Pre-generating Base Track for Minimax...")
+        try:
+            # Prefer MusicGen for Minimax Base because of Codec/Format consistency
+            base_model = "meta/musicgen"
+            base_prompt = f"Instrumental backing track, {input_text}"
+            
+            logger.info("   Using MusicGen for base track to ensure valid WAV format...")
+            mg_out = _safe_replicate_run(
+                base_model, 
+                input_data={"prompt": base_prompt, "duration": 20}
+            )
+            
+            if mg_out:
+                temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_mg")
+                if temp_base:
+                    instrumental_file_path = temp_base
+                    
+        except Exception as e:
+            logger.error(f"Base Track Gen Failed: {e}")
 
-                if output:
-                    logger.info("✅ Generation Success!")
-                    break
+    # B. Final Generation
+    try:
+        final_url = None
+        current_model_used = target_model
+        
+        # Case: Minimax
+        if "minimax" in target_model:
+            if not instrumental_file_path:
+                logger.warning("Minimax requires base track >15s. Fallback to MusicGen.")
+                target_model = "meta/musicgen" # Switch strategy
+            else:
+                logger.info("🎤 Step 2: Adding Vocals with Minimax...")
+                lyric_data = _generate_lyrics_and_style(input_text, llm)
+                lyrics = lyric_data.get("lyrics", input_text)
+                
+                 # Voice Library Selection
+                voice_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "voices")
+                available_voices = glob.glob(os.path.join(voice_dir, "*.wav"))
+                
+                selected_voice = None
+                if available_voices:
+                    # Basic matching
+                    search_text = input_text.lower() + " " + lyrics.lower()
+                    
+                    # Priority: Match specific keywords
+                    filtered = []
+                    if "female" in search_text:
+                        filtered = [v for v in available_voices if "female" in os.path.basename(v)]
+                    elif "male" in search_text:
+                        filtered = [v for v in available_voices if "male" in os.path.basename(v)]
+                    
+                    # Secondary: Style
+                    if not filtered:
+                        filtered = available_voices # Reset
+                        
+                    final_candidates = []
+                    for v in filtered:
+                        fname = os.path.basename(v).lower()
+                        if any(style in search_text for style in ["rock", "pop", "jazz", "narrator", "ethereal"]):
+                             if any(s in fname for s in ["rock", "pop", "jazz", "narrator", "ethereal"] if s in search_text):
+                                 final_candidates.append(v)
+                    
+                    if not final_candidates:
+                        final_candidates = filtered
+                    
+                    if final_candidates:
+                        selected_voice = random.choice(final_candidates)
+                        logger.info(f"🎙️ Selected Voice Reference: {os.path.basename(selected_voice)}")
 
-                raise ValueError("Output was None")
+                payload = {
+                    "instrumental_file": open(instrumental_file_path, "rb"),
+                    "lyrics": lyrics,
+                    "model_name": "music_01"
+                }
+                if selected_voice:
+                    payload["refer_voice"] = open(selected_voice, "rb")
 
-            except Exception as e:
-                err_str = str(e).lower()
-                is_rate_limit = (
-                    "429" in err_str
-                    or "rate limit" in err_str
-                    or "quota" in err_str
-                    or "throttled" in err_str
-                )
+                minimax_out = _safe_replicate_run("minimax/music-01", input_data=payload)
+                final_url = str(minimax_out)
 
-                if is_rate_limit:
-                    wait_time = base_wait_time * (attempt + 1)
-                    logger.warning(
-                        f"⚠️ RATE LIMIT DETECTED (429). Throttling for {wait_time} seconds..."
-                    )
-                    time.sleep(wait_time)
-                else:
-                    logger.error(f"❌ Generation Error on attempt {attempt+1}: {e}")
+        # Case: Lyria-2 (Fallback or Primary)
+        if "lyria" in target_model and not final_url: # Check not final_url in case above switch logic ran
+            logger.info("🎵 Generating with Google Lyria-2...")
+            lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
+            final_url = str(lyria_out)
+            current_model_used = "google/lyria-2"
 
-                    # Logic for Minimax "No Vocal" error (E006)
-                    if "e006" in err_str or "vocal" in err_str:
-                        logger.warning(
-                            "⚠️ Minimax Input Error detected. Switching to MusicGen Fallback immediately."
-                        )
-                        try:
-                            current_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-                            input_args = {"prompt": final_prompt, "duration": 30}
-                            is_minimax = False
-                            # Immediate retry with new model in the NEXT loop iteration
-                            time.sleep(2)
-                            continue
-                        except Exception:
-                            logger.warning("Fallback setup failed.")
+        # Case: MusicGen (Fallback or Explicit)
+        if not final_url: 
+            logger.info("🎵 Generating with MusicGen...")
+            mg_out = _safe_replicate_run(
+                "meta/musicgen", 
+                input_data={"prompt": input_text, "duration": 20}
+            )
+            final_url = str(mg_out)
+            current_model_used = "meta/musicgen"
 
-                    if attempt == max_retries - 1:
-                        # Last attempt failed.
-                        logger.error("All attempts exhausted.")
-                        # Loop ends naturally
-
-                    time.sleep(5)
-
-        if not output:
-            return f"Error: Failed to generate audio after {max_retries} attempts."
-
-        # Handle Output Formatting
-        # Replicate often returns a FileOutput object or iterator.
-        # We MUST convert to string URL immediately to avoid serialization issues later.
-        final_url = str(output)
-
-        # Minimax/Music-01 sometimes returns a list or dict
-        if isinstance(output, (list, tuple)):
-            final_url = str(output[0])
-        elif hasattr(output, "url"):
-            final_url = output.url  # type: ignore
-
-        logger.info(f"✅ Final Asset URL: {final_url}")
-
-        # Save to local file via AssetManager
-        local_path = assets.save_asset(
-            data=final_url,
-            asset_type="audio",
-            session_id=session_id,
-            prompt=input_text or "generated_audio",
-        )
-
-        return (
-            f"**Audio Generated:**\n- [Play Audio]({final_url})\n- Local: {local_path}"
-        )
+        # C. Save & Rename
+        if final_url:
+            fname = _generate_descriptive_filename(input_text, session_id)
+            local_path = _download_and_validate_asset(final_url, session_id, prefix="final")
+            
+            if local_path:
+                final_path = os.path.join(os.path.dirname(local_path), fname)
+                os.rename(local_path, final_path)
+                logger.info(f"🎉 Final Asset Ready: {final_path}")
+                return f"**Audio Generated ({current_model_used}):**\n- [Play Audio]({final_url})\n- Local: {final_path}"
+            
+        return "Generation failed: No URL returned."
 
     except Exception as e:
-        logger.exception("Critical error in Replicate handler")
-        return f"System Error during generation: {str(e)}"
+        logger.error(f"Replicate Pipeline Failure: {e}")
+        return f"Error: {e}"
+
+@tool
+def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> str:
+    """
+    Directly generates audio using a Replicate model (MusicGen or Minimax).
+    Args:
+        prompt: The description of the music.
+        model_name: "minimax/music-01" or "meta/musicgen..."
+    """
+    logger.info("🎵 Direct Audio Tool called: %s (%s)", prompt, model_name)
+    assets = AssetManager()
+    
+    # Priority Cascade: Lyria-2 -> Minimax -> MusicGen
+    # If generic "music" requested, default to Lyria-2 as primary
+    if "music-01" in model_name:
+         target_model = "minimax/music-01"
+    elif "musicgen" in model_name:
+         target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
+    else:
+         # Default to Google Lyria-2
+         target_model = "google/lyria-2"
+
+    # We might need an LLM for lyrics if Minimax
+    # Using lazy import to avoid circular dependency or heavy init if unused
+    llm_for_lyrics = None
+    try:
+        # Simple default configuration for the lyrics helper
+        llm_for_lyrics = ChatGoogleGenerativeAI(
+            model="gemini-3-pro-preview", 
+            temperature=0.7, 
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"), 
+            location="global"
+        )
+    except Exception as e:
+        logger.warning("Could not init LLM for lyrics, continuing without: %s", e)
+
+    return _handle_replicate_generation(
+        model_name=target_model,
+        input_text=prompt,
+        llm=llm_for_lyrics,
+        assets=assets,
+        session_id="tool_direct"
+    )
 
 
 @tool
@@ -472,11 +536,12 @@ def create_composer_agent(
 
         try:
             # Initialize: Set max_retries=0 to avoid annoying "Failover over and over" logs if model is 404
-            test_llm = ChatVertexAI(
+            test_llm = ChatGoogleGenerativeAI(
                 model=target_model,
                 temperature=0.7,
-                max_retries=0,
-                location="global", # Updated to global for Preview models
+                max_retries=1,
+                location="global", # User requirement for preview model: MUST BE GLOBAL
+                project=os.getenv("GOOGLE_CLOUD_PROJECT")
             )
             test_llm.invoke("Ping")  # Force API call
             llm = test_llm
@@ -492,13 +557,24 @@ def create_composer_agent(
             # Fallback
             fallback = "gemini-1.5-pro-001"
             try:
-                test_llm = ChatVertexAI(model=fallback, temperature=0.7, max_retries=0)
+                test_llm = ChatGoogleGenerativeAI(
+                    model=fallback, 
+                    temperature=0.7, 
+                    max_retries=0, 
+                    project=os.getenv("GOOGLE_CLOUD_PROJECT"), 
+                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
+                )
                 test_llm.invoke("Ping")
                 llm = test_llm
                 logger.info(f"Using Fallback: {fallback}")
             except Exception:
                 logger.info("Using Fallback: gemini-2.0-flash-001")
-                llm = ChatVertexAI(model="gemini-2.0-flash-001", temperature=0.7)
+                llm = ChatGoogleGenerativeAI(
+                    model="gemini-2.0-flash-001", 
+                    temperature=0.7,
+                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
+                )
 
         if provider == "Anthropic":
             llm = ChatAnthropic(
@@ -560,7 +636,7 @@ def create_composer_agent(
             return "Error: LLM not initialized for Composer."
 
         # Define tools, including new history tools if available
-        tools = [composer_consult_research]
+        tools = [composer_consult_research, generate_music_audio]
         if narrative_reconstruction:
             tools.append(narrative_reconstruction)
         if counterfactual_simulation:

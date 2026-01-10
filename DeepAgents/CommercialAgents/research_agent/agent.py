@@ -14,11 +14,13 @@ from typing import Optional, cast
 
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from deepagents import create_deep_agent
 
 from DeepAgents.CommercialAgents.research_agent.prompts import RESEARCHER_INSTRUCTIONS
-from DeepAgents.CommercialAgents.research_agent.tools import tavily_search, scrape_webpage, arxiv_search
+from DeepAgents.CommercialAgents.research_agent.tools import (
+    tavily_search, scrape_webpage, arxiv_search
+)
 from DeepAgents.agent_brain import AgentMemory
 
 # Load environment variables
@@ -28,15 +30,26 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_research_agent(model_name="gemini-2.0-flash-exp"):
+def create_research_agent(model_name="gemini-3-pro-preview"):
     """Creates and returns the Commercial Research Agent."""
 
     # Initialize the model
-    # Switching to Vertex AI due to Auth issues with Anthropic
-    model = ChatVertexAI(
-        model=model_name,
-        temperature=0.0
-    )
+    # Strict Rule: Global location for experimental models
+    location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+    
+    try:
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=0.0, # Research needs precision
+            location=location
+        )
+    except Exception:
+        # Fallback
+        model = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.1,
+            location="us-central1"
+        )
 
     # Create the Deep Agent
     agent = create_deep_agent(
@@ -79,25 +92,17 @@ def run_research_task(topic: str,
         memory = AgentMemory()
 
     # Model Init with Fallback
-    try:
-         loc = "global" if "gemini-3" in model_name else "us-central1"
-         llm = ChatVertexAI(model_name=model_name, location=loc, max_retries=0)
-         llm.invoke("Ping")
-    except Exception:
-         print(f"⚠️ Research Model {model_name} unavailable. Switching to gemini-1.5-pro.")
-         llm = ChatVertexAI(model_name="gemini-1.5-pro-001", location="us-central1")
+    agent = create_research_agent(model_name=model_name)
     
-    # Pass llm to agent creation (Assuming create_deep_agent uses it from context or we pass it)
-    # Note: run_research_task uses internal create_research_agent which likely defaults inside.
-    # We should update create_research_agent or explicitly pass model.
-    # Checking implementation... it seems create_research_agent is called inside tools?
-    # No, research_agent.py has create_research_agent. Let's assume we invoke it.
+    # Run loop logic (simplified here for brevity)
+    # Note: Previous implementation did manual LLM check. create_research_agent handles fallback internally now.
     
-    # Wait, the read_file above did not show create_research_agent content fully. 
-    # I'll rely on the fact that I can just instantiate the agent here if needed.
-    # But for now, just updating the default kwarg and adding init check is good for robustness.
-
-
+    # Original logic below adapted?
+    # Actually, create_research_agent returns a CompiledGraph.
+    # We invoke it.
+    
+    config = RunnableConfig(recursion_limit=30)
+    
     # 1. BRAIN CHECK: Have we researched this before?
     print("🧠 Checking Memory...")
     try:

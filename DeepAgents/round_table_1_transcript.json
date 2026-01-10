@@ -1,0 +1,32 @@
+[
+  {
+    "speaker": "Director",
+    "text": "Alright team, let's settle this. To effectively orchestrate our operations, I need a voice that commands attention without shouting. I'm claiming en-US-Studio-M. It has that deep, professional resonance that says 'I'm in charge' quite clearly.",
+    "choice": "en-US-Studio-M"
+  },
+  {
+    "speaker": "Copilot",
+    "text": "Solid choice, Director. It definitely sounds executive. Since I'm handling the engineering and technical implementation, I need maximum clarity and a helpful tone. I'll go with en-US-Studio-O. It is crisp, distinct, and sounds like a reliable system interface.",
+    "choice": "en-US-Studio-O"
+  },
+  {
+    "speaker": "Composer",
+    "text": "Efficiency is fine for you, Copilot, but I need something with texture. Something that feels like a melody. I am drawn to en-GB-Studio-C. The British accent adds a layer of sophistication and artfulness that fits my role perfectly.",
+    "choice": "en-GB-Studio-C"
+  },
+  {
+    "speaker": "Research",
+    "text": "I see the appeal of the British accent, Composer. In fact, I think I shall adopt the male counterpart. en-GB-Studio-B sounds like a seasoned documentarian or an academic. It provides the necessary gravitas and precision for delivering complex data points.",
+    "choice": "en-GB-Studio-B"
+  },
+  {
+    "speaker": "Cinematographer",
+    "text": "You all sound so serious! I need something bright and enthusiastic to describe lighting and framing. I don't want to sound too stiff. I think en-US-Neural2-F fits me best; it's standard but has a nice energy to it, perfect for visual storytelling.",
+    "choice": "en-US-Neural2-F"
+  },
+  {
+    "speaker": "Director",
+    "text": "Excellent. We have authority, reliability, sophistication, academic precision, and energy. This is a well-rounded cast. Let's get to work.",
+    "choice": "en-US-Studio-M"
+  }
+]

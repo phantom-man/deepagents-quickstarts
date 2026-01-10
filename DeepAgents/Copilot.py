@@ -13,18 +13,32 @@ import logging
 from typing import Optional, List
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Add Repo Root to Path
+root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 
 # Brain Integration
 try:
+    # pylint: disable=unused-import
     from agent_brain import AgentMemory, AgentComms
     # If run as script in root, this is fine if PYTHONPATH set
 except ImportError:
     try:
         from DeepAgents.agent_brain import AgentMemory, AgentComms
     except ImportError:
-        print("❌ Could not import agent_brain.")
-        sys.exit(1)
+        # Fallback to local memory manager if agent_brain is missing
+        try:
+             # pylint: disable=import-outside-toplevel
+            from DeepAgents.memory_manager import AgentMemoryManager
+        except ImportError:
+            print("❌ Critical: Memory dependencies missing.")
+            sys.exit(1)
+        # Mock old classes if missing to prevent attribute errors
+        AgentMemory = None # type: ignore
+        AgentComms = None # type: ignore
 
 # Load Environment
 load_dotenv()
@@ -33,7 +47,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class CopilotAgent:
+class CopilotAgent: # pylint: disable=too-many-instance-attributes
     """
     The Engineer & Orchestrator Agent.
     Responsible for maintaining the system, remembering architectural patterns,
@@ -41,18 +55,43 @@ class CopilotAgent:
     """
     def __init__(self):
         print("🔧 --- INITIALIZING COPILOT AGENT ---")
-        self.memory = AgentMemory()
-        self.comms = AgentComms(password="d1204l0723")
-        self.comms_active = self.comms.connect()
+
+        # Initialize Memory Manager
+        # We prefer the robust AgentMemoryManager for learning logging
+        try:
+             # pylint: disable=import-outside-toplevel, redefined-outer-name
+            from DeepAgents.memory_manager import AgentMemoryManager
+            self.memory_manager = AgentMemoryManager("Copilot")
+            self.learnings = self.memory_manager.recall_recent(limit=5)
+            print(f"🧠 Memory Loaded:\n{self.learnings}")
+        except ImportError as e:
+            print(f"⚠️ Memory Manager Import Failed: {e}")
+            self.memory_manager = None
+            self.learnings = ""
+        except Exception as e:
+             print(f"⚠️ Memory Manager Init Failed: {e}")
+             self.memory_manager = None
+             self.learnings = ""
+
+        # Legacy Brain Support (Optional)
+        self.memory = None # Placeholder if legacy code references it
+        self.comms = None
+        self.comms_active = False
+
+        if AgentComms:
+            self.comms = AgentComms(password="d1204l0723")
+            self.comms_active = self.comms.connect()
+
         self.role = "Copilot"
         self.ontology = self.load_ontology()
 
         # Initialize LLM (Engineer Brain)
         try:
-            self.llm = ChatVertexAI(
-                model="gemini-2.0-flash-001",
+            self.llm = ChatGoogleGenerativeAI(
+                model="gemini-3-pro-preview",
                 temperature=0.2,  # Lower temperature for engineering precision
-                location="us-central1"
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="global"
             )
         except Exception as e:
             print(f"⚠️ LLM Init Failed: {e}")
@@ -69,35 +108,42 @@ class CopilotAgent:
 
     def recall_technical_context(self, query: str) -> List[str]:
         """Retrieves technical constraints or past solutions."""
+        if not self.memory_manager:
+            return []
+            
         print(f"🔍 Searching Engineering Logs for: '{query}'...")
-        memories = self.memory.recall(query, limit=5)
-        if memories:
-            print(f"💡 Found {len(memories)} relevant value(s).")
-            # Handle different return types if memory backend changed (text vs dict)
-            results = []
-            for m in memories:
-                if isinstance(m, dict):
-                    results.append(m.get('text', ''))
-                elif hasattr(m, 'text'):
-                    results.append(m.text)
-                else:
-                    results.append(str(m))
-            return results
+        # Use Memory Manager's search_learnings (returns formatted string, we need list or just use string)
+        # Actually search_learnings returns a string based on the code we saw.
+        # But analyze_situation expects a list to join.
+        # Let's adapt.
+        
+        # Access underlying knowledge store if possible, or parse string. 
+        # Easier: Modify recall_technical_context to standard usage of memory_manager.
+        
+        # Reading memory_manager.py again: search_learnings returns " - Item \n - Item"
+        # So we can just call it and split lines.
+        results_str = self.memory_manager.search_learnings(query)
+        if results_str:
+            return [line.strip("- ") for line in results_str.strip().split("\n") if line.strip()]
         return []
 
     def log_learning(self, insight: str, tags: Optional[List[str]] = None) -> None:
         """
         The 'Learning Loop': Stores a permanent record of a technical discovery.
         """
-        if not tags:
-            tags = ["engineering", "fix"]
+        if not self.memory_manager:
+            print("❌ Memory Manager not initialized. Cannot log.")
+            return
 
         full_text = f"ENGINEERING LOG: {insight}"
-        success = self.memory.memorize(full_text, self.role, tags)
-        if success:
+        if tags:
+             full_text += f" [Tags: {', '.join(tags)}]"
+             
+        try:
+            self.memory_manager.record_learning(full_text)
             print(f"💾 Knowledge Secured: '{insight[:50]}...'")
-        else:
-            print("❌ Failed to secure knowledge.")
+        except Exception as e:
+            print(f"❌ Failed to secure knowledge: {e}")
 
     def analyze_situation(self, problem_statement: str) -> Optional[str]:
         """Consults Memory + Ontology to propose a solution."""

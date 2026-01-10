@@ -2,7 +2,7 @@ import os
 import sys
 import time
 from dotenv import load_dotenv
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from langsmith import Client
 
@@ -22,8 +22,8 @@ try:
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
     location = os.getenv("GOOGLE_CLOUD_LOCATION")
     
-    llm = ChatVertexAI(
-        model_name="gemini-2.0-flash-exp",
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-2.0-flash-exp",
         temperature=0.7,
         project=project, 
         location=location

@@ -9,11 +9,11 @@ import os
 import sys
 import datetime
 import logging
-from typing import List, Dict
+from typing import Dict
 
 from dotenv import load_dotenv
-from langchain_google_vertexai import ChatVertexAI
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import HumanMessage
 
 # Ensure path visibility
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -31,7 +31,11 @@ class RoundTable:
     def __init__(self):
         self.output_dir = os.path.join(os.path.dirname(__file__), "Ruminations")
         os.makedirs(self.output_dir, exist_ok=True)
-        self.llm = ChatVertexAI(model="gemini-2.0-flash-exp")
+        self.llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash-exp",
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location=os.getenv("GOOGLE_CLOUD_LOCATION")
+        )
         self.roster = {
             "ATLAS": "The Engineer & Chairman. Rational, architectural, focused on structure.",
             "APOLLO": "The Director. Creative, visionary, focused on narrative flow.",

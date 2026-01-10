@@ -75,9 +75,9 @@ def _get_instructions():
     if os.getenv("LANGCHAIN_API_KEY"):
         try:
             client = Client()
-            prompt_obj = client.pull_prompt("deep-agents-cinematographer-system")
-            # Format with empty context to get the raw content string
-            return prompt_obj.invoke({}).to_messages()[0].content
+            prompt_obj = client.pull_prompt("cinematographer-system-main")
+            # Access the template string directly to avoid validation errors
+            return prompt_obj.messages[0].prompt.template
         except Exception as e: # pylint: disable=broad-exception-caught
             logger.warning("Failed to pull Cinematographer prompt from Hub: %s. using local fallback.", e)
     

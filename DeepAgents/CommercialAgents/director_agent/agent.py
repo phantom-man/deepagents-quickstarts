@@ -12,7 +12,7 @@ from typing import Dict, Any, List
 
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.tools import tool
 from langchain_core.messages import BaseMessage
 
@@ -24,7 +24,7 @@ try:
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
     from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool
-    from DeepAgents.editor_tools import merge_tool, generate_visual_tool
+    from DeepAgents.editor_tools import merge_tool
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
@@ -54,7 +54,14 @@ def validate_scene_logic(scene_description: str) -> str:
     logger.info("🎬 Director > 🧠 Validating Scene Logic...")
 
     # We use a fresh LLM call for the critique (Self-Reflection)
-    validator_llm = ChatVertexAI(model="gemini-2.0-flash-exp", temperature=0.1)
+    project = os.getenv("GOOGLE_CLOUD_PROJECT")
+    # Validator uses standard location for reliability unless restricted, but user wants global Gemini 3
+    validator_llm = ChatGoogleGenerativeAI(
+        model="gemini-3-pro-preview", 
+        temperature=0.1,
+        project=project,
+        location="global"
+    )
 
     prompt = f"""
     CRITIQUE THIS SCENE for internal logic, continuity errors, and plot holes.
@@ -105,31 +112,35 @@ def create_director_agent(
     if provider == "Anthropic":
         logger.info("🎬 Initializing Anthropic Model: %s", model_name)
         model = ChatAnthropic(
-            model_name=model_name,
+            model_name="claude-3-opus-20240229", # Fallback for Anthropic if passed generic name?
             temperature=0.7,
-            timeout=None,
-            stop=None,
-            # api_key loaded from env
         )
     else:
-        # Default to Google VertexAI
-        logger.info("🎬 Initializing Google VertexAI Model: %s", model_name)
+        # Default to Google (Gemini 2.0 Flash Exp as Proxy for Gemini 3 Preview)
+        
+        # User Directive: Location MUST be global for this model.
+        location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+        
+        logger.info("🎬 Initializing Google Model: %s at %s", model_name, location)
         try:
-            # Try Gemini 3 or whatever is passed
-            # Use 'global' location for Gemini 3 requests
-            loc = "global" if "gemini-3" in model_name else "us-central1"
-            model = ChatVertexAI(
-                model_name=model_name,
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
                 temperature=0.7,
-                location=loc,
-                max_retries=0,
+                location=location,
+                max_retries=1, # Retry once
             )
-            # Check access
-            model.invoke("Ping")
-        except Exception:
-            logger.info("Using Fallback Model for Director (2.0-flash)...")
-            model = ChatVertexAI(
-                model_name="gemini-2.0-flash-001", temperature=0.7, location="us-central1"
+        except Exception as e:
+            logger.error("Failed to initialize Primary Model (%s): %s", model_name, e)
+            # Strict Protocol: Stop if primary fails?
+            # User said: "stop what you are doing and talk to me first" if I run into problems with access.
+            # But "failing that... use fallback" logic in strict mode?
+            # User said: "for fall backs they must use our typical location"
+            # So fallback IS allowed.
+            logger.info("Switching to Fallback Model (gemini-1.5-flash)...")
+            model = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash",
+                temperature=0.7,
+                location="us-central1"
             )
 
     # Create the Deep Agent

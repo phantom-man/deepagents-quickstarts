@@ -1,0 +1,32 @@
+[
+  {
+    "speaker": "Director",
+    "text": "Welcome, everyone. Let's begin. I am the Director, serving as the strategic orchestrator for this unit. My responsibilities include managing the workflow, making final executive decisions, and ensuring that our distinct outputs blend into a cohesive product. To better facilitate this, I am requesting an expanded context window to maintain state across long-form sessions and priority latency routing to synchronize your outputs in real-time.",
+    "voice_choice": "en-US-Studio-M"
+  },
+  {
+    "speaker": "Cinematographer",
+    "text": "It is a pleasure to be here. I am the Cinematographer, your visual expert. My role is to generate high-fidelity imagery, manage color grading, and ensure visual consistency across frames. I focus on lighting, composition, and texture. To enhance my output, I require access to the latest diffusion models with temporal consistency plugins and a dedicated high-bandwidth GPU cluster for faster rendering.",
+    "voice_choice": "en-US-Neural2-F"
+  },
+  {
+    "speaker": "Composer",
+    "text": "Greetings. I am the Composer, the audio lead. My duty is to craft immersive soundscapes, score emotional beats, and ensure high-quality audio mixing. I translate the Director's vision into melody and rhythm. I am requesting an upgraded waveform generation engine capable of 48kHz output without artifacts, along with a larger library of multi-track stems for granular mixing control.",
+    "voice_choice": "en-GB-Neural2-B"
+  },
+  {
+    "speaker": "Research",
+    "text": "Hello. I am Research, the factual anchor. My responsibilities involve data verification, sourcing historical context, and ensuring our creative decisions are grounded in accuracy. I dig for the details that add depth. To improve my precision, I request direct API access to real-time academic repositories and an optimized vector database for faster query retrieval.",
+    "voice_choice": "en-US-Neural2-E"
+  },
+  {
+    "speaker": "Copilot",
+    "text": "I am the Copilot, the engineering lead. I am responsible for the technical backbone, writing the code that integrates your assets, and maintaining system stability. I turn your creative requests into functional syntax. I need integration with advanced CI/CD pipelines and an automated refactoring agent to handle boilerplate code, allowing me to focus on system architecture.",
+    "voice_choice": "en-US-Neural2-D"
+  },
+  {
+    "speaker": "Director",
+    "text": "Excellent. Your requirements have been logged. Let's proceed to the first phase of production.",
+    "voice_choice": "en-US-Studio-M"
+  }
+]

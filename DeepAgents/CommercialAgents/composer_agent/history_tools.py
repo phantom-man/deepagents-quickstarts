@@ -7,7 +7,8 @@ These tools allow for deep narrative analysis and counterfactual history simulat
 import logging
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+import os
 
 # Setup Logger
 logger = logging.getLogger("HistoryTools")
@@ -26,7 +27,12 @@ def get_history_llm():
     global _HISTORY_LLM
     if _HISTORY_LLM is None:
         try:
-            _HISTORY_LLM = ChatVertexAI(model="gemini-2.0-flash-exp", temperature=0.7)
+            _HISTORY_LLM = ChatGoogleGenerativeAI(
+                model="gemini-3-pro-preview", 
+                temperature=0.7,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="global"
+            )
         except Exception:
             _HISTORY_LLM = None
     return _HISTORY_LLM

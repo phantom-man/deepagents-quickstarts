@@ -8,13 +8,14 @@ Uses Research Agent as a tool.
 """
 
 import sys
+import os
 import uuid
 import logging
 from typing import cast
 
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.tools import tool
 from deepagents import create_deep_agent
 
@@ -47,15 +48,27 @@ def consult_research_agent(topic: str) -> str:
         return result
     return "Research Agent found no conclusive evidence."
 
-def create_confidence_agent():
+def create_confidence_agent(model_name="gemini-3-pro-preview"):
     """Creates and returns the Confidence Agent."""
 
     # Initialize the model
-    # Switching to Vertex AI for consistency and reliability
-    model = ChatVertexAI(
-        model="gemini-2.0-flash-exp",
-        temperature=0.0
-    )
+    # Strict Rule: Global location for experimental models
+    location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+
+    try:
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            temperature=0.0,
+            location=location,
+            max_retries=1
+        )
+    except Exception as e:
+         logger.error("Failed to initialize Primary Model (%s): %s. Switching to fallback.", model_name, e)
+         model = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.1,
+            location="us-central1"
+        )
 
     # Create the Deep Agent
     agent = create_deep_agent(
@@ -144,7 +157,12 @@ def run_confidence_audit(content_to_audit: str):
         # --- ARGUS UPGRADE: Fact-Checking Dashboard ---
         try:
             print("\n📊 Generating Argus Fact Dashboard...")
-            dash_llm = ChatVertexAI(model="gemini-2.0-flash-exp", temperature=0)
+            dash_llm = ChatGoogleGenerativeAI(
+                model="gemini-3-pro-preview", 
+                temperature=0,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="global"
+            )
             dash_prompt = (
                 "Convert the following audit report into a high-visibility Markdown Dashboard.\n"
                 "Format: A Table with columns [Claim | Verification Status | Confidence | Notes].\n\n"

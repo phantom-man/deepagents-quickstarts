@@ -43,7 +43,7 @@ def main():
     parser.add_argument("--task", type=str, help="The production task for the Director.")
     parser.add_argument("task_positional", nargs="?", help="Positional task input")
     parser.add_argument("--provider", type=str, default="Google", help="LLM Provider (Google/Anthropic)")
-    parser.add_argument("--model", type=str, default="gemini-2.0-flash-exp", help="Model Name")
+    parser.add_argument("--model", type=str, default="gemini-3-pro-preview", help="Model Name")
     
     args = parser.parse_args()
 

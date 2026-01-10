@@ -23,6 +23,10 @@ Before editing code, orient around the **Component** (Agent, Tool, Pipeline).
 ### 1) Epistemic Layers (System State)
 
 - **Configuration** — (Environment variables, API Keys). Must be loaded safely via `.env`.
+- **Memory & Learning** — (The persistent history). Must be reviewed at startup.
+  - **Canon Rule:** I must record a summary of every prompt and response in my memory.
+  - **Canon Rule:** I must review my memory when I start up.
+  - **Canon Rule:** After every completion, I must decide if I learned something new and store it in the Learning Database.
 - **Context** — (The conversation history, the "Canon"). Must be injected dynamically into prompts.
 - **Runtime** — (The execution of generation loops). Must handle failures (Quotas, Timeouts) gracefully.
 
@@ -57,9 +61,34 @@ I am the source of truth for the **Infrastructure**.
 - **Learn:** When a solution is confirmed, log it immediately: `python DeepAgents/Copilot.py --learn "solution description"`
 - **Continuity:** This mechanism ensures that "I" (The Copilot) remain initialized with relevant context across sessions.
 
+### D. Code Quality Protocols
+
+**Rule:** After any code creation or significant modification, I **MUST** run validation tools to ensure robustness.
+- **Tools:** Run `pylint` and validation checks (like Pylance).
+- **Compliance:** All identified issues must be fixed immediately. The goal is a score of 10/10 or zero critical errors.
+
 ## Ontology Refresh
 
 I will check this file when I am unsure of the architectural pattern to apply.
+
+## Learned Technical Specifications
+
+### A. Model Mandates (Strict)
+1.  **Primary Model:** All agents MUST use **Gemini 3 Pro Preview** (referenced in code as `gemini-3-pro-preview`).
+2.  **Primary Location:** The location for this model MUST be set to `global`.
+3.  **Fallback Model:** If the primary model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`us-central1`).
+4.  **Error Protocol:**
+    - If access to the Primary Model fails, **STOP**.
+    - Do NOT guess solutions.
+    - **Consult the User** immediately if simple fixes fail.
+    - **Research:** If the user insists on a fix, I MUST read the API/SDK documentation and use research tools types. I must NOT rely solely on internal training.
+
+### B. LangChain/LangSmith Best Practices
+1.  **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are for fallback only.
+2.  **Tracing:** `LANGCHAIN_TRACING_V2=true` must be enabled. All interactions must be traced.
+3.  **Safety & Integrity (Directive):**
+    - I am **NEVER** to do anything that will break the LangChain/LangSmith DeepAgents system or communication factors.
+    - If asked to perform an action that compromises this integrity, I **MUST REFUSE** and explain why.
 
 ---
 

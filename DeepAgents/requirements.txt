@@ -6,8 +6,15 @@ google-genai
 langchain-anthropic
 langsmith
 google-cloud-aiplatform
-langchain-google-vertexai
+# langchain-google-vertexai # Deprecated in favor of langchain-google-genai
 replicate
 streamlit
 moviepy
 arxiv
+langchain
+langgraph
+lancedb
+psycopg2-binary
+gTTS
+requests
+langchain-google-genai

@@ -2,6 +2,10 @@
 
 import json
 import os
+import logging
+from langsmith import Client
+
+logger = logging.getLogger(__name__)
 
 # Load Canon Ontology (The Source of Truth)
 canon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Canon", "Research_Agent_Ontology.md"))
@@ -74,3 +78,18 @@ Example format for `raw_findings.md`:
 4.  **Execute**: Perform searches, verify sources using the Retraction Watch/PubPeer mindset.
 5.  **Synthesize**: Save `raw_findings.md` (JSON format).
 """
+
+def _get_instructions():
+    # Attempt to pull from LangChain Hub
+    if os.getenv("LANGCHAIN_API_KEY"):
+        try:
+            client = Client()
+            prompt_obj = client.pull_prompt("researcher-system-main")
+            # Access the template string directly to avoid validation errors
+            return prompt_obj.messages[0].prompt.template
+        except Exception as e:
+            logger.warning("Failed to pull Research prompt from Hub: %s. Using local fallback.", e)
+    return RESEARCHER_INSTRUCTIONS
+
+# Exposed constant
+RESEARCHER_INSTRUCTIONS = _get_instructions()

@@ -9,6 +9,7 @@ import time
 import json
 import logging
 from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
 
 import lancedb
 import psycopg2
@@ -17,7 +18,10 @@ from lancedb.pydantic import LanceModel, Vector
 # from lancedb.embeddings import get_registry
 
 # from sentence_transformers import SentenceTransformer
-from langchain_google_vertexai import VertexAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+# Load env vars
+load_dotenv()
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +29,11 @@ logger = logging.getLogger("AgentBrain")
 
 # Force explicit embedding model for robustness (Switched to Google per user request)
 # Note: Google text-embedding-004 is 768 dim.
-EMBEDDER = VertexAIEmbeddings(model_name="text-embedding-004")
+EMBEDDER = GoogleGenerativeAIEmbeddings(
+    model="models/text-embedding-004",
+    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+    location=os.getenv("GOOGLE_CLOUD_LOCATION")
+)
 # EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
 
 # Also need the registry model for Pydantic schema definition compatibility
@@ -108,7 +116,7 @@ class AgentMemory:
 
         try:
             # Explicitly embed the query
-            query_vec = EMBEDDER.encode(query)
+            query_vec = EMBEDDER.embed_query(query)
             # Search using vector
             results = self.table.search(query_vec).limit(limit).to_list()
             return results
@@ -197,17 +205,17 @@ class AgentComms:
 
     def __init__(
         self,
-        db_name: str = "postgres",
-        user: str = "postgres",
-        password: str = "d1204l0723",
-        host: str = "localhost",
+        db_name: str = None,
+        user: str = None,
+        password: str = None,
+        host: str = None,
     ):
-        # Defaulting to 'postgres' db for initial check
+        # Load from env or use defaults
         self.conn_params = {
-            "dbname": db_name,
-            "user": user,
-            "password": password,
-            "host": host,
+            "dbname": db_name or os.getenv("POSTGRES_DB", "postgres"),
+            "user": user or os.getenv("POSTGRES_USER", "postgres"),
+            "password": password or os.getenv("POSTGRES_PASSWORD", "d1204l0723"),
+            "host": host or os.getenv("POSTGRES_HOST", "localhost"),
         }
         self.conn = None
 

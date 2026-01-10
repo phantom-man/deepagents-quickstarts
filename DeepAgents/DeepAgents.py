@@ -9,6 +9,14 @@ import argparse
 import logging
 from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
+
+# Verify LangChain API Key for Tracing; disable if missing
+if os.environ.get("LANGCHAIN_TRACING_V2") == "true" and not os.environ.get("LANGCHAIN_API_KEY"):
+    logging.warning("⚠️ LANGCHAIN_TRACING_V2 is set but LANGCHAIN_API_KEY is missing. Disabling Tracing.")
+    os.environ.pop("LANGCHAIN_TRACING_V2", None)
+
 # Import the Brain
 try:
     from agent_brain import AgentMemory

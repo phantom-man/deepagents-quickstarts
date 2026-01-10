@@ -3,6 +3,7 @@
 """
 Cinematographer Agent (VeoAgent).
 Responsible for generating video and storyboard assets using Google Vertex AI (Veo + Imagen).
+NOTE: Veo usage is currently DISABLED due to cost constraints ($0.75/s). Defers to SVD.
 """
 
 import os
@@ -12,8 +13,9 @@ import argparse
 import uuid
 import logging
 from dotenv import load_dotenv
-from google import genai
-from langchain_google_vertexai import ChatVertexAI
+
+# from google import genai # Disabled for now to prevent accidental usage
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 try:
@@ -65,11 +67,16 @@ def refine_prompt_with_thinking(raw_prompt):
     print("🧠 Cinematographer is thinking... (Refining Prompt)")
 
     # Switched to VertexAI/ADC and accessible model (Gemini 3 Pro)
-    llm = ChatVertexAI(model="gemini-3-pro-preview", temperature=0.7, location="global")
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-3-pro-preview",
+        temperature=0.7,
+        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+        location=os.getenv("GOOGLE_CLOUD_LOCATION")
+    )
 
-    system_prompt = f"""You are the **Cinematographer Agent**. 
+    system_prompt = f"""You are the **Cinematographer Agent**.
     Your goal is to translate a raw concept into a perfect prompt for the Google Veo Video Generation Model.
-    
+
     **YOUR BRAIN (ONTOLOGY):**
     {cinematographer_canon}
     
@@ -101,12 +108,18 @@ if not PROJECT_ID:
     sys.exit(1)
 
 print(f"Initializing Vertex AI Client for project: {PROJECT_ID}")
-client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
-
+# client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION) # Disabled
+client = None
 
 def generate_video(model_name, prompt, output_file="output_video.mp4"):
     """Generates a video using the specified model."""
     print(f"\n--- Generating Video with {model_name} ---")
+
+    if model_name == "veo":
+        logger.error("❌ Veo generation is currently DISABLED due to cost constraints.")
+        logger.info("Please use Stable Video Diffusion (SVD) instead.")
+        return None
+
     print(f"Prompt: {prompt}")
     print("Waiting for generation (this may take a minute)...")
 

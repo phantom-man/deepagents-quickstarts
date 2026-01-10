@@ -2,6 +2,10 @@
 
 import json
 import os
+import logging
+from langsmith import Client
+
+logger = logging.getLogger(__name__)
 
 # Load Ontology
 ontology_path = os.path.join(os.path.dirname(__file__), "ontology.json")
@@ -58,3 +62,18 @@ You will be given content to audit (text or a file path).
 *   Use `read_file` to read the findings.
 *   Use `write_file` to save the brief and update the bad examples.
 """
+
+def _get_instructions():
+    # Attempt to pull from LangChain Hub
+    if os.getenv("LANGCHAIN_API_KEY"):
+        try:
+            client = Client()
+            prompt_obj = client.pull_prompt("confidence-system-main")
+            # Access the template string directly to avoid validation errors
+            return prompt_obj.messages[0].prompt.template
+        except Exception as e:
+            logger.warning("Failed to pull Confidence prompt from Hub: %s. Using local fallback.", e)
+    return CONFIDENCE_INSTRUCTIONS
+
+# Exposed constant
+CONFIDENCE_INSTRUCTIONS = _get_instructions()

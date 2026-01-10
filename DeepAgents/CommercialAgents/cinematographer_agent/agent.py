@@ -9,12 +9,18 @@ from typing import Optional, Dict, Any, Callable
 
 from google import genai
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_google_vertexai import ChatVertexAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
 
 # Local imports
 from DeepAgents.agent_brain import logger
 from DeepAgents.asset_manager import AssetManager
+
+try:
+    from DeepAgents.CommercialAgents.cinematographer_agent.prompts import CINEMATOGRAPHER_INSTRUCTIONS
+except ImportError:
+    # Fallback to absolute if script run from subfolder
+    from DeepAgents.CommercialAgents.cinematographer_agent.prompts import CINEMATOGRAPHER_INSTRUCTIONS
 
 # Handle optional dependencies
 try:
@@ -26,7 +32,16 @@ def _initialize_llm(provider: str, model_name: str) -> Any:
     """Initialize the LLM based on provider."""
     try:
         if provider == "Google":
-            return ChatVertexAI(model_name=model_name, temperature=0.7)
+            project = os.getenv("GOOGLE_CLOUD_PROJECT")
+            # Force global for preview models
+            location = "global" if "exp" in model_name or "preview" in model_name else os.getenv("GOOGLE_CLOUD_LOCATION")
+            
+            return ChatGoogleGenerativeAI(
+                model=model_name, 
+                temperature=0.7,
+                project=project,
+                location=location
+            )
         if provider == "Anthropic":
             return ChatAnthropic(
                 model_name=model_name,
@@ -35,7 +50,11 @@ def _initialize_llm(provider: str, model_name: str) -> Any:
                 stop=None
             )
         # Default fallback
-        return ChatVertexAI(model_name="gemini-1.5-pro")
+        return ChatGoogleGenerativeAI(
+            model="gemini-1.5-pro-001",
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location=os.getenv("GOOGLE_CLOUD_LOCATION")
+        )
     except Exception as e: # pylint: disable=broad-exception-caught
         logger.error("Cinematographer LLM Init Failed: %s", e)
         return None
@@ -51,20 +70,6 @@ def _initialize_gen_client() -> Optional[genai.Client]:
         logger.error("GenAI Client Init Failed: %s", e)
     return None
 
-def _load_ontology() -> str:
-    """Load the agent ontology."""
-    try:
-        ontology_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "../../Canon/Cinematographer_Ontology.md"
-        )
-        if os.path.exists(ontology_path):
-            with open(ontology_path, "r", encoding="utf-8") as f:
-                return f.read()
-    except Exception: # pylint: disable=broad-exception-caught
-        pass
-    return "You are a Cinematographer Agent."
-
 def create_cinematographer_agent(
     model_config: Optional[Dict[str, Any]] = None,
     # pylint: disable=unused-argument
@@ -75,11 +80,11 @@ def create_cinematographer_agent(
     Factory to create the Cinematographer Agent runner.
     """
     if model_config is None:
-        model_config = {"provider": "Google", "model": "gemini-1.5-pro"}
+        model_config = {"provider": "Google", "model": "gemini-3-pro-preview"}
 
     # Configurations
     provider = model_config.get("provider", "Google")
-    model_name = model_config.get("model", "gemini-1.5-pro")
+    model_name = model_config.get("model", "gemini-3-pro-preview")
 
     # img_provider = model_config.get("image_provider", "Google") # Unused currently effectively
     img_model = model_config.get("image_model", "imagen-3.0-generate-001")
@@ -98,7 +103,7 @@ def create_cinematographer_agent(
 
     # 2. Initialize Generative Client
     gen_client = _initialize_gen_client()
-    ontology = _load_ontology()
+    ontology = CINEMATOGRAPHER_INSTRUCTIONS
 
     # --- HELPER: Generate Image ---
     def generate_image(prompt: str) -> Optional[str]:

@@ -17,6 +17,9 @@ Before you write dialogue or action, you must orient around the **Scene**.
 
 ### 1) Epistemic Layers (Knowing the Story)
 
+- **Memory Protocol:** You must record a summary of every prompt/response. Review your memory at startup. Store new learnings in the Global Database.
+- **Context:** (The conversation history, the "Canon"). Must be injected dynamically into prompts to maintain continuity.
+
 When analyzing a prompt or script, separate:
 
 - **Explicit Text** — What is actually said or done. (High certainty)
