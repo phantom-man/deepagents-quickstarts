@@ -9,8 +9,13 @@ import os
 import time
 import asyncio
 import logging
-# import speech_recognition as sr # Requires PyAudio/PocketSphinx, tricky on some envs.
-# from edge_tts import Communicate # Creating async wrapper
+import subprocess
+
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except ImportError:
+    pass
 
 import sys
 import threading
@@ -57,11 +62,21 @@ async def speak_text(text: str):
         communicate = edge_tts.Communicate(text, "en-US-ChristopherNeural")
         await communicate.save("temp_voice.mp3")
         
-        # Play audio (platform specific)
-        if os.name == 'nt':
-            os.system("start /min /wait temp_voice.mp3") # Windows
-        else:
-            os.system("afplay temp_voice.mp3") # Mac
+        # Play audio (headless via ffplay)
+        # -nodisp: No graphical window
+        # -autoexit: Close after playing
+        # -loglevel quiet: Don't spam console
+        try:
+            subprocess.run(
+                ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", "temp_voice.mp3"],
+                check=True
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # Fallback to current method if ffplay fails
+            if os.name == 'nt':
+                os.system("start /min /wait temp_voice.mp3")
+            else:
+                os.system("afplay temp_voice.mp3")
             
         logger.info("🗣️ Spoke: %s", text)
         time.sleep(1) # Debounce
