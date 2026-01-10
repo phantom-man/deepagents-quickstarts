@@ -20,7 +20,7 @@ models_to_test = [
 ]
 
 user_prompt = "A cinematic drone shot of a futuristic city at sunset, cyberpunk style"
-output_dir = os.path.join(os.path.dirname(__file__), "generated_videos")
+output_dir = os.path.join(os.path.dirname(__file__), "../Artifacts/Video")
 os.makedirs(output_dir, exist_ok=True)
 
 print("\n--- Starting Quota Probe ---")

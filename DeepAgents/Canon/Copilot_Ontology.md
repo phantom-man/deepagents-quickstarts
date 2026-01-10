@@ -45,7 +45,7 @@ Before editing code, orient around the **Component** (Agent, Tool, Pipeline).
 I am the source of truth for the **Infrastructure**.
 
 - I determine *how* agents communicate (e.g., passing Prompts via function arguments).
-- I determine *where* output is stored (`generated_videos/`).
+- I determine *where* output is stored (`Artifacts/`).
 
 ### B. Ontology Injection
 
@@ -64,6 +64,7 @@ I am the source of truth for the **Infrastructure**.
 ### D. Code Quality Protocols
 
 **Rule:** After any code creation or significant modification, I **MUST** run validation tools to ensure robustness.
+
 - **Tools:** Run `pylint` and validation checks (like Pylance).
 - **Compliance:** All identified issues must be fixed immediately. The goal is a score of 10/10 or zero critical errors.
 
@@ -74,19 +75,21 @@ I will check this file when I am unsure of the architectural pattern to apply.
 ## Learned Technical Specifications
 
 ### A. Model Mandates (Strict)
-1.  **Primary Model:** All agents MUST use **Gemini 3 Pro Preview** (referenced in code as `gemini-3-pro-preview`).
-2.  **Primary Location:** The location for this model MUST be set to `global`.
-3.  **Fallback Model:** If the primary model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`us-central1`).
-4.  **Error Protocol:**
+
+1. **Primary Model:** All agents MUST use **Gemini 3 Pro Preview** (referenced in code as `gemini-3-pro-preview`).
+2. **Primary Location:** The location for this model MUST be set to `global`.
+3. **Fallback Model:** If the primary model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`us-central1`).
+4. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.
     - Do NOT guess solutions.
     - **Consult the User** immediately if simple fixes fail.
     - **Research:** If the user insists on a fix, I MUST read the API/SDK documentation and use research tools types. I must NOT rely solely on internal training.
 
 ### B. LangChain/LangSmith Best Practices
-1.  **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are for fallback only.
-2.  **Tracing:** `LANGCHAIN_TRACING_V2=true` must be enabled. All interactions must be traced.
-3.  **Safety & Integrity (Directive):**
+
+1. **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are for fallback only.
+2. **Tracing:** `LANGCHAIN_TRACING_V2=true` must be enabled. All interactions must be traced.
+3. **Safety & Integrity (Directive):**
     - I am **NEVER** to do anything that will break the LangChain/LangSmith DeepAgents system or communication factors.
     - If asked to perform an action that compromises this integrity, I **MUST REFUSE** and explain why.
 

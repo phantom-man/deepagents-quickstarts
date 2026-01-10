@@ -14,7 +14,7 @@ except ImportError:
     HAS_DEEPAGENTS_LIB = False
     _lib_create_deep_agent = None
 
-def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str) -> Any:
+def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str, checkpointer: Any = None) -> Any:
     """
     Factory to create a DeepAgent. 
     Prefers the installed 'deepagents' library implementation if available (for full middleware support).
@@ -24,6 +24,7 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
         model: The LLM/ChatModel instance.
         tools: List of tools available to the agent.
         system_prompt: The system instructions (Ontology).
+        checkpointer: Optional LangGraph checkpoint saver for persistence/time-travel.
         
     Returns:
         A compiled LangGraph runnable (or DeepAgent equivalent).
@@ -34,9 +35,10 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
             model=model,
             tools=tools,
             system_prompt=system_prompt,
-            name="deep_agent_instance"
+            name="deep_agent_instance",
+            checkpointer=checkpointer
         )
     
     logger.warning("Falling back to simple create_react_agent (deepagents lib not found)")
     # Simple fallback
-    return create_react_agent(model, tools, state_modifier=system_prompt)
+    return create_react_agent(model, tools, state_modifier=system_prompt, checkpointer=checkpointer)

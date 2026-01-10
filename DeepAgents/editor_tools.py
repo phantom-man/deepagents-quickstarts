@@ -115,7 +115,7 @@ def merge_video_audio(
         # We need to save to a temp path first or direct to asset dir?
         # Let's output to a temp file then move or just return path
         output_dir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../generated_videos")
+            os.path.join(os.path.dirname(__file__), "../Artifacts/Video")
         )
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)

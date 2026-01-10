@@ -13,7 +13,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("KnowledgeStore")
 
-LANCEDB_URI = "DeepAgents/data/lancedb"
+LANCEDB_URI = "Artifacts/Data/lancedb"
 
 class KnowledgeStore:
     """
@@ -36,8 +36,7 @@ class KnowledgeStore:
                 return
 
             self.embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/text-embedding-004",
-                google_api_key=api_key
+                model="models/text-embedding-004"
             )
         except Exception as e: # pylint: disable=broad-exception-caught
             logger.error("Failed to initialize embeddings: %s", e)

@@ -210,7 +210,7 @@ def run_cinematographer_loop(mode="full"):
     print("Waiting for orders from Director...")
 
     # Ensure assets directory exists
-    assets_dir = os.path.join(os.path.dirname(__file__), "generated_assets")
+    assets_dir = os.path.join(os.path.dirname(__file__), "../Artifacts/Audio")
     os.makedirs(assets_dir, exist_ok=True)
 
     while True:

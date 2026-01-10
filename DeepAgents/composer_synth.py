@@ -7,11 +7,13 @@ Adheres to "The Jewel Standard" (Pylint 10/10).
 import argparse
 import logging
 import sys
+from langsmith import traceable
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ComposerSynth")
 
+@traceable(run_type="tool", name="MusicGen Generation")
 def generate_music(prompt: str, duration: int = 15, output_path: str = "output.wav"):
     """
     Generates music using Meta's MusicGen model.
@@ -24,8 +26,8 @@ def generate_music(prompt: str, duration: int = 15, output_path: str = "output.w
     """
     try:
         # pylint: disable=import-outside-toplevel
-        from audiocraft.models import MusicGen
-        from audiocraft.data.audio import audio_write
+        from audiocraft.models import MusicGen # type: ignore
+        from audiocraft.data.audio import audio_write # type: ignore
     except ImportError:
         logger.error("❌ 'audiocraft' library not found.")
         logger.info("Please install: pip install git+https://github.com/facebookresearch/audiocraft.git") # pylint: disable=line-too-long

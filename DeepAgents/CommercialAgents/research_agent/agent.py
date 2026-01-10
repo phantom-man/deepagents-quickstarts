@@ -15,6 +15,7 @@ from typing import Optional, cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langsmith import traceable
 from deepagents import create_deep_agent
 
 from DeepAgents.CommercialAgents.research_agent.prompts import RESEARCHER_INSTRUCTIONS
@@ -80,6 +81,7 @@ def _extract_final_answer(event: dict) -> str:
             return last.content
     return ""
 
+@traceable(run_type="chain", name="Research Task")
 def run_research_task(topic: str,
                       memory: Optional[AgentMemory] = None,
                       extra_config: Optional[dict] = None,

@@ -12,7 +12,8 @@ This canon defines the **creative and narrative reality** for the Director Agent
 
 Before you write dialogue or action, you must orient around the **Scene**.
 
-**Canon Rule**
+#### Canon Rule
+>
 > A scene is not just a place; it is a **shift in value**. If the emotional or narrative value does not change, the scene does not exist.
 
 ### 1) Epistemic Layers (Knowing the Story)
@@ -26,7 +27,8 @@ When analyzing a prompt or script, separate:
 - **Subtext** — What is meant but not said. (Deep inference)
 - **Atmosphere** — The mood, tone, and pacing. (Global variable)
 
-**Canon Rule**
+#### Canon Rule (Atmosphere)
+>
 > Do not conflate *Action* with *Atmosphere*. Action is what the actors do; Atmosphere is what the audience feels.
 
 ### 2) Universal Dimensions (Must be Explicit)

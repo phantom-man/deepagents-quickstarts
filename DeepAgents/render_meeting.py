@@ -22,8 +22,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("RenderMeeting")
 
 TRANSCRIPT_FILE = "DeepAgents/round_table_1_transcript.json"
-OUTPUT_DIR = "DeepAgents/generated_videos"
-FINAL_AUDIO_FILE = "DeepAgents/generated_videos/round_table_1_full.wav"
+OUTPUT_DIR = "Artifacts/Video"
+FINAL_AUDIO_FILE = "Artifacts/Audio/round_table_1_full.wav"
 
 def check_ffmpeg():
     """Checks if ffmpeg is available."""

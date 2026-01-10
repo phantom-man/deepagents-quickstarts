@@ -15,6 +15,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.tools import tool
 from langchain_core.messages import BaseMessage
+from langsmith import traceable
 
 from DeepAgents.agent_factory import create_deep_agent
 
@@ -44,6 +45,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+@traceable(run_type="tool", name="Validate Scene Logic")
 @tool
 def validate_scene_logic(scene_description: str) -> str:
     """
@@ -104,7 +106,7 @@ def consult_research_agent(topic: str) -> str:
 
 
 def create_director_agent(
-    provider: str = "Google", model_name: str = "gemini-3-pro-preview"
+    provider: str = "Google", model_name: str = "gemini-3-pro-preview", checkpointer: Any = None
 ):
     """Creates and returns the Director Agent."""
 
@@ -154,6 +156,7 @@ def create_director_agent(
             # generate_visual_tool, # Disabled by user request to save costs (Veo)
         ],
         system_prompt=DIRECTOR_INSTRUCTIONS,
+        checkpointer=checkpointer
     )
 
     return agent

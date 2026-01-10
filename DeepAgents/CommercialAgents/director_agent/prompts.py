@@ -66,11 +66,18 @@ For each shot, provide:
 
 def _get_instructions():
     # Attempt to pull from LangChain Hub
+    # Pinned Version SHA: None (Use 'latest' until production freeze)
+    PROMPT_VERSION = None # e.g., "78a...b12"
+    
     if os.getenv("LANGCHAIN_API_KEY"):
         try:
             client = Client()
             # Pulled from 'director-system-main' as per latest push
-            prompt_obj = client.pull_prompt("director-system-main")
+            if PROMPT_VERSION:
+                prompt_obj = client.pull_prompt("director-system-main", version=PROMPT_VERSION)
+            else:
+                prompt_obj = client.pull_prompt("director-system-main")
+                
             # Access the template string directly to avoid validation errors
             return prompt_obj.messages[0].prompt.template
         except Exception as e: # pylint: disable=broad-exception-caught

@@ -15,12 +15,12 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
 
 # Load env
-load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env")))
+load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env")))
 
 import time
 
 # Initialize Agent
-director_app = create_director_agent(model_name="gemini-2.0-flash-exp")
+director_app = create_director_agent(model_name="gemini-3-pro-preview")
 
 def target(inputs: dict) -> dict:
     """
@@ -48,14 +48,14 @@ def target(inputs: dict) -> dict:
     return {"output": answer}
 
 # Evaluator LLM
-eval_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp", temperature=0)
+eval_llm = ChatGoogleGenerativeAI(model="gemini-3-pro-preview", temperature=0)
 
 def element_presence_evaluator(run: Run, example: Example) -> dict:
     """
     Checks if reference elements are present in the output.
     """
-    prediction = run.outputs.get("output", "")
-    reference_elements = example.outputs.get("reference_elements", [])
+    prediction = (run.outputs or {}).get("output", "")
+    reference_elements = (example.outputs or {}).get("reference_elements", [])
     
     if not reference_elements:
         return {"key": "accuracy", "score": 1}
@@ -78,7 +78,12 @@ def element_presence_evaluator(run: Run, example: Example) -> dict:
     
     try:
         result = eval_llm.invoke(prompt)
-        score_text = result.content.strip()
+        score_text = result.content
+        # Handle potential list output from multimodal models
+        if isinstance(score_text, list):
+            score_text = "".join([str(item) for item in score_text])
+        
+        score_text = score_text.strip()
         score = float(score_text)
         return {"key": "accuracy", "score": score}
     except Exception as e:

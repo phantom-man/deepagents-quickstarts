@@ -81,10 +81,16 @@ Example format for `raw_findings.md`:
 
 def _get_instructions():
     # Attempt to pull from LangChain Hub
+    PROMPT_VERSION = None # Pin hash here for production freeze
+    
     if os.getenv("LANGCHAIN_API_KEY"):
         try:
             client = Client()
-            prompt_obj = client.pull_prompt("researcher-system-main")
+            if PROMPT_VERSION:
+                prompt_obj = client.pull_prompt("researcher-system-main", version=PROMPT_VERSION)
+            else:
+                prompt_obj = client.pull_prompt("researcher-system-main")
+                
             # Access the template string directly to avoid validation errors
             return prompt_obj.messages[0].prompt.template
         except Exception as e:
