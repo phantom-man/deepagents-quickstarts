@@ -31,6 +31,14 @@ except ImportError:
 def _initialize_llm(provider: str, model_name: str) -> Any:
     """Initialize the LLM based on provider."""
     try:
+        if provider == "Replicate":
+            # Requires REPLICATE_API_TOKEN in env
+            from langchain_community.chat_models import ChatReplicate
+            return ChatReplicate(
+                model=model_name,
+                model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
+            )
+
         if provider == "Google":
             project = os.getenv("GOOGLE_CLOUD_PROJECT")
             # Force global for preview models
@@ -80,11 +88,11 @@ def create_cinematographer_agent(
     Factory to create the Cinematographer Agent runner.
     """
     if model_config is None:
-        model_config = {"provider": "Google", "model": "gemini-3-pro-preview"}
+        model_config = {"provider": "Replicate", "model": "meta/meta-llama-3-8b-instruct"}
 
     # Configurations
-    provider = model_config.get("provider", "Google")
-    model_name = model_config.get("model", "gemini-3-pro-preview")
+    provider = model_config.get("provider", "Replicate")
+    model_name = model_config.get("model", "meta/meta-llama-3-8b-instruct")
 
     # img_provider = model_config.get("image_provider", "Google") # Unused currently effectively
     img_model = model_config.get("image_model", "imagen-3.0-generate-001")
@@ -104,30 +112,75 @@ def create_cinematographer_agent(
     # 2. Initialize Generative Client
     gen_client = _initialize_gen_client()
     ontology = CINEMATOGRAPHER_INSTRUCTIONS
+    
+    # Import Replicate and Requests for Image Generation
+    import replicate
+    import requests
+    from io import BytesIO
 
     # --- HELPER: Generate Image ---
     def generate_image(prompt: str) -> Optional[str]:
-        if not gen_client:
-            return "Error: No GenAI Client"
+        # Switch to Replicate (Flux/SDXL) due to Google Imagen Quotas
         try:
-            # Call Imagen
-            response = gen_client.models.generate_images(
-                model=img_model,
-                prompt=prompt,
-                config={
-                    'number_of_images': 1,
-                    # 'aspect_ratio': '16:9' # optional
+            logger.info("🎨 Cinematographer > Generating Image via Replicate (Flux)...")
+            
+            # Using black-forest-labs/flux-schnell (Speed Optimized)
+            # Documentation: https://replicate.com/black-forest-labs/flux-schnell/api
+            output = replicate.run(
+                "black-forest-labs/flux-schnell",
+                input={
+                    "prompt": prompt,
+                    "aspect_ratio": "16:9",  # Options: 1:1, 16:9, 21:9, 3:2, 2:3, 4:5, 5:4, 3:4, 4:3, 9:16, 9:21
+                    "num_inference_steps": 4, # 1-4 for Schnell (it is fast)
+                    "num_outputs": 1,
+                    "megapixels": "1", # Options: "1", "0.25"
+                    "go_fast": True, # Optimize for speed (fp8)
+                    "output_format": "png", # png for lossless quality
+                    # "seed": 42, # Optional: for determinism
+                    "disable_safety_checker": True
                 }
             )
-            if response.generated_images and response.generated_images[0].image:
-                img_data = response.generated_images[0].image.image_bytes
-                if img_data:
+            # Output is usually a list of file outputs (URLs or streams)
+            
+            error_msg = None
+            image_url = None
+
+            if isinstance(output, list) and len(output) > 0:
+                image_url = output[0]
+            elif isinstance(output, str):
+                image_url = output # Some models return just the string URL
+            
+            if image_url:
+                # Download the image bytes
+                logger.info("📥 Downloading generated image from %s", image_url)
+                response = requests.get(str(image_url))
+                if response.status_code == 200:
+                    img_data = response.content
                     # Save Asset
                     path = assets.save_asset(
                         img_data, "image", session_id, prompt,
-                        metadata={"model": img_model}
+                        metadata={
+                            "model": "black-forest-labs/flux-schnell", 
+                            "provider": "Replicate",
+                            "params": {"aspect_ratio": "16:9", "steps": 4, "format": "png"}
+                        }
                     )
                     return path
+                else:
+                    error_msg = f"Failed to download image: {response.status_code}"
+            else:
+                error_msg = "No image URL returned from Replicate."
+
+            if error_msg:
+                logger.error(error_msg)
+                return error_msg
+
+        except Exception as e:
+            logger.error(f"Generate Image Error: {e}")
+            return f"Error: {e}" 
+            
+    # --- HELPER: Generate Video ---
+    def generate_video(prompt: str, image_path: Optional[str] = None) -> Optional[str]:
             return None
         except Exception as e: # pylint: disable=broad-exception-caught
             return f"Image Gen Error: {e}"

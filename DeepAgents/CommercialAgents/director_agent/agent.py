@@ -106,7 +106,7 @@ def consult_research_agent(topic: str) -> str:
 
 
 def create_director_agent(
-    provider: str = "Google", model_name: str = "gemini-3-pro-preview", checkpointer: Any = None
+    provider: str = "Replicate", model_name: str = "meta/meta-llama-3-8b-instruct", checkpointer: Any = None
 ):
     """Creates and returns the Director Agent."""
 
@@ -117,8 +117,27 @@ def create_director_agent(
             model_name="claude-3-opus-20240229", # Fallback for Anthropic if passed generic name?
             temperature=0.7,
         )
+    elif provider == "Replicate":
+        logger.info("🎬 Initializing Replicate Model: %s", model_name)
+        try:
+             # Requires REPLICATE_API_TOKEN in env
+            from langchain_community.chat_models import ChatReplicate
+            model = ChatReplicate(
+                model=model_name,
+                model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
+            )
+        except Exception as e:
+            logger.error("Failed to initialize Replicate Model (%s): %s", model_name, e)
+            # Fallback to Google if Replicate fails?
+            model = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash",
+                temperature=0.7,
+                location="us-central1"
+            )
+
     else:
-        # Default to Google (Gemini 2.0 Flash Exp as Proxy for Gemini 3 Preview)
+        # Default to Google (Gemini)
+
         
         # User Directive: Location MUST be global for this model.
         location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
@@ -138,12 +157,20 @@ def create_director_agent(
             # But "failing that... use fallback" logic in strict mode?
             # User said: "for fall backs they must use our typical location"
             # So fallback IS allowed.
-            logger.info("Switching to Fallback Model (gemini-1.5-flash)...")
-            model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
-                temperature=0.7,
-                location="us-central1"
-            )
+            logger.info("Switching to Fallback Model (Replicate Llama 3)...")
+            try:
+                # Using basic Llama 3 8b via Replicate as a cheap backup
+                # Note: Requires REPLICATE_API_TOKEN in env
+                from langchain_community.chat_models import ChatReplicate
+                model = ChatReplicate(
+                    model="meta/meta-llama-3-8b-instruct",
+                    model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
+                )
+            except Exception as replicate_error:
+                logger.error(f"Replicate Fallback Failed: {replicate_error}. Creating Dummy Model.")
+                # Last resort to avoid crash loop
+                from langchain_core.language_models.fake import FakeListChatModel
+                model = FakeListChatModel(responses=["System Error: No LLM Available."])
 
     # Create the Deep Agent
     agent = create_deep_agent(

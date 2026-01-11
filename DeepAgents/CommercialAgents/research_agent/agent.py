@@ -31,26 +31,42 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_research_agent(model_name="gemini-3-pro-preview"):
+def create_research_agent(model_name="meta/meta-llama-3-8b-instruct"):
     """Creates and returns the Commercial Research Agent."""
 
     # Initialize the model
-    # Strict Rule: Global location for experimental models
-    location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
-    
-    try:
-        model = ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=0.0, # Research needs precision
-            location=location
-        )
-    except Exception:
-        # Fallback
-        model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
-            temperature=0.1,
-            location="us-central1"
-        )
+    if model_name.startswith("meta/") or "llama" in model_name.lower():
+        # Replicate
+        from langchain_community.chat_models import ChatReplicate
+        try:
+            model = ChatReplicate(
+                model=model_name,
+                model_kwargs={"temperature": 0.0, "max_length": 2048, "top_p": 1}
+            )
+        except Exception:
+             # Fallback
+            model = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash",
+                temperature=0.1,
+                location="us-central1"
+            )
+    else: 
+        # Strict Rule: Global location for experimental models
+        location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+        
+        try:
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
+                temperature=0.0, # Research needs precision
+                location=location
+            )
+        except Exception:
+            # Fallback
+            model = ChatGoogleGenerativeAI(
+                model="gemini-1.5-flash",
+                temperature=0.1,
+                location="us-central1"
+            )
 
     # Create the Deep Agent
     agent = create_deep_agent(
@@ -85,7 +101,7 @@ def _extract_final_answer(event: dict) -> str:
 def run_research_task(topic: str,
                       memory: Optional[AgentMemory] = None,
                       extra_config: Optional[dict] = None,
-                      model_name="gemini-3-pro-preview"): # Updated default
+                      model_name="meta/meta-llama-3-8b-instruct"): # Updated default
     """
     Executes a research task with memory integration.
     """

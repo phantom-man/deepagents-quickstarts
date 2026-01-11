@@ -1,0 +1,26 @@
+{
+    "Director": {
+        "provider": "Google",
+        "model": "gemini-3-pro-preview"
+    },
+    "Researcher": {
+        "provider": "Google",
+        "model": "gemini-3-pro-preview"
+    },
+    "Confidence": {
+        "provider": "Google",
+        "model": "gemini-3-pro-preview"
+    },
+    "Cinematographer": {
+        "provider": "Google",
+        "model": "gemini-3-pro-preview",
+        "image_provider": "Google",
+        "image_model": "imagen-4.0-ultra-generate-001",
+        "video_provider": "Google",
+        "video_model": "veo-3.1-fast-generate-001"
+    },
+    "Composer": {
+        "provider": "Replicate",
+        "model": "minimax/music-01"
+    }
+}

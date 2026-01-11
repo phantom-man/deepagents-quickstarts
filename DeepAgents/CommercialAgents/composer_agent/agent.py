@@ -528,26 +528,45 @@ def create_composer_agent(
     # Initialize LLM with Fallback
     llm = None
     try:
-        # USER REQUEST: "Gemini 3 Pro Preview"
-        # Using the preview model as requested and verified available.
-        target_model = "gemini-3-pro-preview"
+        # USER REQUEST: "Switch defaults to Replicate Llama 3 for testing"
+        target_model = "meta/meta-llama-3-8b-instruct"
 
         logger.info(f"🎻 Orpheus > Initializing Brain with {target_model}...")
-
+        
         try:
-            # Initialize: Set max_retries=0 to avoid annoying "Failover over and over" logs if model is 404
-            test_llm = ChatGoogleGenerativeAI(
+             # Requires REPLICATE_API_TOKEN in env
+            from langchain_community.chat_models import ChatReplicate
+            llm = ChatReplicate(
                 model=target_model,
-                temperature=0.7,
-                max_retries=1,
-                location="global", # User requirement for preview model: MUST BE GLOBAL
-                project=os.getenv("GOOGLE_CLOUD_PROJECT")
+                model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1}
             )
-            test_llm.invoke("Ping")  # Force API call
-            llm = test_llm
-            logger.info(f"✅ {target_model} is ONLINE.")
+        except Exception as e:
+            logger.warning(f"Replicate Init Failed: {e}. Falling back to Google.")
+            # Fallback Logic
+            target_model = "gemini-1.5-flash"
+            llm = ChatGoogleGenerativeAI(
+                model=target_model,
+                temperature=0.5,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1" # Flash is reliable here
+            )
 
-        except Exception:
+        if not llm:
+             raise ValueError("No LLM could be initialized")
+
+    except Exception as e:
+        logger.error(f"Brain Init Failed: {e}")
+        # Final Dummy Fallback
+        return lambda *args, **kwargs: f"Error: Agent Brain Died. {e}"
+
+    # 3. Initialize Agent
+    agent = create_deep_agent(
+        model=llm,
+        tools=[compose_tool, browse_library_tool], 
+        system_prompt=COMPOSER_INSTRUCTIONS,
+    )
+
+    return agent
             # logger.warning(f"⚠️ {target_model} Unavailable: {e}")
             # Simplify log to avoid panic
             logger.info(
