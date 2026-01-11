@@ -14,6 +14,7 @@ from typing import Optional, List
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 
 # Add Repo Root to Path
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -87,15 +88,23 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
 
         # Initialize LLM (Engineer Brain)
         try:
-            self.llm = ChatGoogleGenerativeAI(
-                model="gemini-3-pro-preview",
-                temperature=0.2,  # Lower temperature for engineering precision
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="global"
+            # Switched to Replicate (Llama 3 70B) per architectural decision 2026-01-10
+            self.llm = ChatReplicate(
+                model="meta/meta-llama-3-70b-instruct",
+                model_kwargs={"temperature": 0.2, "max_length": 4096}
             )
         except Exception as e:
-            print(f"⚠️ LLM Init Failed: {e}")
-            self.llm = None
+            print(f"⚠️ Replicate LLM Init Failed: {e}. Falling back to Google.")
+            try:
+                self.llm = ChatGoogleGenerativeAI(
+                    model="gemini-1.5-pro-001",
+                    temperature=0.2,
+                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
+                )
+            except Exception as e2:
+                 print(f"⚠️ Fallback LLM Init Failed: {e2}")
+                 self.llm = None
 
     def load_ontology(self) -> str:
         """Loads the Copilot Ontology."""

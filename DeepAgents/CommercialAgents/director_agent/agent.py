@@ -13,6 +13,7 @@ from typing import Dict, Any, List
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 from langchain.tools import tool
 from langchain_core.messages import BaseMessage
 from langsmith import traceable
@@ -56,14 +57,15 @@ def validate_scene_logic(scene_description: str) -> str:
     logger.info("🎬 Director > 🧠 Validating Scene Logic...")
 
     # We use a fresh LLM call for the critique (Self-Reflection)
-    project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    # Validator uses standard location for reliability unless restricted, but user wants global Gemini 3
-    validator_llm = ChatGoogleGenerativeAI(
-        model="gemini-3-pro-preview", 
-        temperature=0.1,
-        project=project,
-        location="global"
-    )
+    # Replaced Gemini-3 with Replicate Llama 3 70B for validation
+    try:
+        validator_llm = ChatReplicate(
+            model="meta/meta-llama-3-70b-instruct",
+            model_kwargs={"temperature": 0.1, "max_length": 2048}
+        )
+    except Exception as e:
+        logger.error("Validator LLM Init Failed: %s", e)
+        return "Validation System Offline (Check Replicate Token)"
 
     prompt = f"""
     CRITIQUE THIS SCENE for internal logic, continuity errors, and plot holes.
@@ -106,7 +108,7 @@ def consult_research_agent(topic: str) -> str:
 
 
 def create_director_agent(
-    provider: str = "Replicate", model_name: str = "meta/meta-llama-3-8b-instruct", checkpointer: Any = None
+    provider: str = "Replicate", model_name: str = "meta/meta-llama-3-70b-instruct", checkpointer: Any = None
 ):
     """Creates and returns the Director Agent."""
 

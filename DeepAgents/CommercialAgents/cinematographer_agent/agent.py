@@ -4,8 +4,8 @@ Handles the creation and execution of the Cinematographer agent
 for video and image generation.
 """
 import os
-import logging
 from typing import Optional, Dict, Any, Callable
+import requests
 
 from google import genai
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -95,10 +95,10 @@ def create_cinematographer_agent(
     model_name = model_config.get("model", "meta/meta-llama-3-8b-instruct")
 
     # img_provider = model_config.get("image_provider", "Google") # Unused currently effectively
-    img_model = model_config.get("image_model", "imagen-3.0-generate-001")
+    # img_model = model_config.get("image_model", "imagen-3.0-generate-001")
 
-    vid_provider = model_config.get("video_provider", "Google")
-    vid_model = model_config.get("video_model", "veo-2.0-generate-001")
+    vid_provider = model_config.get("video_provider", "Replicate")
+    vid_model = model_config.get("video_model", "zeroscope/v2-xl")
 
     # Asset Manager
     assets = AssetManager()
@@ -112,14 +112,11 @@ def create_cinematographer_agent(
     # 2. Initialize Generative Client
     gen_client = _initialize_gen_client()
     ontology = CINEMATOGRAPHER_INSTRUCTIONS
-    
-    # Import Replicate and Requests for Image Generation
-    import replicate
-    import requests
-    from io import BytesIO
-
     # --- HELPER: Generate Image ---
     def generate_image(prompt: str) -> Optional[str]:
+        if not replicate:
+            return "Error: Replicate module not installed."
+
         # Switch to Replicate (Flux/SDXL) due to Google Imagen Quotas
         try:
             logger.info("🎨 Cinematographer > Generating Image via Replicate (Flux)...")
@@ -130,88 +127,48 @@ def create_cinematographer_agent(
                 "black-forest-labs/flux-schnell",
                 input={
                     "prompt": prompt,
-                    "aspect_ratio": "16:9",  # Options: 1:1, 16:9, 21:9, 3:2, 2:3, 4:5, 5:4, 3:4, 4:3, 9:16, 9:21
-                    "num_inference_steps": 4, # 1-4 for Schnell (it is fast)
+                    "aspect_ratio": "16:9",
+                    "num_inference_steps": 4,
                     "num_outputs": 1,
-                    "megapixels": "1", # Options: "1", "0.25"
-                    "go_fast": True, # Optimize for speed (fp8)
-                    "output_format": "png", # png for lossless quality
-                    # "seed": 42, # Optional: for determinism
+                    "megapixels": "1",
+                    "go_fast": True,
+                    "output_format": "png",
                     "disable_safety_checker": True
                 }
             )
-            # Output is usually a list of file outputs (URLs or streams)
             
-            error_msg = None
             image_url = None
-
             if isinstance(output, list) and len(output) > 0:
                 image_url = output[0]
             elif isinstance(output, str):
-                image_url = output # Some models return just the string URL
+                image_url = output 
             
             if image_url:
-                # Download the image bytes
                 logger.info("📥 Downloading generated image from %s", image_url)
-                response = requests.get(str(image_url))
+                response = requests.get(str(image_url), timeout=30)
                 if response.status_code == 200:
                     img_data = response.content
-                    # Save Asset
-                    path = assets.save_asset(
+                    return assets.save_asset(
                         img_data, "image", session_id, prompt,
                         metadata={
                             "model": "black-forest-labs/flux-schnell", 
                             "provider": "Replicate",
-                            "params": {"aspect_ratio": "16:9", "steps": 4, "format": "png"}
+                            "params": {"aspect_ratio": "16:9", "steps": 4}
                         }
                     )
-                    return path
-                else:
-                    error_msg = f"Failed to download image: {response.status_code}"
-            else:
-                error_msg = "No image URL returned from Replicate."
-
-            if error_msg:
-                logger.error(error_msg)
-                return error_msg
+                return f"Failed to download image: {response.status_code}"
+            
+            return "No image URL returned from Replicate."
 
         except Exception as e:
             logger.error(f"Generate Image Error: {e}")
             return f"Error: {e}" 
-            
-    # --- HELPER: Generate Video ---
-    def generate_video(prompt: str, image_path: Optional[str] = None) -> Optional[str]:
-            return None
-        except Exception as e: # pylint: disable=broad-exception-caught
-            return f"Image Gen Error: {e}"
 
     # --- HELPER: Generate Video ---
     def generate_video(prompt: str) -> Optional[str]:
-        # 1. Google Vertex (Veo)
-        if vid_provider == "Google":
-            if not gen_client:
-                return "Error: No GenAI Client"
-            try:
-                # Veo generation prompt
-                response = gen_client.models.generate_content(
-                    model=vid_model,
-                    contents=prompt,
-                    config={
-                        'response_mime_type': 'video/mp4'
-                    }
-                )
-                candidates = response.candidates
-                if candidates and candidates[0].content and candidates[0].content.parts:
-                    part = candidates[0].content.parts[0]
-                    if part.inline_data and part.inline_data.data:
-                        path = assets.save_asset(
-                            part.inline_data.data, "video", session_id, prompt,
-                            metadata={"model": vid_model}
-                        )
-                        return path
-                return None
-            except Exception as e: # pylint: disable=broad-exception-caught
-                return f"Video Gen Error: {e}"
+        # 1. Google Vertex (Veo) - DEPRECATED by User Policy
+        # Proceed to Replicate default
+
 
         # 2. Replicate (Zeroscope, AnimateDiff, etc.)
         if vid_provider == "Replicate":

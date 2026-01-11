@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 
 # from google import genai # Disabled for now to prevent accidental usage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 try:
@@ -66,13 +67,20 @@ def refine_prompt_with_thinking(raw_prompt):
     """Uses a Reasoning Model to refine the prompt based on the Cinematographer Ontology."""
     print("🧠 Cinematographer is thinking... (Refining Prompt)")
 
-    # Switched to VertexAI/ADC and accessible model (Gemini 3 Pro)
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-3-pro-preview",
-        temperature=0.7,
-        project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-        location=os.getenv("GOOGLE_CLOUD_LOCATION")
-    )
+    # Switched to Replicate Llama 3 for Prompt Refinement
+    try:
+        llm = ChatReplicate(
+            model="meta/meta-llama-3-70b-instruct",
+            model_kwargs={"temperature": 0.7, "max_length": 4096}
+        )
+    except Exception as e:
+        print(f"⚠️ Replicate Init Failed: {e}. Falling back to Google.")
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-pro-001",
+            temperature=0.7,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location=os.getenv("GOOGLE_CLOUD_LOCATION")
+        )
 
     system_prompt = f"""You are the **Cinematographer Agent**.
     Your goal is to translate a raw concept into a perfect prompt for the Google Veo Video Generation Model.

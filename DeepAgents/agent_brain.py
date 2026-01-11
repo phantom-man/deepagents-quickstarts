@@ -150,16 +150,16 @@ class AgentConfig:
     def _default_config(self) -> Dict[str, Any]:
         """Returns default configuration."""
         return {
-            "Director": {"provider": "Google", "model": "gemini-3-pro-preview"},
-            "Researcher": {"provider": "Google", "model": "gemini-3-pro-preview"},
-            "Confidence": {"provider": "Google", "model": "gemini-3-pro-preview"},
+            "Director": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
+            "Researcher": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
+            "Confidence": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
             "Cinematographer": {
-                "provider": "Google",
-                "model": "gemini-3-pro-preview",
-                "image_provider": "Google",
-                "image_model": "imagen-4.0-ultra-generate-001",
-                "video_provider": "Google",
-                "video_model": "veo-3.1-fast-generate-001",
+                "provider": "Replicate",
+                "model": "meta/meta-llama-3-70b-instruct",
+                "image_provider": "Replicate",
+                "image_model": "black-forest-labs/flux-1.1-pro",
+                "video_provider": "Replicate",
+                "video_model": "zeroscope/v2-xl",
             },
             "Composer": {"provider": "Replicate", "model": "meta/musicgen"},
         }
@@ -177,7 +177,7 @@ class AgentConfig:
     def get_agent_config(self, agent_role: str) -> Dict[str, Any]:
         """Returns config for specific agent."""
         return self.config.get(
-            agent_role, {"provider": "Google", "model": "gemini-3-pro-preview"}
+            agent_role, {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"}
         )
 
     def set_agent_config(

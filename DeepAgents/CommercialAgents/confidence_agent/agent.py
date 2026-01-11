@@ -16,6 +16,7 @@ from typing import cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 from langchain.tools import tool
 from deepagents import create_deep_agent
 
@@ -48,22 +49,27 @@ def consult_research_agent(topic: str) -> str:
         return result
     return "Research Agent found no conclusive evidence."
 
-def create_confidence_agent(model_name="gemini-3-pro-preview"):
+def create_confidence_agent(model_name="meta/meta-llama-3-70b-instruct"):
     """Creates and returns the Confidence Agent."""
 
-    # Initialize the model
-    # Strict Rule: Global location for experimental models
-    location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
-
     try:
-        model = ChatGoogleGenerativeAI(
-            model=model_name,
-            temperature=0.0,
-            location=location,
-            max_retries=1
-        )
+        if "meta" in model_name or "replicate" in model_name.lower():
+             model = ChatReplicate(
+                model=model_name,
+                model_kwargs={"temperature": 0.0, "max_length": 4096}
+            )
+        else:
+             # Legacy / Google Path
+            location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
+                temperature=0.0,
+                location=location,
+                max_retries=1
+            )
     except Exception as e:
          logger.error("Failed to initialize Primary Model (%s): %s. Switching to fallback.", model_name, e)
+         # Fallback to standard Google Flash if Replicate fails
          model = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
             temperature=0.1,

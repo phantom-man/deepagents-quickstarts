@@ -69,7 +69,7 @@ async def main():
     )
     # Defaults to the powerful Gemini 3 Pro Preview (now verified working with global location)
     parser.add_argument(
-        "--model", type=str, default="gemini-3-pro-preview", help="Model Name"
+        "--model", type=str, default="meta/meta-llama-3-70b-instruct", help="Model Name"
     )
 
     args = parser.parse_args()

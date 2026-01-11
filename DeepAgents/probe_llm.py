@@ -50,7 +50,6 @@ def main():
     candidates = [
         "gemini-2.0-flash-001",
         "gemini-1.5-pro-001",
-        "gemini-3-pro-preview", 
     ]
     
     success = False

@@ -150,17 +150,26 @@ else:
             # Model Logic (Generic for now to avoid direct API calls in GUI loop)
             # We use a static list or cached list from session state if available 
             # (Note: Removed direct API call get_available_models from main loop for performance)
-            model_list = [saved_model, "gemini-1.5-pro", "gemini-1.5-flash", "gemini-3-pro-preview"]
+            model_list = [saved_model, "gemini-1.5-pro", "gemini-1.5-flash"]
             if provider == "Anthropic": model_list = ["claude-3-5-sonnet-20240620", "claude-3-opus-20240229"]
             
             # Replicate Specifics
             if provider == "Replicate":
                 if agent == "Composer":
                      options = get_model_options("audio")
-                     model_list = [k for n, k in options]
+                elif agent == "Cinematographer": # Use Video for Cinematographer (mostly) but what about LLM?
+                     # Cinematographer has two roles: prompts (LLM) and video (Gen). The dropdown here sets the MAIN model for the factory.
+                     # In `create_cinematographer_agent`, `model` is the LLM. `video_model` is separate.
+                     # So we should show LLM options here! 
+                     # Wait, Cinematographer was set to use Meta Llama 3 8B in config.
+                     options = get_model_options("llm")
+                elif agent in ["Director", "Researcher", "Confidence"]:
+                     options = get_model_options("llm")
                 else: 
-                     options = get_model_options("video")
-                     model_list = [k for n, k in options]
+                     # Default fallback
+                     options = get_model_options("llm")
+                
+                model_list = [k for n, k in options]
             
             model = st.selectbox(f"Model ({agent})", model_list, index=0, key=f"mod_{agent}")
             

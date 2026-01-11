@@ -76,10 +76,12 @@ I will check this file when I am unsure of the architectural pattern to apply.
 
 ### A. Model Mandates (Strict)
 
-1. **Primary Model:** All agents MUST use **Gemini 3 Pro Preview** (referenced in code as `gemini-3-pro-preview`).
-2. **Primary Location:** The location for this model MUST be set to `global`.
-3. **Fallback Model:** If the primary model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`us-central1`).
-4. **Error Protocol:**
+1. **Primary Model (LLM):** All agents MUST use **Replicate** hosting **Meta Llama 3 70B Instruct** (referenced as `meta/meta-llama-3-70b-instruct`).
+2. **Primary Model (Video):** MUST use **Zeroscope** or comparable Replicate model. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
+3. **Primary Model (Audio):** Replicate (MusicGen, etc.).
+4. **Fallback Model:** If the primary Replicate model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`global` or `us-central1`).
+5. **Deprecated/Forbidden:** `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
+6. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.
     - Do NOT guess solutions.
     - **Consult the User** immediately if simple fixes fail.

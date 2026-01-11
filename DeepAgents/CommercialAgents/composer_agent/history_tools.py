@@ -8,6 +8,7 @@ import logging
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 import os
 
 # Setup Logger
@@ -27,11 +28,9 @@ def get_history_llm():
     global _HISTORY_LLM
     if _HISTORY_LLM is None:
         try:
-            _HISTORY_LLM = ChatGoogleGenerativeAI(
-                model="gemini-3-pro-preview", 
-                temperature=0.7,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="global"
+            _HISTORY_LLM = ChatReplicate(
+                model="meta/meta-llama-3-70b-instruct",
+                model_kwargs={"temperature": 0.7}
             )
         except Exception:
             _HISTORY_LLM = None

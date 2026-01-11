@@ -16,6 +16,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.chat_models import ChatReplicate
 from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
 
@@ -428,20 +429,16 @@ def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> s
          target_model = "minimax/music-01"
     elif "musicgen" in model_name:
          target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-    else:
-         # Default to Google Lyria-2
-         target_model = "google/lyria-2"
+    target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
 
     # We might need an LLM for lyrics if Minimax
     # Using lazy import to avoid circular dependency or heavy init if unused
     llm_for_lyrics = None
     try:
-        # Simple default configuration for the lyrics helper
-        llm_for_lyrics = ChatGoogleGenerativeAI(
-            model="gemini-3-pro-preview", 
-            temperature=0.7, 
-            project=os.getenv("GOOGLE_CLOUD_PROJECT"), 
-            location="global"
+        # Simple default configuration for the lyrics helper: Replicate Llama 3
+        llm_for_lyrics = ChatReplicate(
+            model="meta/meta-llama-3-70b-instruct", 
+            model_kwargs={"temperature": 0.7, "max_length": 2048} 
         )
     except Exception as e:
         logger.warning("Could not init LLM for lyrics, continuing without: %s", e)
@@ -567,137 +564,4 @@ def create_composer_agent(
     )
 
     return agent
-            # logger.warning(f"⚠️ {target_model} Unavailable: {e}")
-            # Simplify log to avoid panic
-            logger.info(
-                f"ℹ️ {target_model} not reachable (Access/Region). Switching to fallback."
-            )
 
-            # Fallback
-            fallback = "gemini-1.5-pro-001"
-            try:
-                test_llm = ChatGoogleGenerativeAI(
-                    model=fallback, 
-                    temperature=0.7, 
-                    max_retries=0, 
-                    project=os.getenv("GOOGLE_CLOUD_PROJECT"), 
-                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
-                )
-                test_llm.invoke("Ping")
-                llm = test_llm
-                logger.info(f"Using Fallback: {fallback}")
-            except Exception:
-                logger.info("Using Fallback: gemini-2.0-flash-001")
-                llm = ChatGoogleGenerativeAI(
-                    model="gemini-2.0-flash-001", 
-                    temperature=0.7,
-                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
-                )
-
-        if provider == "Anthropic":
-            llm = ChatAnthropic(
-                model_name=model_name, temperature=0.7, timeout=None, stop=None
-            )
-
-    except Exception as e:
-        logger.error("Composer LLM Init Failed: %s", e)
-        # Continue with llm=None (Passive Mode)
-
-        logger.error("Composer LLM Init Failed: %s", e)
-        if provider != "Replicate":
-            return None
-
-    # Load Ontology
-    try:
-        ontology_path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            "../../Canon/Composer_Ontology.md",
-        )
-        if os.path.exists(ontology_path):
-            with open(ontology_path, "r", encoding="utf-8") as f:
-                ontology = f.read()
-        else:
-            ontology = "You are a Composer Agent. Create music."
-    except Exception:  # pylint: disable=broad-exception-caught
-        ontology = "You are a Composer Agent."
-
-    def run_agent(
-        input_text: str, chat_history: Any = None
-    ) -> str:  # pylint: disable=unused-argument
-        logger.info("🎻 Composer receiving input: %s...", input_text[:50])
-
-        # --- PATH A: REPLICATE (AUDIO) ---
-        if provider == "Replicate":
-            return _handle_replicate_generation(
-                model_name=model_name,
-                input_text=input_text,
-                llm=llm,
-                assets=assets,
-                session_id=session_id,
-            )
-
-        # --- PATH B: LLM (TEXT/ABC) ---
-        context_str = ""
-        if brain:
-            memories = brain.recall(input_text, limit=2)
-            if memories:
-                context_str += "\n\n🧠 **Musical Memory Recall**:\n"
-                for m in memories:
-                    context_str += f"- Past Composition: {m['text'][:200]}...\n"
-
-        final_system_prompt = (
-            f"{ontology}\n\n{context_str}\n\n"
-            "If you need to research a musical style, use the 'composer_consult_research' tool."
-        )
-
-        if not llm:
-            return "Error: LLM not initialized for Composer."
-
-        # Define tools, including new history tools if available
-        tools = [composer_consult_research, generate_music_audio]
-        if narrative_reconstruction:
-            tools.append(narrative_reconstruction)
-        if counterfactual_simulation:
-            tools.append(counterfactual_simulation)
-
-        agent = create_deep_agent(
-            model=llm, tools=tools, system_prompt=final_system_prompt
-        )
-
-        final_output = ""
-        config = {"configurable": {"thread_id": f"composer_{session_id}"}}
-
-        try:
-            for event in agent.stream(
-                {"messages": [("user", input_text)]}, config=config  # type: ignore
-            ):
-                for val in event.values():
-                    msgs = []
-                    if isinstance(val, dict) and "messages" in val:
-                        msgs = val["messages"]
-                        if hasattr(msgs, "value"):
-                            msgs = msgs.value
-                    elif hasattr(val, "messages"):
-                        msgs = getattr(val, "messages", [])
-
-                    if msgs:
-                        last_msg = msgs[-1]
-                        if hasattr(last_msg, "content") and last_msg.content:
-                            final_output = last_msg.content
-
-            # Memory Storage
-            if brain and len(final_output) > 50:
-                brain.memorize(
-                    f"Composition Request: {input_text}\nResult: {final_output[:200]}...",
-                    agent_role="Composer",
-                    tags=["music", "composition"],
-                )
-
-            return final_output
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("Composer Generation Error: %s", e)
-            return f"Error composing score: {e}"
-
-    return run_agent

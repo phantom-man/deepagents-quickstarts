@@ -105,19 +105,20 @@ REPLICATE_MODELS = {
         }
     },
 
+    # === LLM (TEXT) ===
+    "llm": {
+        "meta/meta-llama-3-70b-instruct": {
+            "id": "meta/meta-llama-3-70b-instruct",
+            "name": "Meta Llama 3 70B Instruct",
+            "provider": "Replicate",
+            "cost_type": "low",
+            "pricing": {"type": "token", "cost": 0.00065}, 
+            "inputs": [] 
+        },
+    },
+
     # === VIDEO ===
     "video": {
-        "google/veo": {
-            "id": "veo-2.0-generate-001",
-            "name": "Google Veo 2 (High Quality, 1080p)",
-            "provider": "Google",
-            "cost_type": "high",
-            "pricing": {"type": "second", "cost": 0.50},  # Approx per second
-            "inputs": [
-                # Veo inputs handled via Vertex SDK, but listed here for menu consistency
-                {"name": "prompt", "type": "text", "label": "Prompt", "default": ""}
-            ]
-        },
         "zeroscope/v2-xl": {
             "id": ("anotherjesse/zeroscope-v2-xl:"
                    "9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351"),

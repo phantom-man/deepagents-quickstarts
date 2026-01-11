@@ -6,6 +6,7 @@ and request resources or tools to enhance their performance.
 
 import json
 import logging
+from langchain_community.chat_models import ChatReplicate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
@@ -16,14 +17,19 @@ load_dotenv("DeepAgents/.env")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("PerformanceTable")
 
-# Use Gemini 3 Pro (Preview) - Location MUST be global
-# Must provide project to use Vertex AI auth instead of API Key
-llm = ChatGoogleGenerativeAI(
-    model="gemini-3-pro-preview",
-    temperature=0.8,
-    project="crafty-hook-483415-b3",
-    location="global"
-)
+# Use Replicate Llama 3 70B as default brain
+try:
+    llm = ChatReplicate(
+        model="meta/meta-llama-3-70b-instruct",
+        model_kwargs={"temperature": 0.8}
+    )
+except Exception:
+    # Fallback
+    llm = ChatGoogleGenerativeAI(
+        model="gemini-1.5-pro-001",
+        temperature=0.8,
+        location="global"
+    )
 
 AGENTS = [
     {"name": "Director", "role": "Orchestrator, strategic, polite but firm."},
