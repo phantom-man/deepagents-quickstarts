@@ -29,7 +29,13 @@ jobs:
     - name: Run Director Agent Evaluation
       env:
         LANGCHAIN_TRACING_V2: "true"
-        LANGCHAIN_API_KEY: "fffffffffffff"
+        LANGCHAIN_API_KEY: "${{ secrets.LANGCHAIN_API_KEY }}"
         GOOGLE_API_KEY: "${{ secrets.GOOGLE_API_KEY }}"
         DEEPAGENTS_API_KEY: "${{ secrets.DEEPAGENTS_API_KEY }}"
+        REPLICATE_API_TOKEN: "${{ secrets.REPLICATE_API_TOKEN }}"
+        TAVILY_API_KEY: "${{ secrets.TAVILY_API_KEY }}"
+        ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}"
+        LANGCHAIN_HUB_HANDLE: "damienfosborn"
+        GOOGLE_CLOUD_PROJECT: "crafty-hook-483415-b3"
+        GOOGLE_CLOUD_LOCATION: "global"
       run: python DeepAgents/evaluations/run_director_eval.py
