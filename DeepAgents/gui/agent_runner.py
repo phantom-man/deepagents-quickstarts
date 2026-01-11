@@ -84,24 +84,49 @@ class AgentRunner:
                         config=config # type: ignore
                     ):
                         # Parsing Logic
-                        for key in event:
-                            val = event[key]
-                            msgs = []
-                            
-                            if isinstance(val, dict) and "messages" in val:
-                                msgs = val["messages"]
-                                if hasattr(msgs, "value"): msgs = msgs.value
-                            elif hasattr(val, "messages"):
-                                msgs = getattr(val, "messages", [])
-                                
-                            if msgs and isinstance(msgs, list):
-                                msg = msgs[-1]
-                                if hasattr(msg, "content") and msg.content:
+                        # Check if event is the raw messages dict (SimpleReActExecutor case)
+                        if "messages" in event and isinstance(event["messages"], list):
+                             msgs = event["messages"]
+                             msg = msgs[-1]
+                             
+                             # Ensure we only capture AI output, not input echoes
+                             is_ai = False
+                             if hasattr(msg, "type") and msg.type == "ai":
+                                 is_ai = True
+                             elif hasattr(msg, "__class__") and "AIMessage" in msg.__class__.__name__:
+                                 is_ai = True
+                             
+                             if is_ai and hasattr(msg, "content") and msg.content:
                                      events_to_yield.append(("Director", "output", msg.content))
-                                if hasattr(msg, "tool_calls") and msg.tool_calls:
-                                     for tc in msg.tool_calls:
-                                         log_entry = f"Calling Tool: {tc['name']} with args {tc['args']}"
-                                         events_to_yield.append(("Director", "thinking", log_entry))
+                        
+                        else:
+                            # LangGraph case: {"node": {"messages": ...}}
+                            for key in event:
+                                val = event[key]
+                                msgs = []
+                                
+                                if isinstance(val, dict) and "messages" in val:
+                                    msgs = val["messages"]
+                                    if hasattr(msgs, "value"): msgs = msgs.value
+                                elif hasattr(val, "messages"):
+                                    msgs = getattr(val, "messages", [])
+                                    
+                                if msgs and isinstance(msgs, list):
+                                    msg = msgs[-1]
+                                    
+                                    # Ensure we only capture AI output
+                                    is_ai = False
+                                    if hasattr(msg, "type") and msg.type == "ai":
+                                        is_ai = True
+                                    elif hasattr(msg, "__class__") and "AIMessage" in msg.__class__.__name__:
+                                        is_ai = True
+                                        
+                                    if is_ai and hasattr(msg, "content") and msg.content:
+                                        events_to_yield.append(("Director", "output", msg.content))
+                                    if is_ai and hasattr(msg, "tool_calls") and msg.tool_calls:
+                                        for tc in msg.tool_calls:
+                                            log_entry = f"Calling Tool: {tc['name']} with args {tc['args']}"
+                                            events_to_yield.append(("Director", "thinking", log_entry))
 
             except Exception as e:
                 events_to_yield.append(("Director", "error", str(e)))
