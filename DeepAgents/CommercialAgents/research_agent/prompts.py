@@ -94,7 +94,7 @@ def _get_instructions():
             # Access the template string directly to avoid validation errors
             return prompt_obj.messages[0].prompt.template
         except Exception as e:
-            logger.warning("Failed to pull Research prompt from Hub: %s. Using local fallback.", e)
+            logger.debug("Hub Fetch Skipped/Failed (%s). Using Local Default.", e)
     return RESEARCHER_INSTRUCTIONS
 
 # Exposed constant

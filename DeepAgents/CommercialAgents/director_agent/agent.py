@@ -149,10 +149,10 @@ def create_director_agent(
     agent = create_deep_agent(
         model=model,
         tools=[
-            consult_research_agent,
-            validate_scene_logic,
-            compose_tool,
-            merge_tool,
+            # consult_research_agent,
+            # validate_scene_logic,
+            # compose_tool,
+            # merge_tool,
             # generate_visual_tool, # Disabled by user request to save costs (Veo)
         ],
         system_prompt=DIRECTOR_INSTRUCTIONS,

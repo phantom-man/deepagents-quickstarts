@@ -13,11 +13,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from DeepAgents.gui.diagnostics_service import run_diagnostics
 from DeepAgents.gui.history_manager import SessionManager, list_sessions
 from DeepAgents.gui.agent_runner import AgentRunner
-from DeepAgents.agent_brain import AgentConfig  # New Config Manager
-# from DeepAgents.list_models import get_available_models # Removed to avoid conflict with local function
+from DeepAgents.agent_brain import AgentConfig
 from DeepAgents.asset_manager import AssetManager
 from DeepAgents.model_registry import REPLICATE_MODELS, get_model_options, get_model_info 
-from DeepAgents.cost_calculator import estimate_cost # NEW Cost Service
+from DeepAgents.cost_calculator import estimate_cost
 
 # Initialize Config
 config_manager = AgentConfig()
@@ -34,322 +33,75 @@ st.markdown("""
         border-radius: 5px;
         margin-bottom: 10px;
     }
-    .director { border-left: 5px solid #FF4B4B; background-color: #262730; }
-    .researcher { border-left: 5px solid #1E88E5; background-color: #262730; }
-    .confidence { border-left: 5px solid #00C853; background-color: #262730; }
-    .cinematographer { border-left: 5px solid #FFD600; background-color: #262730; } 
-    .stSelectbox label { font-size: 0.9em; font-weight: bold; }
+    .status-box {
+        padding: 10px;
+        border-radius: 5px;
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    .status-ok { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .status-err { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    .stButton button:disabled {
+        background-color: #cccccc;
+        color: #666666;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- HELPER FUNCTIONS ---
-def get_available_models():
-    """
-    Checks connections and returns available models for each provider.
-    """
-    models = {
-        "Google": {"text": [], "image": [], "video": []},
-        "Anthropic": {"text": []},
-        "Other": {"image": [], "video": []}
-    }
+# --- AUTO-INITIALIZATION ---
+if "diagnostics" not in st.session_state:
+    st.session_state.diagnostics = run_diagnostics()
+
+# Check global health
+critical_systems = ["Internet", "GCP (LLM)", "Postgres (Nervous System)", "LanceDB (Memory)"]
+system_health = True
+failed_systems = []
+
+# --- TOP DASHBOARD ---
+st.title("🤖 DeepAgents Orchestrator")
+
+with st.expander("🔌 System Status Board", expanded=True):
+    # Dynamic Columns for Status
+    diag_results = st.session_state.diagnostics
+    cols = st.columns(len(diag_results))
     
-    # Check Google
-    try:
-        from google import genai
-        # Try to use standard env var or fallback
-        project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GOOGLE_PROJECT_ID")
-        location = "us-central1"
-        if project_id:
-            client = genai.Client(vertexai=True, project=project_id, location=location)
+    for idx, (sys_name, res) in enumerate(diag_results.items()):
+        is_ok = res["status"]
+        if sys_name in critical_systems and not is_ok:
+            system_health = False
+            failed_systems.append(sys_name)
             
-            # Simple list
-            g_models = list(client.models.list())
-            for m in g_models:
-                # Ensure name exists
-                if not m.name: continue
-                name = m.name.split('/')[-1] # simplified name
-                # Categorize
-                if "gemini" in name.lower():
-                    models["Google"]["text"].append(name)
-                elif "imagen" in name.lower():
-                     models["Google"]["image"].append(name)
-                elif "veo" in name.lower():
-                     models["Google"]["video"].append(name)
-            
-            # Fallbacks if list is empty or specific models known
-            if not models["Google"]["image"]:
-                models["Google"]["image"] = [
-                    "imagen-4.0-ultra-generate-001",
-                    "imagen-4.0-generate-001",
-                    "imagen-4.0-fast-generate-001",
-                    "imagen-3.0-generate-001"
-                ]
-            if not models["Google"]["video"]:
-                models["Google"]["video"] = [
-                    "veo-3.1-generate-001",
-                    "veo-3.1-fast-generate-001",
-                    "veo-3.0-generate-001",
-                    "veo-2.0-generate-001"
-                ] # Future/Preview
+        with cols[idx]:
+            indicator = "🟢" if is_ok else "🔴"
+            st.markdown(f"**{sys_name}**")
+            st.markdown(f"### {indicator}")
+            if not is_ok:
+                st.caption(f"Error: {res['message']}")
+            else:
+                st.caption("Online")
 
+    # Retry Logic
+    st.divider()
+    r_col1, r_col2 = st.columns([1, 4])
+    with r_col1:
+        # Retry Button: Disabled if everything is green
+        retry_disabled = (len(failed_systems) == 0)
+        if st.button("🔄 Re-Initialize System", disabled=retry_disabled, type="primary" if not retry_disabled else "secondary"):
+            st.session_state.diagnostics = run_diagnostics()
+            st.rerun()
+    with r_col2:
+        if not retry_disabled:
+            st.warning("⚠️ Failures Detected. Fix issues and press Re-Initialize.")
         else:
-             # Fallback if no project ID but maybe API key
-             models["Google"]["text"] = ["gemini-1.5-pro", "gemini-1.5-flash"]
-             models["Google"]["image"] = ["imagen-4.0-ultra-generate-001", "imagen-3.0-generate-001"]
-             models["Google"]["video"] = ["veo-3.1-generate-001", "veo-2.0-generate-001"]
-                 
-    except Exception as e:
-        # st.toast(f"Google Connection Failed: {e}", icon="⚠️")
-        # Fallback defaults
-        models["Google"]["text"] = ["gemini-1.5-pro", "gemini-1.5-flash"]
-        models["Google"]["image"] = ["imagen-4.0-ultra-generate-001", "imagen-3.0-generate-001"]
-        models["Google"]["video"] = ["veo-3.1-generate-001", "veo-2.0-generate-001"]
+            st.success("✅ All Systems Operational. Dashboard Unlocked.")
 
-    # Check Anthropic
-    try:
-        # Anthropic doesn't have a simple "list models" API in the same way, using standard list
-        models["Anthropic"]["text"] = [
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307",
-            "claude-3-5-sonnet-20240620"
-        ]
-    except Exception as e:
-        pass
-
-    return models
-
-# --- SIDEBAR: CONTROLS & DIAGNOSTICS ---
+# --- SIDEBAR: CONFIGURATION ---
 st.sidebar.title("🎛️ Control Center")
 
-# 1. Diagnostics & Pre-flight
-st.sidebar.subheader("System Status")
-
-if "connection_checked" not in st.session_state:
-    st.session_state.connection_checked = False
-if "available_models" not in st.session_state:
-    st.session_state.available_models = {}
-
-col_chk1, col_chk2 = st.sidebar.columns([2,1])
-with col_chk1:
-    if st.button("🚀 Check Connections", type="primary"):
-        with st.sidebar.status("Running Pre-flight Checks...", expanded=True):
-            # 1. Run Diagnostics
-            results = run_diagnostics()
-            all_ok = True
-            for sys_name, res in results.items():
-                if res["status"]:
-                    st.write(f"✅ {sys_name}")
-                else:
-                    st.write(f"❌ {sys_name}: {res.get('message')}")
-                    all_ok = False
-            
-            # 2. Fetch Models
-            st.write("📡 Querying Providers...")
-            st.session_state.available_models = get_available_models()
-            st.write(f"Found {len(st.session_state.available_models['Google']['text'])} Google Models")
-            
-            st.session_state.connection_checked = True
-            st.success("Ready for Launch!")
-
-# 2. Configuration (Selectors)
-st.sidebar.divider()
-st.sidebar.subheader("Agent Configuration")
-
-agents = ["Director", "Researcher", "Confidence", "Cinematographer", "Composer"]
-# Load current config
-current_conf = config_manager.config 
-
-if not st.session_state.connection_checked:
-    st.sidebar.info("👋 Click 'Check Connections' to unlock configuration.")
-    for agent in agents:
-        with st.sidebar.expander(f"{agent} Settings", expanded=False):
-            st.caption("🔒 Locked")
-else:
-    # Render Selectors
-    for agent in agents:
-        with st.sidebar.expander(f"⚙️ {agent} Settings", expanded=False):
-            # Load saved values
-            saved_provider = current_conf.get(agent, {}).get("provider", "Google")
-            saved_model = current_conf.get(agent, {}).get("model", "gemini-1.5-flash")
-            
-            # 1. Provider Selector
-            # Cinematographer has different providers for now (Video/Image)
-            providers = ["Google", "Anthropic"]
-            if agent == "Composer":
-                providers = ["Google", "Anthropic", "Replicate"]
-                
-            try: 
-                prov_idx = providers.index(saved_provider) 
-            except ValueError: 
-                prov_idx = 0
-                
-            provider = st.selectbox(f"Provider ({agent})", providers, index=prov_idx, key=f"prov_{agent}")
-            
-            # 2. Model Selector
-            if provider in ["Google", "Anthropic"]:
-                model_list = st.session_state.available_models.get(provider, {}).get("text", [])
-            elif provider == "Replicate":
-                # === NEW: Dynamic Model Registry Integration ===
-                if agent == "Composer":
-                     # Audio Models
-                     options = get_model_options("audio")
-                     model_list = [k for n, k in options] # Key names
-                     # Add legacy fallback just in case
-                     if "minimax/music-01" not in model_list: model_list.append("minimax/music-01")
-                else:
-                    # Default
-                    model_list = ["minimax/music-01", "meta/musicgen", "Other Audio..."]
-                
-                existing_token = os.getenv("REPLICATE_API_TOKEN")
-                if existing_token:
-                    st.success("✅ Replicate Token found in .env")
-                else:
-                    st.warning("⚠️ Token missing from environment.")
-                    tok = st.text_input("Enter Replicate Token", type="password", key="repl_tok")
-                    if tok: os.environ["REPLICATE_API_TOKEN"] = tok
-            else:
-                model_list = []
-            
-            if not model_list:
-                model_list = [saved_model] # Fallback
-                
-            try:
-                mod_idx = model_list.index(saved_model)
-            except ValueError:
-                if saved_model not in model_list:
-                    model_list.append(saved_model)
-                mod_idx = model_list.index(saved_model)
-            
-            model = st.selectbox(f"Model ({agent})", model_list, index=mod_idx, key=f"mod_{agent}")
-            
-            # SHOW DYNAMIC PARAMS (If Replicate)
-            if provider == "Replicate":
-                cat = "audio" if agent == "Composer" else None
-                if cat: 
-                    info = get_model_info(cat, model)
-                    if info and "inputs" in info:
-                        st.caption(f"🔧 {info['name']} Options")
-                        for inp in info["inputs"]:
-                            # Render widget based on type
-                            key_name = f"param_{agent}_{inp['name']}"
-                            # Try to get saved value from extras
-                            saved_val = current_conf.get(agent, {}).get(inp["name"], inp.get("default"))
-                            
-                            new_val = saved_val
-                            if inp["type"] == "text":
-                                new_val = st.text_input(inp["label"], value=saved_val, key=key_name)
-                            elif inp["type"] == "textarea":
-                                new_val = st.text_area(inp["label"], value=saved_val, key=key_name)
-                            elif inp["type"] == "number":
-                                new_val = st.number_input(inp["label"], value=saved_val, min_value=inp.get("min"), max_value=inp.get("max"), start_value=inp.get("default"), key=key_name)
-                            elif inp["type"] == "select":
-                                opts = inp.get("options", [])
-                                idx = 0
-                                if saved_val in opts: idx = opts.index(saved_val)
-                                new_val = st.selectbox(inp["label"], opts, index=idx, key=key_name)
-                            
-                            # Update Extras
-                            extras[inp["name"]] = new_val
-                            if new_val != current_conf.get(agent, {}).get(inp["name"]): needs_save = True
-
-            # 3. Extra Selectors for Cinematographer (Image/Video)
-            extras = {}
-            needs_save = False
-
-            # Check basic Text Model changes
-            if provider != saved_provider or model != saved_model:
-                needs_save = True
-
-            if agent == "Director":
-                st.markdown("---")
-                st.caption("🎬 Production Settings")
-                
-                # Shot Quota
-                saved_shots = current_conf.get(agent, {}).get("max_shots", 2)
-                shots_val = st.number_input("Max Shots per Scene (Quota)", min_value=1, max_value=10, value=saved_shots, step=1, key="dir_max_shots")
-                extras["max_shots"] = shots_val
-                if shots_val != saved_shots: needs_save = True
-                
-                # Video Duration defaults
-                saved_dur = current_conf.get(agent, {}).get("duration", 5)
-                # Durations often model dependent (Veo 3: 4s, 8s etc). We'll give generic int.
-                dur_val = st.number_input("Clip Duration (Seconds)", min_value=1, max_value=60, value=saved_dur, step=1, key="dir_dur_sec")
-                extras["duration"] = dur_val
-                if dur_val != saved_dur: needs_save = True
-
-            if agent == "Cinematographer":
-                st.markdown("---")
-                
-                # --- Image Generation ---
-                st.caption("🎨 Image Generation")
-                saved_img_prov = current_conf.get(agent, {}).get("image_provider", "Google")
-                saved_img_mod = current_conf.get(agent, {}).get("image_model", "imagen-3.0-generate-001")
-                
-                img_providers = ["Google", "Other"]
-                img_provider_val = st.selectbox("Image Provider", img_providers, index=0 if saved_img_prov=="Google" else 1, key="cine_img_prov")
-                
-                img_models = st.session_state.available_models.get(img_provider_val, {}).get("image", ["imagen-3.0"])
-                # Handle fallback logic
-                if saved_img_mod not in img_models: img_models.append(saved_img_mod)
-                img_model_val = st.selectbox("Image Model", img_models, index=img_models.index(saved_img_mod) if saved_img_mod in img_models else 0, key="cine_img_mod")
-
-                # --- Video Generation ---
-                st.caption("🎥 Video Generation")
-                saved_vid_prov = current_conf.get(agent, {}).get("video_provider", "Google")
-                saved_vid_mod = current_conf.get(agent, {}).get("video_model", "veo-2.0-generate-001")
-                
-                vid_providers = ["Google", "Replicate", "Other"]
-                vid_provider_val = st.selectbox("Video Provider", vid_providers, index=0 if saved_vid_prov=="Google" else (1 if saved_vid_prov=="Replicate" else 2), key="cine_vid_prov")
-                
-                if vid_provider_val == "Replicate":
-                    # Get from Registry
-                    options = get_model_options("video")
-                    vid_models = [k for n, k in options]
-                else:
-                    vid_models = st.session_state.available_models.get(vid_provider_val, {}).get("video", ["veo-2.0"])
-                
-                if saved_vid_mod not in vid_models: vid_models.append(saved_vid_mod)
-                vid_model_val = st.selectbox("Video Model", vid_models, index=vid_models.index(saved_vid_mod) if saved_vid_mod in vid_models else 0, key="cine_vid_mod")
-
-                # Replicate Video Extras
-                if vid_provider_val == "Replicate":
-                    info = get_model_info("video", vid_model_val)
-                    if info and "inputs" in info:
-                        st.caption(f"🔧 {info['name']} Options")
-                        for inp in info["inputs"]:
-                             # Don't show Prompt here as that comes from Agent logic usually, but we can allow override?
-                             if inp["name"] == "prompt": continue 
-
-                             key_name = f"param_vid_{inp['name']}"
-                             saved_val = current_conf.get(agent, {}).get(inp["name"], inp.get("default"))
-                             new_val = saved_val
-                             
-                             if inp["type"] == "text": new_val = st.text_input(inp["label"], value=saved_val, key=key_name)
-                             elif inp["type"] == "number": new_val = st.number_input(inp["label"], value=saved_val, min_value=inp.get("min"), max_value=inp.get("max"), start_value=inp.get("default"), key=key_name)
-                             
-                             extras[inp["name"]] = new_val
-                             if new_val != saved_val: needs_save = True
-
-                # Populate Extras and Check for Changes
-                extras["image_provider"] = img_provider_val
-                extras["image_model"] = img_model_val
-                extras["video_provider"] = vid_provider_val
-                extras["video_model"] = vid_model_val
-
-                if img_provider_val != saved_img_prov or img_model_val != saved_img_mod: needs_save = True
-                if vid_provider_val != saved_vid_prov or vid_model_val != saved_vid_mod: needs_save = True
-
-            
-            if needs_save:
-                config_manager.set_agent_config(agent, provider, model, **extras)
-                st.toast(f"Saved {agent} Configuration")
-
-
-# 3. History / Session
-st.sidebar.divider()
+# History / Session
 st.sidebar.subheader("Time Travel")
-mode = st.sidebar.radio("Mode", ["Live Operation", "Review History"])
+mode = st.sidebar.radio("Mode", ["Live Operation", "Review History"], disabled=not system_health)
 
 session_id = None
 if mode == "Review History":
@@ -367,8 +119,63 @@ if not "current_session_id" in st.session_state:
 manager = SessionManager(session_id if mode == "Review History" else st.session_state.current_session_id)
 runner = AgentRunner(manager)
 
-# --- MAIN INTERFACE ---
-st.title("🤖 DeepAgents Orchestrator")
+# Configuration Selectors
+st.sidebar.divider()
+st.sidebar.subheader("Agent Configuration")
+if not system_health:
+    st.sidebar.error("🔒 Configuration Locked (System Check Failed)")
+else:
+    # ... (Existing Config Code Logic) ...
+    agents = ["Director", "Researcher", "Confidence", "Cinematographer", "Composer"]
+    current_conf = config_manager.config 
+    
+    for agent in agents:
+        with st.sidebar.expander(f"⚙️ {agent} Settings", expanded=False):
+            # Load saved values
+            saved_provider = current_conf.get(agent, {}).get("provider", "Google")
+            saved_model = current_conf.get(agent, {}).get("model", "gemini-1.5-flash")
+            
+            # Provider Selector
+            providers = ["Google", "Anthropic"]
+            if agent == "Composer":
+                providers = ["Google", "Anthropic", "Replicate"]
+                
+            try: 
+                prov_idx = providers.index(saved_provider) 
+            except ValueError: 
+                prov_idx = 0
+                
+            provider = st.selectbox(f"Provider ({agent})", providers, index=prov_idx, key=f"prov_{agent}")
+            
+            # Model Logic (Generic for now to avoid direct API calls in GUI loop)
+            # We use a static list or cached list from session state if available 
+            # (Note: Removed direct API call get_available_models from main loop for performance)
+            model_list = [saved_model, "gemini-1.5-pro", "gemini-1.5-flash", "gemini-3-pro-preview"]
+            if provider == "Anthropic": model_list = ["claude-3-5-sonnet-20240620", "claude-3-opus-20240229"]
+            
+            # Replicate Specifics
+            if provider == "Replicate":
+                if agent == "Composer":
+                     options = get_model_options("audio")
+                     model_list = [k for n, k in options]
+                else: 
+                     options = get_model_options("video")
+                     model_list = [k for n, k in options]
+            
+            model = st.selectbox(f"Model ({agent})", model_list, index=0, key=f"mod_{agent}")
+            
+            # Save if changed
+            if provider != saved_provider or model != saved_model:
+                config_manager.set_agent_config(agent, provider, model)
+                # st.toast(f"Updated {agent}")
+
+# --- MAIN INTERFACE (GATED) ---
+if not system_health:
+    st.error("🛑 System Lockdown Active. Please resolve diagnostic failures to proceed.")
+    st.info(f"Critical Failures: {', '.join(failed_systems)}")
+    st.stop() # HALT RENDERING HERE
+
+# --- ABSOLUTELY ESSENTIAL: TABS RENDER ONLY IF HEALTHY ---
 
 # Tabs for Agents
 tabs = st.tabs([

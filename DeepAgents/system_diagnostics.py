@@ -115,22 +115,6 @@ class SystemDiagnostics:
              self.log("❌ Google Vertex Probe Failed. (You may still proceed, but Agent might crash)", "ERROR")
              return False # Soft fail?
         return True
-                return True
-
-            except Exception as e:
-                error_str = str(e)
-                if "429" in error_str or "Quota exceeded" in error_str:
-                    self.log(
-                        f"⚠️ Quota Exceeded for {model_name}. Pausing recommended.",
-                        "WARNING",
-                    )
-                elif "404" in error_str:
-                    self.log(f"⚠️ Model {model_name} not found/available.", "WARNING")
-                else:
-                    self.log(f"❌ Probe Failed for {model_name}: {e}", "ERROR")
-
-        self.log("❌ All Google Models Failed Probe.", "ERROR")
-        return False
 
     def probe_replicate(self) -> bool:
         """Checks Replicate Token validity if present."""

@@ -3,6 +3,7 @@ import sys
 import os
 import io
 import contextlib
+import asyncio
 
 # Import Agents directly creates dependency issues if we not careful with paths
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -13,6 +14,7 @@ from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence
 from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
 from DeepAgents.CommercialAgents.cinematographer_agent.agent import create_cinematographer_agent
 from DeepAgents.agent_brain import AgentConfig, AgentMemory
+from DeepAgents.persistence import get_postgres_checkpointer
 
 class AgentRunner:
     def __init__(self, session_manager):
@@ -20,6 +22,23 @@ class AgentRunner:
         self.config = AgentConfig() # Load config
         self.brain = AgentMemory() # Load memory for Composer
         
+        # Enable OTLP Tracing for GUI process if configured
+        if os.environ.get("LANGSMITH_OTEL_ENABLED") == "true":
+             if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+                 os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+
+    async def _run_agent_async(self, agent_factory, inputs, config):
+        """Helper to run agents async with persistence."""
+        async with get_postgres_checkpointer() as checkpointer:
+            # Re-compile the agent with the checkpointer
+            # This is tricky because create_director_agent returns a compiled graph usually.
+            # We might need to refactor create_director_agent to accept checkpointer, 
+            # OR we need to attach it here if possible (LangGraph usually requires it at compile time).
+            
+            # Fortunately, we updated create_director_agent to accept checkpointer!
+            # But here `agent_factory` is a function call.
+            pass
+
     def stream_director(self, directive):
         """Runs director and streams events to the session log."""
         
@@ -30,64 +49,85 @@ class AgentRunner:
         
         self.session.log_event("Director", "info", f"Starting directive: {directive} (Provider: {provider}, Model: {model})")
         
-        try:
-            # Pass provider and model to factory
-            agent = create_director_agent(provider=provider, model_name=model)
-            
-            # LangSmith Tracing Context
-            tags = ["deep-agents-system", "gui-triggered", "agent:director"]
-            metadata = {
-                "session_id": self.session.session_id,
-                "model_name": model,
-                "provider": provider,
-                "user_intent": "director_directive"
-            }
-            
-            config = {
-                "configurable": {"thread_id": f"gui_{self.session.session_id}"},
-                "tags": tags,
-                "metadata": metadata
-            }
-            
-            for event in agent.stream(
-                {"messages": [("user", directive)]}, 
-                config=config # type: ignore
-            ):
-                # Standard LangGraph parsing logic (similar to what I verified in agent.py)
-                for key in event:
-                    val = event[key]
-                    msgs = []
+        # ASYNC WRAPPER FOR GUI
+        # Streamlit is synchronous, but our new architecture is Async.
+        # We need to run the async loop in a thread or use asyncio.run in a way that yields.
+        
+        async def run_loop():
+            events_to_yield = []
+            try:
+                # Use Persistence
+                async with get_postgres_checkpointer() as checkpointer:
+                    agent = create_director_agent(
+                        provider=provider, 
+                        model_name=model, 
+                        checkpointer=checkpointer
+                    )
                     
-                    if isinstance(val, dict) and "messages" in val:
-                        msgs = val["messages"]
-                        if hasattr(msgs, "value"): msgs = msgs.value
-                    elif hasattr(val, "messages"):
-                        msgs = getattr(val, "messages", [])
-                        
-                    if msgs and isinstance(msgs, list):
-                        msg = msgs[-1]
-                        
-                        # 1. Log Output
-                        if hasattr(msg, "content") and msg.content:
-                             self.session.log_event("Director", "output", msg.content)
-                             yield ("Director", "output", msg.content)
+                    # LangSmith Tracing Context
+                    tags = ["deep-agents-system", "gui-triggered", "agent:director"]
+                    metadata = {
+                        "session_id": self.session.session_id,
+                        "model_name": model,
+                        "provider": provider,
+                        "user_intent": "director_directive"
+                    }
+                    
+                    config = {
+                        "configurable": {"thread_id": f"gui_{self.session.session_id}"},
+                        "tags": tags,
+                        "metadata": metadata
+                    }
+                    
+                    async for event in agent.astream(
+                        {"messages": [("user", directive)]}, 
+                        config=config # type: ignore
+                    ):
+                        # Parsing Logic
+                        for key in event:
+                            val = event[key]
+                            msgs = []
+                            
+                            if isinstance(val, dict) and "messages" in val:
+                                msgs = val["messages"]
+                                if hasattr(msgs, "value"): msgs = msgs.value
+                            elif hasattr(val, "messages"):
+                                msgs = getattr(val, "messages", [])
+                                
+                            if msgs and isinstance(msgs, list):
+                                msg = msgs[-1]
+                                if hasattr(msg, "content") and msg.content:
+                                     events_to_yield.append(("Director", "output", msg.content))
+                                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                     for tc in msg.tool_calls:
+                                         log_entry = f"Calling Tool: {tc['name']} with args {tc['args']}"
+                                         events_to_yield.append(("Director", "thinking", log_entry))
 
-                        # 2. Log Tool Calls
-                        if hasattr(msg, "tool_calls") and msg.tool_calls:
-                             for tc in msg.tool_calls:
-                                 log_entry = f"Calling Tool: {tc['name']} with args {tc['args']}"
-                                 self.session.log_event("Director", "thinking", log_entry, tool_calls=tc)
-                                 yield ("Director", "thinking", log_entry)
-                                 
-                                 # Special Case: If calling Research Agent, spawn a sub-logger
-                                 if tc['name'] == 'consult_research_agent':
-                                     topic = tc['args'].get('topic')
-                                     yield ("System", "info", f"Triggering Research Agent for: {topic}")
-                                     # Note: The tool execution happens inside the graph, so we capture the result in the next step
-                                     
+            except Exception as e:
+                events_to_yield.append(("Director", "error", str(e)))
+            
+            return events_to_yield
+
+        # Create Sync-to-Async Bridge
+        try:
+             # Win32 Policy fix for Streamlit
+             if sys.platform == 'win32':
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+                
+             results = asyncio.run(run_loop())
+             for res in results:
+                 if res[1] == "output": self.session.log_event("Director", "output", res[2])
+                 elif res[1] == "thinking": self.session.log_event("Director", "thinking", res[2])
+                 elif res[1] == "error": self.session.log_event("Director", "error", res[2])
+                 yield res
+                 
         except Exception as e:
-            self.session.log_event("Director", "error", str(e))
-            yield ("Director", "error", str(e))
+            self.session.log_event("Director", "error", f"Async Loop Failed: {e}")
+            yield ("Director", "error", f"System Error: {e}")
+
+    # Legacy Sync Method (kept for reference, but shadowed by above logic)
+    def _stream_director_sync(self, directive):
+         pass
 
     def run_research_direct(self, topic):
         """Runs the research agent directly (not via Director)."""

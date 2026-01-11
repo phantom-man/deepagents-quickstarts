@@ -29,7 +29,7 @@ jobs:
     - name: Run Director Agent Evaluation
       env:
         LANGCHAIN_TRACING_V2: "true"
-        LANGCHAIN_API_KEY: "${{ secrets.LANGCHAIN_API_KEY }}"
+        LANGCHAIN_API_KEY: "fffffffffffff"
         GOOGLE_API_KEY: "${{ secrets.GOOGLE_API_KEY }}"
         DEEPAGENTS_API_KEY: "${{ secrets.DEEPAGENTS_API_KEY }}"
       run: python DeepAgents/evaluations/run_director_eval.py

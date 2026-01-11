@@ -29,7 +29,8 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
     Returns:
         A compiled LangGraph runnable (or DeepAgent equivalent).
     """
-    if HAS_DEEPAGENTS_LIB and _lib_create_deep_agent:
+    # Force fallback to test if deepagents lib is the cause of Schema validation error
+    if False and HAS_DEEPAGENTS_LIB and _lib_create_deep_agent:
         # The library version supports efficient middleware chains
         return _lib_create_deep_agent(
             model=model,
@@ -41,4 +42,6 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
     
     logger.warning("Falling back to simple create_react_agent (deepagents lib not found)")
     # Simple fallback
-    return create_react_agent(model, tools, state_modifier=system_prompt, checkpointer=checkpointer)
+    # Note: langgraph < 0.2 uses 'messages_modifier', but 1.0.5 uses 'prompt' or 'state_modifier' depending on exact invalidation.
+    # The help() dump shows 'prompt' as the system message equivalent.
+    return create_react_agent(model, tools, prompt=system_prompt, checkpointer=checkpointer)

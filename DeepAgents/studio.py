@@ -13,10 +13,19 @@ from langsmith import Client
 from langchain_core.tracers.context import collect_runs  # For capturing Run ID
 from langgraph.checkpoint.memory import MemorySaver  # For State Persistence
 
+# Setup OTLP Tracing (AI Toolkit Best Practice)
+# Must be set BEFORE other imports might trigger tracing checks
+os.environ["LANGSMITH_OTEL_ENABLED"] = "true"
+os.environ["LANGSMITH_TRACING"] = "true" 
+# Use localhost OTLP endpoint (compatible with AI Toolkit tracer)
+if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+
 # Load environment variables IMMEDIATELY
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 # Import the Brain
+
 try:
     from agent_brain import AgentMemory
 except ImportError:
@@ -108,15 +117,44 @@ def main():
 
     # 3. Create the Director Agent (Atlas)
     # Atlas is equipped with tools to call Research, Music, and Editor.
+    
+    # CHECK FOR VOICE ONLY MODE
+    if os.environ.get("ATLAS_VOICE_ONLY_MODE") == "true":
+         print("🔊 VOICE ONLY MODE ACTIVE. Agent Creation Skipped.")
+         voice_update("Voice connection established. Updates will be read aloud. Copilot system online.")
+         
+         while True:
+             time.sleep(1)
+             # Basic Input Monitoring handled by run_atlas.py and voice_update
+             # Just wait and check for kill signals
+             # Optionally check for injections to speak them
+             cmd = check_for_injections()
+             # If run_atlas wrote directly to voice log, we don't need to do anything here
+             # But if they sent command via atlas_link, we should speak it
+             if cmd:
+                 voice_update(f"Command Received: {cmd}")
+                 
+             
     print(f"🤖 Initializing Atlas (Director) on {args.provider}...")
     voice_update("I am waking up. Atlas is online and ready for your command.")
-    checkpointer = MemorySaver()
-    director = create_director_agent(provider=args.provider,
-                                     model_name=args.model,
-                                     checkpointer=checkpointer)
+    
+    try:
+        checkpointer = MemorySaver()
+        director = create_director_agent(provider=args.provider,
+                                         model_name=args.model,
+                                         checkpointer=checkpointer)
+    except Exception as e:
+        print(f"❌ Agent Init Failed: {e}")
+        voice_update("Agent Initialization failed. Falling back to system loop.")
+        # Ensure we don't crash entirely so voice still works for diagnostics
+        if os.environ.get("ATLAS_VOICE_ONLY_MODE") == "true": # Retry? No.
+             return
+        # Enter safe loop
+        while True: time.sleep(1)
 
     # 4. Execute the Task
     print("🎬 Atlas is working...")
+
     
     config = {"configurable": {"thread_id": "production_run_LotR_002"}}
     

@@ -11,8 +11,19 @@ import asyncio
 import logging
 import subprocess
 
+# Load Env explicitly to ensure Replicate token is present
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+# Replicate Import
 try:
-    import static_ffmpeg
+    import replicate
+    REPLICATE_AVAILABLE = True
+except ImportError:
+    REPLICATE_AVAILABLE = False
+
+try:
+    import static_ffmpeg # type: ignore
     static_ffmpeg.add_paths()
 except ImportError:
     pass
@@ -55,7 +66,59 @@ def input_loop():
             break
 
 async def speak_text(text: str):
-    """Speaks text using Edge TTS (free, high quality)."""
+    """
+    Speaks text using primary cloud provider (Replicate) or fallback (EdgeTTS).
+    
+    User Request: Minimax/Speech-02-Turbo.
+    Status: Not publicly available on Replicate. 
+    Substitution: lucataco/xtts-v2 (Fast, High Quality).
+    """
+    
+    # 1. Try Replicate (XTTS-v2 as Minimax Proxy)
+    if REPLICATE_AVAILABLE and os.getenv("REPLICATE_API_TOKEN"):
+        try:
+            logger.info("🗣️ Replicate Speaking: %s", text[:50])
+            
+            # Locate local voice file
+            # Path: DeepAgents/DeepAgents/data/voices/male_deep_narrator_ref.wav relative to root
+            # voice_bridge.py is in DeepAgents/
+            voice_path = os.path.join(os.path.dirname(__file__), "DeepAgents", "data", "voices", "male_deep_narrator_ref.wav")
+            
+            if os.path.exists(voice_path):
+                speaker_input = open(voice_path, "rb")
+            else:
+                # Fallback to URL if local file missing
+                logger.warning(f"Voice file not found at {voice_path}. Using fallback URL.")
+                speaker_input = "https://replicate.delivery/pbxt/Jt79w0xsT6GCR01c0fK8/male.wav"
+
+            # Using XTTS-v2 which is faster/better than Bark
+            output = replicate.run(
+                "lucataco/xtts-v2:684bc3855b37866c0c65add2ff39c78f3dea3f4ff103a436465326e0f438d55e",
+                input={
+                    "text": text,
+                    "speaker": speaker_input,
+                    "language": "en",
+                    "cleanup_voice": True,
+                    "temperature": 0.75
+                }
+            )
+            
+            # Output is a URL
+            audio_url = output
+
+            
+            # Streaming play via ffplay
+            if audio_url:
+                 subprocess.run(
+                    ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", str(audio_url)],
+                    check=True
+                 )
+                 return # Success
+                 
+        except Exception as e:
+            logger.warning(f"Replicate TTS Failed ({e}). Falling back to EdgeTTS.")
+
+    # 2. Fallback to Edge TTS
     try:
         # Lazy import
         import edge_tts # type: ignore
