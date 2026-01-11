@@ -107,6 +107,14 @@ REPLICATE_MODELS = {
 
     # === LLM (TEXT) ===
     "llm": {
+        "meta/meta-llama-3-8b-instruct": {
+            "id": "meta/meta-llama-3-8b-instruct",
+            "name": "Meta Llama 3 8B Instruct (Fast)",
+            "provider": "Replicate",
+            "cost_type": "very_low",
+            "pricing": {"type": "token", "cost": 0.0001}, 
+            "inputs": [] 
+        },
         "meta/meta-llama-3-70b-instruct": {
             "id": "meta/meta-llama-3-70b-instruct",
             "name": "Meta Llama 3 70B Instruct",

@@ -8,16 +8,16 @@ Orchestrates the commercial creation process by managing other agents.
 import os
 import sys
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, cast
 
 from dotenv import load_dotenv
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
 from langchain.tools import tool
 from langchain_core.messages import BaseMessage
-from langsmith import traceable
+from langchain_core.language_models import BaseChatModel
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 
+from DeepAgents.replicate_adapter import ChatReplicate
 from DeepAgents.agent_factory import create_deep_agent
 
 # Local imports
@@ -25,14 +25,10 @@ from DeepAgents.agent_factory import create_deep_agent
 try:
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-    from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool
-    from DeepAgents.editor_tools import merge_tool
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-    from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool
-    from DeepAgents.editor_tools import merge_tool, generate_visual_tool
 
     # Note: If these fail in fallback, the script will crash, but environment should be consistent now.
 
@@ -47,7 +43,6 @@ logger = logging.getLogger(__name__)
 
 
 @tool
-@traceable(run_type="tool", name="Validate Scene Logic")
 def validate_scene_logic(scene_description: str) -> str:
     """
     Validates the narrative continuity and logic of a proposed scene.
@@ -108,7 +103,7 @@ def consult_research_agent(topic: str) -> str:
 
 
 def create_director_agent(
-    provider: str = "Replicate", model_name: str = "meta/meta-llama-3-70b-instruct", checkpointer: Any = None
+    provider: str = "Anthropic", model_name: str = "claude-3-haiku-20240307", checkpointer: Any = None
 ):
     """Creates and returns the Director Agent."""
 
@@ -116,14 +111,15 @@ def create_director_agent(
     if provider == "Anthropic":
         logger.info("🎬 Initializing Anthropic Model: %s", model_name)
         model = ChatAnthropic(
-            model_name="claude-3-opus-20240229", # Fallback for Anthropic if passed generic name?
+            model_name=model_name,
             temperature=0.7,
+            timeout=None,
+            stop=None,
         )
     elif provider == "Replicate":
         logger.info("🎬 Initializing Replicate Model: %s", model_name)
         try:
              # Requires REPLICATE_API_TOKEN in env
-            from langchain_community.chat_models import ChatReplicate
             model = ChatReplicate(
                 model=model_name,
                 model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
@@ -149,8 +145,8 @@ def create_director_agent(
             model = ChatGoogleGenerativeAI(
                 model=model_name,
                 temperature=0.7,
-                location=location,
-                max_retries=1, # Retry once
+                # convert_system_message_to_human=True, # Often needed for some models but Gemini handles system now
+                max_retries=1, 
             )
         except Exception as e:
             logger.error("Failed to initialize Primary Model (%s): %s", model_name, e)
@@ -163,26 +159,29 @@ def create_director_agent(
             try:
                 # Using basic Llama 3 8b via Replicate as a cheap backup
                 # Note: Requires REPLICATE_API_TOKEN in env
-                from langchain_community.chat_models import ChatReplicate
                 model = ChatReplicate(
                     model="meta/meta-llama-3-8b-instruct",
                     model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
                 )
             except Exception as replicate_error:
-                logger.error(f"Replicate Fallback Failed: {replicate_error}. Creating Dummy Model.")
+                logger.error("Replicate Fallback Failed: %s. Creating Dummy Model.", replicate_error)
                 # Last resort to avoid crash loop
-                from langchain_core.language_models.fake import FakeListChatModel
+                from langchain_community.chat_models import FakeListChatModel
                 model = FakeListChatModel(responses=["System Error: No LLM Available."])
 
     # Create the Deep Agent
+    # WORKAROUND: If using Google + LangGraph, tools binding might be failing schema validation.
+    # We can try to bind them MANUALLY and pass the bound model.
+    # But create_deep_agent expects raw model + tools list usually.
+    
+    # Let's try to filter tools to ensure they are clean Pydantic tools
+    # Using 'tool' decorator makes them StructuredTool.
+    
     agent = create_deep_agent(
-        model=model,
+        model=cast(BaseChatModel, model),
         tools=[
-            # consult_research_agent,
-            # validate_scene_logic,
-            # compose_tool,
-            # merge_tool,
-            # generate_visual_tool, # Disabled by user request to save costs (Veo)
+            consult_research_agent,
+            validate_scene_logic,
         ],
         system_prompt=DIRECTOR_INSTRUCTIONS,
         checkpointer=checkpointer

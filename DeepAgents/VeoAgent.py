@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 
 # from google import genai # Disabled for now to prevent accidental usage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
+from DeepAgents.replicate_adapter import ChatReplicate
 from langchain_core.messages import SystemMessage, HumanMessage
 
 try:

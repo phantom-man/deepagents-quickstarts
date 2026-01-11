@@ -2,11 +2,11 @@
 
 ## Project Summary
 
-DeepAgents (codenamed "Atlas") is an autonomous multi-agent studio system designed to produce commercial video assets from high-level concepts. It simulates a real-world production team with specialized agents (Director, Researcher, Editor, Cinematographer, Composer) collaborating to create a final output.
+DeepAgents (codenamed "Atlas") is an autonomous multi-agent studio system designed to produce high-fidelity audiovisual content (Commercials, Music Videos, Narratives, Synthetic Personas) from high-level concepts. It simulates a real-world production team with specialized agents collaborating to create a final output.
 
 ## Core Objectives
 
-1. **Autonomous Production**: Transform a text prompt (e.g., "Coffee commercial") into a structured shot list, validated research facts, and generated AV assets (Voice, Music, Video, Image) without human micro-management.
+1. **Autonomous Production**: Transform a text prompt (e.g., "Coffee commercial", "Cyberpunk Synthwave Music Video", "Tech YouTuber Personality") into a structured content plan, validated research facts, and generated AV assets (Voice, Music, Video, Image) without human micro-management.
 2. **Epistemic Integrity**: Ensure all claims made in the creative content are fact-checked by a dedicated "Confidence Agent" using a "Trust-But-Verify" ontology.
 3. **Enterprise-Grade Architecture**: Implement robust state management (OLTP), deep observability (OTLP), and hybrid persistence (Vector + Relational) to support long-running, interruptible workflows.
 4. **Zero-Touch Usability**: Provide a Streamlit GUI that auto-configures the environment and locks down upon failure, ensuring a stable user experience.

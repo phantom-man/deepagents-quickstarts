@@ -11,6 +11,7 @@ from google import genai
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_anthropic import ChatAnthropic
+from langsmith import traceable
 
 # Local imports
 from DeepAgents.agent_brain import logger
@@ -33,7 +34,7 @@ def _initialize_llm(provider: str, model_name: str) -> Any:
     try:
         if provider == "Replicate":
             # Requires REPLICATE_API_TOKEN in env
-            from langchain_community.chat_models import ChatReplicate
+            from DeepAgents.replicate_adapter import ChatReplicate
             return ChatReplicate(
                 model=model_name,
                 model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
@@ -47,8 +48,7 @@ def _initialize_llm(provider: str, model_name: str) -> Any:
             return ChatGoogleGenerativeAI(
                 model=model_name, 
                 temperature=0.7,
-                project=project,
-                location=location
+                # convert_system_message_to_human=True # Optional dependent on LC version
             )
         if provider == "Anthropic":
             return ChatAnthropic(
@@ -60,8 +60,6 @@ def _initialize_llm(provider: str, model_name: str) -> Any:
         # Default fallback
         return ChatGoogleGenerativeAI(
             model="gemini-1.5-pro-001",
-            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-            location=os.getenv("GOOGLE_CLOUD_LOCATION")
         )
     except Exception as e: # pylint: disable=broad-exception-caught
         logger.error("Cinematographer LLM Init Failed: %s", e)
@@ -88,14 +86,14 @@ def create_cinematographer_agent(
     Factory to create the Cinematographer Agent runner.
     """
     if model_config is None:
-        model_config = {"provider": "Replicate", "model": "meta/meta-llama-3-8b-instruct"}
+        model_config = {"provider": "Anthropic", "model": "claude-3-haiku-20240307"}
 
     # Configurations
-    provider = model_config.get("provider", "Replicate")
-    model_name = model_config.get("model", "meta/meta-llama-3-8b-instruct")
+    provider = model_config.get("provider", "Anthropic")
+    model_name = model_config.get("model", "claude-3-haiku-20240307")
 
-    # img_provider = model_config.get("image_provider", "Google") # Unused currently effectively
-    # img_model = model_config.get("image_model", "imagen-3.0-generate-001")
+    img_provider = model_config.get("image_provider", "Google")
+    img_model = model_config.get("image_model", "imagen-4.0-fast-generate-001")
 
     vid_provider = model_config.get("video_provider", "Replicate")
     vid_model = model_config.get("video_model", "zeroscope/v2-xl")
@@ -112,8 +110,63 @@ def create_cinematographer_agent(
     # 2. Initialize Generative Client
     gen_client = _initialize_gen_client()
     ontology = CINEMATOGRAPHER_INSTRUCTIONS
+    
     # --- HELPER: Generate Image ---
     def generate_image(prompt: str) -> Optional[str]:
+        # GOOGLE IMAGEN PATH
+        if img_provider == "Google":
+            try:
+                from google.cloud import aiplatform
+                from google.protobuf import json_format
+                from google.protobuf.struct_pb2 import Value
+                
+                logger.info(f"🎨 Cinematographer > Generating Image via Google ({img_model})...")
+                
+                # Use the client we initialized earlier if available, or direct REST/Client 
+                # (Note: genai.Client is for Gemini API, aiplatform is for Vertex)
+                # We used genai.Client(vertexai=True) in _initialize_gen_client
+                
+                if not gen_client:
+                    return "Error: Google GenAI Client not initialized."
+                
+                # Imagen 3/4 usage via new GenAI SDK (Preview or Standard)
+                # client.models.generate_images(...)
+                # But let's verify syntax. The probe used client.models.generate_images
+                
+                # The probe code was:
+                # client.models.generate_images(
+                #    model=model_id,
+                #    prompt=prompt,
+                #    config=types.GenerateImagesConfig(number_of_images=1)
+                # )
+                
+                # We need 'types' import. 
+                from google.genai import types
+                
+                response = gen_client.models.generate_images(
+                    model=img_model,
+                    prompt=prompt,
+                    config=types.GenerateImagesConfig(
+                        number_of_images=1,
+                        aspect_ratio="16:9"
+                    )
+                )
+                
+                # Response parsing
+                if response and response.generated_images:
+                    img_bytes = response.generated_images[0].image.image_bytes
+                    return assets.save_asset(
+                        img_bytes, "image", session_id, prompt,
+                        metadata={"model": img_model, "provider": "Google"}
+                    )
+                return "No image returned from Google."
+
+            except Exception as e:
+                logger.error(f"Google Image Gen Error: {e}")
+                # Fallback to Replicate if Google fails?
+                logger.info("Falling back to Replicate...")
+                pass # Fall through to Replicate block
+
         if not replicate:
             return "Error: Replicate module not installed."
 
@@ -215,6 +268,7 @@ def create_cinematographer_agent(
         return "Error: Unknown Video Provider"
 
     # 2. Define the Runner Function
+    @traceable(run_type="chain", name="Cinematographer Agent")
     def run_agent(
         input_text: str,
         mode: str = "storyboard",
@@ -222,6 +276,12 @@ def create_cinematographer_agent(
         # pylint: disable=unused-argument
         duration_sec: int = 5
     ) -> str:
+        
+        # --- FIX: Handle NoneType from UI ---
+        if max_shots is None: max_shots = 2
+        if duration_sec is None: duration_sec = 5
+        # ------------------------------------
+
         logger.info(
             "🎥 Cinematographer receiving input: %s... Mode: %s",
             input_text[:50], mode
@@ -233,7 +293,8 @@ def create_cinematographer_agent(
                 content=(
                     f"{ontology}\n\n"
                     f"Create a visual description for {max_shots} distinct shot(s) "
-                    "for the scene. Return ONLY the shot descriptions."
+                    "for the scene. Return ONLY the plain text shot descriptions. "
+                    "Do NOT return Python code. Do NOT wrap in markdown code blocks."
                 )
             ),
             HumanMessage(content=input_text)

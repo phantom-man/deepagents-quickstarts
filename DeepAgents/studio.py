@@ -23,7 +23,14 @@ if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
 
 # Load environment variables IMMEDIATELY
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
-
+# Load Configuration (Single Source of Truth)
+import json
+CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data/agent_config.json"))
+try:
+    with open(CONFIG_PATH, "r") as f:
+        AGENT_CONFIG = json.load(f)
+except Exception:
+    AGENT_CONFIG = {}
 # Import the Brain
 
 try:
@@ -71,10 +78,15 @@ def check_for_injections() -> str | None:
 
 def main():
     parser = argparse.ArgumentParser(description="DeepAgents Production Studio")
+    
+    # Defaults from Config
+    def_director_provider = AGENT_CONFIG.get("Director", {}).get("provider", "Anthropic")
+    def_director_model = AGENT_CONFIG.get("Director", {}).get("model", "claude-3-haiku-20240307")
+
     parser.add_argument("--task", type=str, help="The production task for the Director.")
     parser.add_argument("task_positional", nargs="?", help="Positional task input")
-    parser.add_argument("--provider", type=str, default="Google", help="LLM Provider (Google/Anthropic)")
-    parser.add_argument("--model", type=str, default="meta/meta-llama-3-70b-instruct", help="Model Name")
+    parser.add_argument("--provider", type=str, default=def_director_provider, help="LLM Provider (Google/Anthropic)")
+    parser.add_argument("--model", type=str, default=def_director_model, help="Model Name")
     
     args = parser.parse_args()
 
@@ -197,10 +209,21 @@ def main():
                         if "messages" in value:
                             msg = value["messages"][-1]
                             content = getattr(msg, "content", "")
+                            
+                            # Handle Anthropic List Content (Text + Tool)
+                            if isinstance(content, list):
+                                text_parts = []
+                                for item in content:
+                                    if isinstance(item, dict) and item.get("type") == "text":
+                                        text_parts.append(item.get("text", ""))
+                                    elif hasattr(item, "text"): # Object fallback
+                                        text_parts.append(item.text)
+                                content = " ".join(text_parts)
+                                
                             if content:
                                 print(f"\n[ATLAS]: {content}")
                                 # Voice summary
-                                clean_content = content.replace("*", "").replace("#", "").split("\n")[0]
+                                clean_content = str(content).replace("*", "").replace("#", "").split("\n")[0]
                                 voice_update(f"Atlas here. {clean_content[:150]}")
                     
                     elif key == "tools":

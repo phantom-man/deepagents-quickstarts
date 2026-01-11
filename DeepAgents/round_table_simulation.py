@@ -5,7 +5,7 @@ This module simulates a round-table discussion between AI Agents to select their
 
 import json
 import logging
-from langchain_community.chat_models import ChatReplicate
+from DeepAgents.replicate_adapter import ChatReplicate
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv

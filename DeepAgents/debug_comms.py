@@ -8,7 +8,7 @@ if not comms.connect():
     print("❌ Failed to connect to DB")
     exit(1)
 
-sql = "SELECT id, sender, recipient, status, left(content, 50) as snippet, created_at FROM agent_messages ORDER BY id DESC LIMIT 10"
+sql = "SELECT id, sender, recipient, status, left(content, 50) as snippet, timestamp FROM agent_messages ORDER BY id DESC LIMIT 10"
 
 with comms.conn.cursor() as cur:
     cur.execute(sql)

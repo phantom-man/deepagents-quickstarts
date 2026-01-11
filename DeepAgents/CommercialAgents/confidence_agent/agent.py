@@ -16,9 +16,10 @@ from typing import cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
+from langchain_anthropic import ChatAnthropic
+from DeepAgents.replicate_adapter import ChatReplicate
 from langchain.tools import tool
-from deepagents import create_deep_agent
+from DeepAgents.agent_factory import create_deep_agent
 
 from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
 from DeepAgents.agent_brain import AgentMemory
@@ -49,11 +50,22 @@ def consult_research_agent(topic: str) -> str:
         return result
     return "Research Agent found no conclusive evidence."
 
-def create_confidence_agent(model_name="meta/meta-llama-3-70b-instruct"):
+def create_confidence_agent(model_name="claude-3-haiku-20240307", provider="Anthropic"):
     """Creates and returns the Confidence Agent."""
+    
+    # Load config from file if defaults are used and provider is generic
+    # This ensures consistency if called without explicit provider
+    if provider == "Google" and model_name.startswith("meta"):
+        # Heuristic: caller passed meta model but default provider?
+        pass
 
     try:
-        if "meta" in model_name or "replicate" in model_name.lower():
+        if provider == "Anthropic":
+            model = ChatAnthropic(
+                model_name=model_name,
+                temperature=0.0
+            ) 
+        elif "meta" in model_name or "replicate" in model_name.lower():
              model = ChatReplicate(
                 model=model_name,
                 model_kwargs={"temperature": 0.0, "max_length": 4096}

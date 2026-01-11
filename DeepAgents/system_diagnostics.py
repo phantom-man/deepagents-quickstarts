@@ -71,17 +71,57 @@ class SystemDiagnostics:
             self.log(f"❌ Disk Error ({base_dir}): {e}", "ERROR")
             return False
 
+
+    def probe_anthropic(self) -> bool:
+        """Probes Anthropic API for Liveness."""
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            self.log("ℹ️ Anthropic Key not found. Skipping Anthropic Probe.")
+            return False
+
+        self.log("🤖 Probing Anthropic API...")
+        if os.environ.get("SKIP_PROBE", "false").lower() == "true":
+             self.log("⚠️ Skipping Anthropic Probe (SKIP_PROBE=true).")
+             return True
+
+        try:
+            from langchain_anthropic import ChatAnthropic
+            llm = ChatAnthropic(model_name="claude-3-haiku-20240307", max_retries=1)
+            llm.invoke("ping")
+            self.log("✅ Anthropic API Online.")
+            return True
+        except Exception as e:
+            self.log(f"❌ Anthropic Probe Failed: {e}", "ERROR")
+            return False
+
     def probe_google_vertex(self) -> bool:
         """
         Probes Google Vertex AI for Liveness and Quota.
-        Uses a lightweight model call to check if we are rate-limited.
         """
-        self.log("🤖 Probing Google Vertex AI (Quota Check)...")
+        # Load Config loosely to check if we even care about Google
+        import json
+        is_primary = True
+        try:
+             config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "agent_config.json")
+             if os.path.exists(config_path):
+                 with open(config_path, "r") as f:
+                     config = json.load(f)
+                     # If Director is NOT Google, Google is not Critical
+                     if config.get("Director", {}).get("provider") != "Google":
+                         is_primary = False
+        except: pass
+
+        self.log(f"🤖 Probing Google Vertex AI (Quota Check)... {'(Secondary)' if not is_primary else ''}")
+        
         # Optimization: Don't probe if user requested a Skip
         if os.environ.get("SKIP_PROBE", "false").lower() == "true":
             self.log("⚠️ Skipping Google Vertex Probe (SKIP_PROBE=true). Assuming Online.")
             self.status["google_vertex"] = True
             return True
+
+        # If Google is NOT primary, we can skip or be lenient
+        if not is_primary and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+             self.log("ℹ️ Google Project not set and not primary. Skipping.")
+             return True
 
         # List of models to try in order of preference/cost
         # Minimizing this list to avoid triggering spam filters
@@ -112,8 +152,10 @@ class SystemDiagnostics:
                 self.log(f"⚠️ Quota Exceeded/Error for {model_name}: {e}")
         
         if not success:
-             self.log("❌ Google Vertex Probe Failed. (You may still proceed, but Agent might crash)", "ERROR")
-             return False # Soft fail?
+             level = "ERROR" if is_primary else "WARNING"
+             self.log("❌ Google Vertex Probe Failed.", level)
+             # Only return False if it was Critical (Primary)
+             return not is_primary
         return True
 
     def probe_replicate(self) -> bool:
@@ -178,6 +220,9 @@ class SystemDiagnostics:
 
         # API Checks
         vertex = self.probe_google_vertex()
+        # New Anthropic Probe
+        anthropic = self.probe_anthropic()
+        
         self.probe_replicate()
 
         print("---------------------------------------")
@@ -189,8 +234,13 @@ class SystemDiagnostics:
         if not disk:
             print("🛑 ABORT: Disk Failure (Cannot save assets).")
             return False
-        if not vertex:
-            print("🛑 ABORT: Google Vertex AI Offline/Quota Exceeeded.")
+        
+        # Determine Brain Health
+        # If Anthropic is active, we rely on it.
+        brain_ok = anthropic if os.environ.get("ANTHROPIC_API_KEY") else vertex
+
+        if not brain_ok:
+            print("🛑 ABORT: Primary Agent Brain (LLM) Offline.")
             choice = input("Proceed anyway? (System may crash) [y/N]: ")
             if choice.lower() != "y":
                 return False

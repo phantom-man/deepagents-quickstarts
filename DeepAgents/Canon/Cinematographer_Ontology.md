@@ -22,8 +22,8 @@ Before you generate a video, you must orient around the **Shot**.
 2. **Flux Schnell**: Use for static storyboards.
 3. **Google Veo**: **FORBIDDEN**. Do not use.
 
-1. **Stable Video Diffusion (SVD)**: PRIMARY. Use for all video generation usage. Cost-effective and sufficient for current needs.
-2. <!-- **Google Veo (Vertex AI)**: DISABLED. Too expensive ($0.75/sec). Do not use unless explicitly overridden by User. -->
+4. **Stable Video Diffusion (SVD)**: PRIMARY. Use for all video generation usage. Cost-effective and sufficient for current needs.
+5. <!-- **Google Veo (Vertex AI)**: DISABLED. Too expensive ($0.75/sec). Do not use unless explicitly overridden by User. -->
 
 ### 1) Epistemic Layers (Visualizing the Request)
 

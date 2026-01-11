@@ -14,6 +14,9 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Vector Database**: **LanceDB**.
     - *Embedding Model*: `text-embedding-004` (Google Vertex/GenAI).
     - *Dimensions*: **768**. (Do not use 384).
+- **Relational Database**: **PostgreSQL**.
+    - *Role*: LangGraph Checkpointing & State Persistence.
+    - *Drivers*: `psycopg` (v3 Async) and `psycopg2` (Sync).
 - **LLM Provider**: **Google Gemini** (Primary).
     - *Model*: `gemini-2.0-flash-001` or `gemini-1.5-flash` (Fallback).
     - *Quota Management*: The free tier is aggressive. Handle 429s gracefully.
@@ -34,6 +37,38 @@ These are the immutable facts of the current project state. Copilot must priorit
 ### 4. Known Issues / Learnings
 - **Prompt Hub**: If `pull_prompt` fails, fallback to local constants.
 - **Console Input**: Uses `prompt_toolkit` to handle background log scrolling.
+
+### 5. MemoriPilot Documentation & Protocols
+The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.
+
+**CONSTRAINT: ROLE SEPARATION**
+- **You (The Extension)**: You MUST use the MemoriPilot system to maintain your own context and identity across sessions.
+- **The Agents (The Application)**: The AI Agents you build (Director, Researcher, etc.) MUST NOT use MemoriPilot. They MUST STRICTLY adhere to the **LangChain / LangSmith Gold Standard** for state and memory management (e.g., `LangGraph` checkpoints, `LanceDB` vector stores). Do not conflate your meta-cognition with the application's runtime logic.
+
+#### Reading Protocol (Mandatory)
+At the start of EVERY session, you MUST read the following files to synchronize your state:
+1. `memory-bank/activeContext.md` - To understand current focus.
+2. `memory-bank/systemPatterns.md` - To review architectural standards.
+3. `memory-bank/productContext.md` - To confirm technology stack.
+4. `memory-bank/decisionLog.md` - To see recent architectural changes.
+5. `memory-bank/projectBrief.md` - To align with core goals.
+6. `memory-bank/architect.md` - To review the roadmap.
+
+#### Writing Protocol (Tool Usage)
+You must use the `memory_bank_*` tools to document your work. Do not use raw file edits for these files unless necessary.
+
+- **`memory_bank_update_context`**: Call this at the Start (to set focus) and End (to log progress) of every task.
+- **`memory_bank_log_decision`**: Call this IMMEDIATELY when a significant technical choice is made (e.g., "Swapping Class A for Class B", "Changing LLM Provider").
+- **`memory_bank_update_product_context`**: Call this when the "Truth" of the project changes (e.g., Version numbers, Model IDs, Core Libraries).
+- **`memory_bank_update_system_patterns`**: Call this when establishing a new coding pattern (e.g., "All agents must use Asyncio").
+- **`memory_bank_switch_mode`**: Use this to toggle your persona context between Architect, Coder, and Debugger.
+
+#### Operating Modes
+You must switch modes to match the nature of the user's request.
+- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `memory-bank/architect.md` and `memory-bank/systemPatterns.md`.
+- **Code Mode** (`code`): Use when writing or editing code. Focus on `memory-bank/activeContext.md` and `memory-bank/productContext.md`.
+- **Debug Mode** (`debug`): Use when fixing errors. Focus on `memory-bank/decisionLog.md` and `audit reports`.
+- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `memory-bank/projectBrief.md`.
 
 ---
 

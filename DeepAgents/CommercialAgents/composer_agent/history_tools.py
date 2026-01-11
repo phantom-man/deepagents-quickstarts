@@ -8,7 +8,7 @@ import logging
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
+from DeepAgents.replicate_adapter import ChatReplicate
 import os
 
 # Setup Logger

@@ -18,3 +18,9 @@ psycopg2-binary
 gTTS
 requests
 langchain-google-genai
+
+langgraph
+moviepy
+numpy<2.3.0
+asyncpg
+psycopg-pool

@@ -212,8 +212,43 @@ class AgentRunner:
             self.session.log_event("Composer", "error", str(e))
             yield ("Composer", "error", str(e))
 
-    def run_cinematographer(self, director_output, mode="storyboard", max_shots=1, duration_sec=5):
-        """Runs the cinematographer agent."""
+    def run_editor_merge(self, session_id):
+        """Merges all video and audio assets from the session."""
+        from DeepAgents.asset_manager import AssetManager
+        from DeepAgents.editor_tools import merge_video_audio
+        
+        am = AssetManager()
+        assets = am.list_assets(session_id)
+        
+        # Filter Assets
+        videos = [a['path'] for a in assets if a['asset_type'] == 'video']
+        audio = [a['path'] for a in assets if a['asset_type'] == 'audio']
+        
+        if not videos:
+            return None
+            
+        # Use first audio track if available, else empty string (Tool handles it?)
+        # merge_video_audio expects a path or logic to silence.
+        # Let's assume we need at least one video. Audio is optional.
+        best_audio = audio[0] if audio else "SILENT"
+        
+        # Sort videos by creation time (implicitly by list order usually, but let's be safe if possible)
+        # Assuming asset logs are chronological.
+        
+        try:
+            merged_path = merge_video_audio.invoke({
+                "video_paths": videos, 
+                "audio_path": best_audio, 
+                "output_name": f"Final_Cut_{session_id}.mp4"
+            })
+            if "Error" in merged_path:
+                return None
+            return merged_path
+        except Exception as e:
+            print(f"Merge Failed: {e}")
+            return None
+
+    def run_cinematographer(self, director_output, mode="both", max_shots=None, duration_sec=None):
         if not director_output:
             yield ("Cinematographer", "error", "No context to visualize.")
             return

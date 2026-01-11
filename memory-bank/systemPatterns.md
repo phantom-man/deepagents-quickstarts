@@ -68,3 +68,8 @@ The system learns from failure via explicit rejection logs:
 
 - **Tool Call Injection**: `consult_research_agent` is injected as a tool capability into the Director, allowing dynamic delegation.
 - **MemoriPilot**: The Copilot (Developer) maintains a persistent "active context" file to track session continuity.
+
+
+## Modern Google/LangGraph Integration Pattern
+
+When integrating Google Gemini models (especially 2.0 Flash) with LangGraph: 1) Use `ChatGoogleGenerativeAI` from `langchain_google_genai`, NOT `ChatVertexAI`. 2) Use native `.bind_tools()` on the model object. 3) Avoid custom wrapper middleware like `deepagents` v0.3.1 which may suffer from schema misalignment with new Google objects. 4) Always define a clear fallback path (e.g. to Replicate) for robust production flows.

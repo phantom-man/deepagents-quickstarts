@@ -14,7 +14,7 @@ from typing import Optional, List
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
+from DeepAgents.replicate_adapter import ChatReplicate
 
 # Add Repo Root to Path
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

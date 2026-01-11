@@ -15,8 +15,11 @@ from typing import Optional, cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_anthropic import ChatAnthropic
+import json
+import os
 from langsmith import traceable
-from deepagents import create_deep_agent
+from DeepAgents.agent_factory import create_deep_agent
 
 from DeepAgents.CommercialAgents.research_agent.prompts import RESEARCHER_INSTRUCTIONS
 from DeepAgents.CommercialAgents.research_agent.tools import (
@@ -31,13 +34,27 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_research_agent(model_name="meta/meta-llama-3-8b-instruct"):
+def create_research_agent(model_name="claude-3-haiku-20240307", provider="Anthropic"):
     """Creates and returns the Commercial Research Agent."""
 
     # Initialize the model
-    if model_name.startswith("meta/") or "llama" in model_name.lower():
+    model = None
+    if provider == "Anthropic":
+        try:
+            model = ChatAnthropic(
+                model_name=model_name,
+                temperature=0.0
+            ) 
+        except Exception as e:
+            logger.error(f"Failed to init Anthropic: {e}")
+            # Fallback handled below or crash? 
+            # If Anthropic fails (e.g. invalid key), we might want to stop or fallback.
+            # But adhering to user request for Anthropic, we should use it.
+            raise e
+
+    elif model_name.startswith("meta/") or "llama" in model_name.lower():
         # Replicate
-        from langchain_community.chat_models import ChatReplicate
+        from DeepAgents.replicate_adapter import ChatReplicate
         try:
             model = ChatReplicate(
                 model=model_name,
@@ -101,16 +118,36 @@ def _extract_final_answer(event: dict) -> str:
 def run_research_task(topic: str,
                       memory: Optional[AgentMemory] = None,
                       extra_config: Optional[dict] = None,
-                      model_name="meta/meta-llama-3-8b-instruct"): # Updated default
+                      model_name=None,
+                      provider=None): 
     """
     Executes a research task with memory integration.
     """
-    # ... logic continues ...
+    # Load Config if not provided
+    if not model_name or not provider:
+        try:
+            # Path relative to this file: ../../../data/agent_config.json
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../data/agent_config.json"))
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    res_config = config.get("Researcher", {})
+                    if not model_name: model_name = res_config.get("model", "gemini-2.0-flash-001")
+                    if not provider: provider = res_config.get("provider", "Google")
+            else:
+                 logger.warning("Config file not found. Using defaults.")
+        except Exception as e:
+            logger.warning(f"Failed to load config: {e}. using defaults.")
+    
+    # Defaults if still None
+    if not model_name: model_name = "gemini-2.0-flash-001"
+    if not provider: provider = "Google"
+
     if not memory:
         memory = AgentMemory()
 
     # Model Init with Fallback
-    agent = create_research_agent(model_name=model_name)
+    agent = create_research_agent(model_name=model_name, provider=provider)
     
     # Run loop logic (simplified here for brevity)
     # Note: Previous implementation did manual LLM check. create_research_agent handles fallback internally now.
@@ -137,7 +174,7 @@ def run_research_task(topic: str,
         logger.warning("Memory Warning: %s", e)
 
     # 2. CREATE AGENT
-    agent = create_research_agent(model_name=model_name)
+    agent = create_research_agent(model_name=model_name, provider=provider)
 
     # 3. RUN AGENT
     config = {"configurable": {"thread_id": f"research_{uuid.uuid4()}"}}

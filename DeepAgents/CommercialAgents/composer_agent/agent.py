@@ -16,7 +16,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_community.chat_models import ChatReplicate
+from DeepAgents.replicate_adapter import ChatReplicate
 from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
 
@@ -435,13 +435,20 @@ def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> s
     # Using lazy import to avoid circular dependency or heavy init if unused
     llm_for_lyrics = None
     try:
-        # Simple default configuration for the lyrics helper: Replicate Llama 3
-        llm_for_lyrics = ChatReplicate(
-            model="meta/meta-llama-3-70b-instruct", 
-            model_kwargs={"temperature": 0.7, "max_length": 2048} 
+        # Switch to Anthropic default for lyrics too
+        llm_for_lyrics = ChatAnthropic(
+            model_name="claude-3-haiku-20240307",
+            temperature=0.7
         )
     except Exception as e:
         logger.warning("Could not init LLM for lyrics, continuing without: %s", e)
+        try:
+            # Fallback
+            llm_for_lyrics = ChatReplicate(
+                model="meta/meta-llama-3-70b-instruct", 
+                model_kwargs={"temperature": 0.7, "max_length": 2048} 
+            )
+        except: pass
 
     return _handle_replicate_generation(
         model_name=target_model,
@@ -489,6 +496,29 @@ def compose_tool(request: str) -> str:
         return f"Composer Tool Error: {e}"
 
 
+@tool
+def browse_library_tool(filter_type: str = "all") -> str:
+    """
+    Browses the Asset Library to see what audio, video, or images have been generated.
+    Args:
+        filter_type: "audio", "video", "image", or "all".
+    """
+    assets = AssetManager()
+    
+    # If "all", pass None, else pass type
+    a_type = None if filter_type == "all" else filter_type
+    
+    results = assets.list_assets(asset_type=a_type)
+    if not results:
+        return "Library is empty."
+        
+    output = "Current Asset Library:\n"
+    for item in results[:10]: # Limit to 10 most recent
+        output += f"- [{item.get('asset_type')}] {item.get('prompt', 'Unknown')} (File: {os.path.basename(item.get('path', ''))})\n"
+        
+    return output
+
+
 def create_composer_agent(
     model_config: Optional[Dict[str, Any]] = None,
     brain: Any = None,
@@ -498,11 +528,11 @@ def create_composer_agent(
     Factory to create the Composer Agent runner.
     """
     if model_config is None:
-        # Default to the "Cheap" model (Minimax) as requested
-        model_config = {"provider": "Replicate", "model": "minimax/music-01"}
+        # Default to Anthropic Haiku for the Brain, music gen is separate
+        model_config = {"provider": "Anthropic", "model": "claude-3-haiku-20240307"}
 
-    provider = model_config.get("provider", "Google")
-    model_name = model_config.get("model", "minimax/music-01")
+    provider = model_config.get("provider", "Anthropic")
+    model_name = model_config.get("model", "claude-3-haiku-20240307")
 
     assets = AssetManager()
 
@@ -525,28 +555,56 @@ def create_composer_agent(
     # Initialize LLM with Fallback
     llm = None
     try:
-        # USER REQUEST: "Switch defaults to Replicate Llama 3 for testing"
-        target_model = "meta/meta-llama-3-8b-instruct"
-
-        logger.info(f"🎻 Orpheus > Initializing Brain with {target_model}...")
+        # Determine Brain Provider (Separate from Music Gen Model)
+        # Default to Anthropic if not specified for Brain
+        brain_provider = "Anthropic" 
+        brain_model = "claude-3-haiku-20240307"
         
-        try:
-             # Requires REPLICATE_API_TOKEN in env
-            from langchain_community.chat_models import ChatReplicate
-            llm = ChatReplicate(
-                model=target_model,
-                model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1}
-            )
-        except Exception as e:
-            logger.warning(f"Replicate Init Failed: {e}. Falling back to Google.")
-            # Fallback Logic
-            target_model = "gemini-1.5-flash"
-            llm = ChatGoogleGenerativeAI(
-                model=target_model,
-                temperature=0.5,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1" # Flash is reliable here
-            )
+        # Override if config explicitly asks for Replicate Brain (unlikely for now)
+        # But we respect global "provider" if it matches a known LLM provider
+        if provider in ["Google", "Anthropic"]:
+             brain_provider = provider
+             # Map models? Or just use default per provider
+             if provider == "Google": brain_model = "gemini-1.5-flash"
+        
+        logger.info(f"🎻 Orpheus > Initializing Brain with {brain_provider}/{brain_model}...")
+
+        if brain_provider == "Anthropic":
+            try:
+                llm = ChatAnthropic(
+                    model_name=brain_model, 
+                    temperature=0.7
+                )
+            except Exception as e:
+                logger.warning(f"Anthropic Brain Init Failed: {e}")
+                # Fallback to Replicate Llama 3
+                brain_provider = "Replicate"
+                brain_model = "meta/meta-llama-3-8b-instruct"
+
+        if brain_provider == "Replicate":
+            try:
+                # Requires REPLICATE_API_TOKEN in env
+                from DeepAgents.replicate_adapter import ChatReplicate
+                llm = ChatReplicate(
+                    model=brain_model,
+                    model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1}
+                )
+            except Exception as e:
+                logger.warning(f"Replicate Init Failed: {e}. Falling back to Google.")
+                brain_provider = "Google"
+
+        if brain_provider == "Google":
+            try:
+                target_model = "gemini-1.5-flash"
+                llm = ChatGoogleGenerativeAI(
+                    model=target_model,
+                    temperature=0.5,
+                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                    location="us-central1" # Flash is reliable here
+                )
+            except Exception:
+                pass
+
 
         if not llm:
              raise ValueError("No LLM could be initialized")
@@ -557,6 +615,7 @@ def create_composer_agent(
         return lambda *args, **kwargs: f"Error: Agent Brain Died. {e}"
 
     # 3. Initialize Agent
+    # Fix: Restored valid 'browse_library_tool'
     agent = create_deep_agent(
         model=llm,
         tools=[compose_tool, browse_library_tool], 

@@ -172,3 +172,12 @@ references/
 ini .env
 
 Artifacts/Data/lancedb/
+
+# DeepAgents Runtime Junk
+DeepAgents/gui/history/
+data/assets/
+*.png
+*.html
+*.wav
+*.mp3
+*.txn

@@ -1,26 +1,30 @@
 {
     "Director": {
-        "provider": "Google",
-        "model": "gemini-3-pro-preview"
+        "provider": "Anthropic",
+        "model": "claude-3-haiku-20240307"
     },
     "Researcher": {
-        "provider": "Google",
-        "model": "gemini-3-pro-preview"
+        "provider": "Anthropic",
+        "model": "claude-3-haiku-20240307"
     },
     "Confidence": {
-        "provider": "Google",
-        "model": "gemini-3-pro-preview"
+        "provider": "Anthropic",
+        "model": "claude-3-haiku-20240307"
     },
     "Cinematographer": {
-        "provider": "Google",
-        "model": "gemini-3-pro-preview",
+        "provider": "Anthropic",
+        "model": "claude-3-haiku-20240307",
         "image_provider": "Google",
-        "image_model": "imagen-4.0-ultra-generate-001",
-        "video_provider": "Google",
-        "video_model": "veo-3.1-fast-generate-001"
+        "image_model": "imagen-4.0-fast-generate-001",
+        "video_provider": "Replicate",
+        "video_model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351"
     },
     "Composer": {
         "provider": "Replicate",
         "model": "minimax/music-01"
+    },
+    "Voice": {
+        "provider": "Replicate",
+        "model": "lucataco/xtts-v2:684bc3855b37866c0c65add2ff39c78f3dea3bc0909486799081eaf8400a9131"
     }
 }

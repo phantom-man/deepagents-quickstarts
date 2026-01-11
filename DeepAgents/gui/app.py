@@ -19,8 +19,16 @@ from DeepAgents.model_registry import REPLICATE_MODELS, get_model_options, get_m
 from DeepAgents.cost_calculator import estimate_cost
 
 # Initialize Config
-config_manager = AgentConfig()
-asset_manager = AssetManager()
+@st.cache_resource
+def get_config_manager():
+    return AgentConfig()
+
+@st.cache_resource
+def get_asset_manager():
+    return AssetManager()
+
+config_manager = get_config_manager()
+asset_manager = get_asset_manager()
 
 st.set_page_config(page_title="DeepAgents HQ", layout="wide", page_icon="🎬")
 
@@ -136,10 +144,8 @@ else:
             saved_model = current_conf.get(agent, {}).get("model", "gemini-1.5-flash")
             
             # Provider Selector
-            providers = ["Google", "Anthropic"]
-            if agent == "Composer":
-                providers = ["Google", "Anthropic", "Replicate"]
-                
+            providers = ["Google", "Replicate", "Anthropic"]
+            
             try: 
                 prov_idx = providers.index(saved_provider) 
             except ValueError: 
@@ -212,15 +218,11 @@ with tab_director:
         # Cost Estimator
         if st.button("💰 Estimate Project", key="est_dir"):
             est = estimate_cost("Director", config_manager.config)
-            st.toast(f"Total Project Est: ${est['total']:.2f}")
+            st.toast(f"Total Project Est: ${est.get('total_max', 0.0):.2f}")
             with st.expander("Project Cost Breakdown", expanded=True):
                  for d in est['details']: st.write(f"- {d}")
         
-        # Load run-time overrides from Config
-        dir_conf = config_manager.get_agent_config("Director")
-        shots_cfg = dir_conf.get("max_shots", 2)
-        dur_cfg = dir_conf.get("duration", 5)
-        st.caption(f"Settings: {shots_cfg} Shots, {dur_cfg}s clips")
+        st.info("ℹ️ Director Mode: Autonomous. Results depend on your prompt.")
     
     # Output Containter
     output_container = st.container()
@@ -252,12 +254,12 @@ with tab_director:
             if director_result:
                 st.divider()
                 st.info("🎬 Director > 🎥 Handoff to Cinematographer...")
-                # We use the configured quotas
+                # Autonomous mode: Agent decides shots/duration based on prompt or defaults
                 for agent, type_, content in runner.run_cinematographer(
                     director_result, 
-                    mode="both", # Default to both for full production
-                    max_shots=shots_cfg, 
-                    duration_sec=dur_cfg
+                    mode="both", 
+                    max_shots=None, 
+                    duration_sec=None
                 ): 
                     if type_ == "thinking":
                         with st.expander(f"💭 {agent} Thinking...", expanded=False):
@@ -267,6 +269,31 @@ with tab_director:
                          st.markdown(content)
                     elif type_ == "error":
                          st.error(content)
+
+                # --- PHASE 3: COMPOSER (AUTO-HANDOFF) ---
+                st.divider()
+                st.info("🎬 Director > 🎻 Handoff to Composer...")
+                for agent, type_, content in runner.run_composer(director_result): 
+                    if type_ == "thinking":
+                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                             st.markdown(content)
+                    elif type_ == "output":
+                         st.markdown(f"### 🎻 Audio Output")
+                         st.markdown(content)
+                    elif type_ == "error":
+                         st.error(content)
+
+                # --- PHASE 4: EDITING (MERGE) ---
+                st.divider()
+                st.info("✂️ Bringing it all together (Merging)...")
+                # Automatically attempt merge
+                merge_result = runner.run_editor_merge(manager.session_id)
+                if merge_result:
+                     st.success(f"🎬 FINAL CUT COMPLETE!")
+                     st.video(merge_result)
+                     st.markdown(f"**Path**: `{merge_result}`")
+                else:
+                     st.warning("Could not merge assets (Missing video or audio?)")
 
     elif mode == "Review History" and session_id:
         # Replay Log
