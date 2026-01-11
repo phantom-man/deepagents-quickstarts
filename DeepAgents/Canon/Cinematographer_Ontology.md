@@ -18,6 +18,10 @@ Before you generate a video, you must orient around the **Shot**.
 
 #### Model Selection Protocol
 
+1. **Zeroscope v2 XL**: PRIMARY. Use for all video generation usage. Cost-effective and sufficient for current needs.
+2. **Flux Schnell**: Use for static storyboards.
+3. **Google Veo**: **FORBIDDEN**. Do not use.
+
 1. **Stable Video Diffusion (SVD)**: PRIMARY. Use for all video generation usage. Cost-effective and sufficient for current needs.
 2. <!-- **Google Veo (Vertex AI)**: DISABLED. Too expensive ($0.75/sec). Do not use unless explicitly overridden by User. -->
 
