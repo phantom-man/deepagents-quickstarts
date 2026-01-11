@@ -161,34 +161,28 @@ def create_cinematographer_agent(
                     )
                 return "No image returned from Google."
 
-            except Exception as e:
-                logger.error(f"Google Image Gen Error: {e}")
-                # Fallback to Replicate if Google fails?
-                logger.info("Falling back to Replicate...")
-                pass # Fall through to Replicate block
+        if "flux" in img_model.lower() or "replicate" in img_provider.lower() or True: # Force Replicate
+            if not replicate:
+                return "Error: Replicate module not installed."
 
-        if not replicate:
-            return "Error: Replicate module not installed."
-
-        # Switch to Replicate (Flux/SDXL) due to Google Imagen Quotas
-        try:
-            logger.info("🎨 Cinematographer > Generating Image via Replicate (Flux)...")
-            
-            # Using black-forest-labs/flux-schnell (Speed Optimized)
-            # Documentation: https://replicate.com/black-forest-labs/flux-schnell/api
-            output = replicate.run(
-                "black-forest-labs/flux-schnell",
-                input={
-                    "prompt": prompt,
-                    "aspect_ratio": "16:9",
-                    "num_inference_steps": 4,
-                    "num_outputs": 1,
-                    "megapixels": "1",
-                    "go_fast": True,
-                    "output_format": "png",
-                    "disable_safety_checker": True
-                }
-            )
+            # Switch to Replicate (Flux/SDXL) - Enforced Default
+            try:
+                logger.info("🎨 Cinematographer > Generating Image via Replicate (Flux)...")
+                
+                # Using black-forest-labs/flux-schnell (Speed Optimized)
+                output = replicate.run(
+                    "black-forest-labs/flux-schnell",
+                    input={
+                        "prompt": prompt,
+                        "aspect_ratio": "16:9",
+                        "num_inference_steps": 4,
+                        "num_outputs": 1,
+                        "megapixels": "1",
+                        "go_fast": True,
+                        "output_format": "png",
+                        "disable_safety_checker": True
+                    }
+                )
             
             image_url = None
             if isinstance(output, list) and len(output) > 0:
