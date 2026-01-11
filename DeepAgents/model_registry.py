@@ -80,31 +80,10 @@ REPLICATE_MODELS = {
                 }
             ]
         },
-        "suno-ai/bark": {
-            "id": "suno-ai/bark:b76242b40d67c76ab6742e987628a2a9ac019e11d56ab96c4e91ce03b79b2787",
-            "name": "Suno Bark (Speech + FX)",
-            "provider": "Replicate",
-            "cost_type": "medium",
-            "pricing": {"type": "second", "cost": 0.001},
-            "inputs": [
-                {
-                    "name": "prompt",
-                    "type": "text",
-                    "label": "Text to Speak",
-                    "default": "Hello World [laughter]"
-                },
-                {
-                    "name": "history_prompt",
-                    "type": "select",
-                    "options": [
-                        "en_speaker_0", "en_speaker_1", "fr_speaker_0", "announcer"
-                    ],
-                    "default": "en_speaker_0"
-                }
-            ]
-        }
+        # BARK REMOVED - DEPRECATED DUE TO LATENCY
+        # "suno-ai/bark": {...}
     },
-
+    
     # === LLM (TEXT) ===
     "llm": {
         "meta/meta-llama-3-8b-instruct": {

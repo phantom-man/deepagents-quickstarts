@@ -250,7 +250,8 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     if "/" not in target_model:
         lower_input = input_text.lower()
         if "voice" in lower_input or "speech" in lower_input:
-            target_model = "suno-ai/bark"
+            # STRICT POLICY: Use Minimax Speech, NEVER Bark
+            target_model = "minimax/speech-01"
         elif "lyria" in target_model.lower() or "music" in target_model.lower():
             target_model = "google/lyria-2"
         elif "minimax" in target_model.lower():
@@ -271,26 +272,9 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     
     logger.info(f"✅ Final Strategy: {target_model}")
 
-    # --- 3. Voice Generation (Bark) - Only if explicitly requested separate from Minimax ---
-    if ("bark" in target_model or "suno-ai" in target_model) and "minimax" not in target_model:
-        try:
-            logger.info(f"🗣️ Generating Voice with {target_model}...")
-            output = _safe_replicate_run(
-                "suno-ai/bark",
-                input_data={"prompt": input_text, "text_temp": 0.7}
-            )
-            if output:
-                # Bark can return dict or AudioOut object
-                url = output["audio_out"] if isinstance(output, dict) else str(output)
-                fname = _generate_descriptive_filename(f"voice_{input_text}", session_id, "wav")
-                local_path = _download_and_validate_asset(url, session_id, prefix="voice")
-                if local_path:
-                    final_path = os.path.join(os.path.dirname(local_path), fname)
-                    os.rename(local_path, final_path)
-                    return f"**Voice Generated:**\n- [Play]({url})\n- Local: {final_path}"
-        except Exception as e:
-            logger.error(f"Voice Gen Failed: {e}")
-            return f"Voice Generation Error: {e}"
+    # --- 3. Voice Generation (DEPRECATED: Bark) ---
+    if "bark" in target_model or "suno-ai" in target_model:
+        return "Error: Suno Bark is deprecated due to high latency. Use Minimax or XTTS-v2."
 
     # --- 4. Music Generation Pipeline ---
     
