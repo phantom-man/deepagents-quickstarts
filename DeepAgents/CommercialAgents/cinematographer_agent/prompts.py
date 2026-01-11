@@ -1,7 +1,6 @@
 """Prompts for the Cinematographer Agent (Visual Specialist)."""
-import os
 import logging
-from langsmith import Client
+from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -81,17 +80,11 @@ You must re-read this canon at the start of every session to ensure visual consi
 """
 
 def _get_instructions():
-    # Attempt to pull from LangChain Hub
-    if os.getenv("LANGCHAIN_API_KEY"):
-        try:
-            client = Client()
-            prompt_obj = client.pull_prompt("cinematographer-system-main")
-            # Access the template string directly to avoid validation errors
-            return prompt_obj.messages[0].prompt.template
-        except Exception as e: # pylint: disable=broad-exception-caught
-            logger.warning("Failed to pull Cinematographer prompt from Hub: %s. using local fallback.", e)
-    
-    return DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS
+    """Retrieves Cinematographer instructions using strict Hub Logic."""
+    return get_or_push_prompt(
+        repo_name="cinematographer-system-main",
+        default_content=DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS
+    )
 
 # Exposed constant
 CINEMATOGRAPHER_INSTRUCTIONS = _get_instructions()

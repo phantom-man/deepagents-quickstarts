@@ -3,7 +3,7 @@
 import json
 import os
 import logging
-from langsmith import Client
+from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -64,16 +64,11 @@ You will be given content to audit (text or a file path).
 """
 
 def _get_instructions():
-    # Attempt to pull from LangChain Hub
-    if os.getenv("LANGCHAIN_API_KEY"):
-        try:
-            client = Client()
-            prompt_obj = client.pull_prompt("confidence-system-main")
-            # Access the template string directly to avoid validation errors
-            return prompt_obj.messages[0].prompt.template
-        except Exception as e:
-            logger.warning("Failed to pull Confidence prompt from Hub: %s. Using local fallback.", e)
-    return CONFIDENCE_INSTRUCTIONS
+    """Retrieves Confidence instructions from Hub using strict no-failover Logic."""
+    return get_or_push_prompt(
+        repo_name="confidence-system-main",
+        default_content=CONFIDENCE_INSTRUCTIONS
+    )
 
 # Exposed constant
 CONFIDENCE_INSTRUCTIONS = _get_instructions()

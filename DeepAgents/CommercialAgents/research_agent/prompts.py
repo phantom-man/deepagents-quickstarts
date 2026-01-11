@@ -3,7 +3,7 @@
 import json
 import os
 import logging
-from langsmith import Client
+from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -80,22 +80,15 @@ Example format for `raw_findings.md`:
 """
 
 def _get_instructions():
-    # Attempt to pull from LangChain Hub
-    PROMPT_VERSION = None # Pin hash here for production freeze
-    
-    if os.getenv("LANGCHAIN_API_KEY"):
-        try:
-            client = Client()
-            if PROMPT_VERSION:
-                prompt_obj = client.pull_prompt("researcher-system-main", version=PROMPT_VERSION)
-            else:
-                prompt_obj = client.pull_prompt("researcher-system-main")
-                
-            # Access the template string directly to avoid validation errors
-            return prompt_obj.messages[0].prompt.template
-        except Exception as e:
-            logger.debug("Hub Fetch Skipped/Failed (%s). Using Local Default.", e)
-    return RESEARCHER_INSTRUCTIONS
+    """
+    Fetches the Researcher's system instructions from the Hub.
+    STRICT MODE: Will PUSH local default if missing. Will FAIL if sync breaks.
+    """
+    return get_or_push_prompt(
+        repo_name="researcher-system-main",
+        default_content=RESEARCHER_INSTRUCTIONS
+    )
 
 # Exposed constant
+RESEARCHER_INSTRUCTIONS = _get_instructions()
 RESEARCHER_INSTRUCTIONS = _get_instructions()

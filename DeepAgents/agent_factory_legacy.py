@@ -73,8 +73,12 @@ Begin!"""
         last_message = state['messages'][-1]
         content = last_message.content
         
+        # Normalize content to string (BaseMessage.content can be list of blocks)
+        if isinstance(content, list):
+            content = "".join([c if isinstance(c, str) else c.get("text", "") for c in content])
+
         # Manual ReAct Parsing
-        if "Action:" in content and "Action Input:" in content:
+        if isinstance(content, str) and "Action:" in content and "Action Input:" in content:
             try:
                 # Naive Parsing (Robust enough for demos)
                 # Find the LAST occurrence of Action/Input to handle potential chain-of-thought verbose logs

@@ -1,7 +1,6 @@
 """Prompts for the Director Agent (Video Specialist)."""
-import os
 import logging
-from langsmith import Client
+from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -73,46 +72,15 @@ def _get_instructions():
     # Pinned Version SHA: None (Use 'latest' until production freeze)
     PROMPT_VERSION = None # e.g., "78a...b12"
     
-    if os.getenv("LANGCHAIN_API_KEY"):
-        try:
-            client = Client()
-            # Pulled from 'director-system-main' as per latest push
-            # Since user might not have pushed this prompt, valid public repo is safer?
-            # Or clarify that this is fine to fail. 
-            # We will use a more robust handle if available or pass.
-            target_repo = "director-system-main" 
-            
-            # [CRITICAL UPDATE]
-            # Prompt Hub 'pull' usually requires {handle}/{repo_name}
-            # e.g., "langchain-ai/director-system-main" or "my-org/director-system-main"
-            # Since we don't know the User's Handle, we check for an ENV Var or try a default.
-            
-            repo_handle = os.getenv("LANGCHAIN_HUB_HANDLE") # e.g. "my-user-name"
-            # repo_name = "director-system-main" 
-            repo_name = target_repo
-
-            if repo_handle:
-                full_repo_path = f"{repo_handle}/{repo_name}"
-                logger.info("📡 Pulling prompt from Hub: %s", full_repo_path)
-                
-                if PROMPT_VERSION:
-                    prompt_obj = client.pull_prompt(full_repo_path, version=PROMPT_VERSION)
-                else:
-                    prompt_obj = client.pull_prompt(full_repo_path)
-                    
-                return prompt_obj.messages[0].prompt.template
-            else:
-                 # If no handle is set, we can't pull from a private/user repo without guessing.
-                 # We log a helpful warning rather than crashing.
-                 logger.warning("⚠️ LANGCHAIN_HUB_HANDLE is missing in .env. Cannot pull '%s' from Hub. Using local default.", repo_name)
-
-        except Exception as e: # pylint: disable=broad-exception-caught
-            # This is EXPECTED if the user hasn't uploaded the prompt yet.
-            # We suppress the stack trace/warning to avoid user confusion unless debugging.
-            logger.debug("Hub Fetch Skipped/Failed (%s). Using Local Default.", e)
-            pass
-    
-    return DEFAULT_DIRECTOR_INSTRUCTIONS
+def _get_instructions():
+    """
+    Fetches the Director's system instructions from the Hub.
+    STRICT MODE: Will PUSH local default if missing. Will FAIL if sync breaks.
+    """
+    return get_or_push_prompt(
+        repo_name="director-system-main",
+        default_content=DEFAULT_DIRECTOR_INSTRUCTIONS
+    )
 
 # Exposed constant
 DIRECTOR_INSTRUCTIONS = _get_instructions()
