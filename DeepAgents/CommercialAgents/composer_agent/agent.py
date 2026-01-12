@@ -291,35 +291,26 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     if "minimax" in target_model:
         logger.info("🎹 Step 1: Pre-generating Base Track for Minimax...")
         try:
-            # Prefer MusicGen for Minimax Base because of Codec/Format consistency
-            # Minimax requires MP3 for music_01 specifically sometimes, even though doc says wav.
-            # Let's force mp3 extension on the download if possible or convert.
-            # MusicGen outputs WAV. We must rely on the download tool to save it as is, but Minimax might be picky.
+            # Prefer Lyria for Minimax Base as requested by user
+            # Lyria-2 is the high-quality Google model.
             
-            base_model = "meta/musicgen"
+            base_model = "google/lyria-2"
             base_prompt = f"Instrumental backing track, {input_text}"
             
-            logger.info("   Using MusicGen for base track...")
+            logger.info("   Using Lyria-2 for base track...")
+            # Lyria usually takes simple prompt, duration is often not supported or fixed.
             mg_out = _safe_replicate_run(
                 base_model, 
-                input_data={"prompt": base_prompt, "duration": 20}
+                input_data={"prompt": base_prompt}
             )
             
             if mg_out:
-                # Force .mp3 extension for Minimax compatibility if WAV fails
-                # The browser might save as wav, but we need to check if we can convert or just rename if the codec allows.
-                # Actually, standard WAVE is usually fine, but let's check input requirements.
-                # The error was "audio format is not supported"
-                # Let's try downloading with a forced .mp3 name if the tool allows, OR just rely on re-encoding if we had ffmpeg
-                # Since we don't have ffmpeg guaranteed, let's try just renaming it to .mp3 if it's a wav containers often work.
-                # BETTER: Use a MusicGen version that outputs mp3? No, default is wav.
-                
-                temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_mg")
+                temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_lyria")
                 if temp_base:
                     instrumental_file_path = temp_base
                     
         except Exception as e:
-            logger.error(f"Base Track Gen Failed: {e}")
+            logger.error(f"Base Track Gen Failed (Lyria): {e}")
 
     # B. Final Generation
     try:
@@ -426,15 +417,12 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         elif "E006" in error_msg: # Invalid Input (often format)
              logger.warning("Minimax Invalid Input (E006). ")
         
-        # Try one last Hail Mary fallback if we haven't tried MusicGen yet as the primary engine 
-        if "musicgen" not in current_model_used and "lyria" not in current_model_used:
-             logger.info("↩️ Fallback: Attempting pure MusicGen instrumental as safety net.")
+        # Try one last Hail Mary fallback if we haven't tried Lyria yet as the primary engine 
+        if "lyria" not in current_model_used:
+             logger.info("↩️ Fallback: Attempting Lyria-2 instrumental as safety net.")
              try:
-                 mg_out = _safe_replicate_run(
-                    "meta/musicgen", 
-                    input_data={"prompt": input_text, "duration": 20}
-                 )
-                 final_url = str(mg_out)
+                 lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
+                 final_url = str(lyria_out)
                  if final_url:
                     fname = _generate_descriptive_filename(input_text, session_id)
                     local_path = _download_and_validate_asset(final_url, session_id, prefix="final_fallback")
@@ -442,7 +430,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         final_path = os.path.join(os.path.dirname(local_path), fname)
                         os.rename(local_path, final_path)
                         logger.info(f"🎉 Fallback Asset Ready: {final_path}")
-                        return f"**Audio Generated (Fallback MusicGen):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed. Error: {str(e)})*"
+                        return f"**Audio Generated (Fallback Lyria):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed. Error: {str(e)})*"
              except Exception as ex:
                  logger.error(f"Fallback failed: {ex}")
 
