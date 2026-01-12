@@ -252,6 +252,8 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
     # --- 1. Service Availability Check ---
     status_map = check_service_status()
+    # Also check music-1.5 status (implied true if not checked explicitly but good to know)
+    status_map["minimax/music-1.5"] = True # Assume true for now or add to check_service_status
     
     # --- 2. Strategy Selection & Fallback ---
     # Default selection logic
@@ -263,18 +265,21 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             # STRICT POLICY: Use Minimax Speech, NEVER Bark
             target_model = "minimax/speech-01"
         elif "lyria" in target_model.lower() or "music" in target_model.lower():
-            target_model = "google/lyria-2"
+            # [UPDATE] Default to Minimax 1.5 for basic music as it is superior
+            target_model = "minimax/music-1.5"
         elif "minimax" in target_model.lower():
-            target_model = "minimax/music-01"
+            target_model = "minimax/music-1.5"
         else:
-            target_model = "google/lyria-2"
+            target_model = "minimax/music-1.5"
 
     logger.info(f"🎼 Initial Strategy: {target_model}")
 
     # Apply Service Status Fallbacks
-    if "minimax" in target_model and status_map.get("minimax/music-01") is False:
-        logger.warning("🚨 Minimax Music-01 is DOWN. Falling back to Lyria-2.")
-        target_model = "google/lyria-2"
+    # Map music-01 requests to music-1.5 automatically
+    if "music-01" in target_model:
+        logger.info("ℹ️ Upgrading request from Music-01 to Music-1.5")
+        target_model = "minimax/music-1.5"
+
 
     if "lyria" in target_model and status_map.get("google/lyria-2") is False:
         logger.warning("🚨 Lyria-2 is DOWN. Falling back to MusicGen.")
@@ -288,50 +293,46 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
     # --- 4. Music Generation Pipeline ---
     
-    # A. Generate Instrumental Base (if Minimax needs it >15s)
+    # A. Generate Instrumental Base (if Minimax Music-01 still used, unlikely)
     instrumental_file_path = None
     
-    if "minimax" in target_model:
-        logger.info("🎹 Step 1: Pre-generating Base Track for Minimax...")
-        try:
-            # Prefer Lyria for Minimax Base as requested by user
-            # Lyria-2 is the high-quality Google model.
-            
-            base_model = "google/lyria-2"
-            base_prompt = f"Instrumental backing track, {input_text}"
-            
-            logger.info("   Using Lyria-2 for base track...")
-            # User Hint: "Must be at least a 15 second clip" and "select mp3 or wav"
-            # Lyria-2 does not support duration/extension params. 
-            # We must rely on its default output (usually ~20s WAV).
-            mg_out = _safe_replicate_run(
-                base_model, 
-                input_data={
-                    "prompt": base_prompt
-                }
-            )
-            
-            if mg_out:
-                # Download with native extension (likely .wav)
-                temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_lyria")
-                if temp_base:
-                    instrumental_file_path = temp_base
-                    
-        except Exception as e:
-            logger.error(f"Base Track Gen Failed (Lyria): {e}")
+    # [PATCH] Music-1.5 does not need instrumental base.
+    if "music-01" in target_model:
+        # [PATCH] Disabled Lyria Base Gen due to WAV output incompatibility (Minimax needs MP3)
+        logger.info("🎹 Step 1: Pre-generating Base Track skipped (No FFmpeg).")
+        pass
 
     # B. Final Generation
     try:
         final_url = None
         current_model_used = target_model
         
-        # Case: Minimax
-        if "minimax" in target_model:
+        # Case: Minimax Music-1.5 (Preferred)
+        if "music-1.5" in target_model:
+            logger.info("🎤 Generating with Minimax Music-1.5 (Text-to-Music)...")
+            lyric_data = _generate_lyrics_and_style(input_text, llm)
+            lyrics_text = lyric_data.get("lyrics", input_text)
+            style_prompt = lyric_data.get("prompt", input_text)
+            
+            # Schema: prompt (str), lyrics (str)
+            # No files needed!
+            payload = {
+                "prompt": style_prompt,
+                "lyrics": lyrics_text
+            }
+            logger.info(f"   Payload: {payload.keys()}")
+            
+            minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
+            final_url = str(minimax_out)
+
+        # Case: Minimax Music-01 (Legacy)
+        elif "music-01" in target_model:
             if not instrumental_file_path:
                 logger.warning("Minimax base track missing. Continuing generation without instrumental base.")
             
             # Proceed with Minimax logic (using 'if True' to maintain indentation of existing block)
             if True:
+
                 logger.info("🎤 Step 2: Adding Vocals with Minimax...")
                 lyric_data = _generate_lyrics_and_style(input_text, llm)
                 lyrics = lyric_data.get("lyrics", input_text)
@@ -339,7 +340,9 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                  # Voice Library Selection
                 # Path: agent.py -> composer_agent -> CommercialAgents -> DeepAgents -> root -> data -> voices
                 voice_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "voices")
-                available_voices = glob.glob(os.path.join(voice_dir, "*.wav")) + glob.glob(os.path.join(voice_dir, "*.mp3"))
+                # [PATCH] Only load MP3s for Minimax compatibility (WAV causes code=400)
+                available_voices = glob.glob(os.path.join(voice_dir, "*.mp3"))
+                # available_voices = glob.glob(os.path.join(voice_dir, "*.wav")) + glob.glob(os.path.join(voice_dir, "*.mp3"))
                 
                 selected_voice = None
                 if available_voices:
@@ -455,14 +458,16 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music
     logger.info("🎵 Direct Audio Tool called: %s (%s)", prompt, model_name)
     assets = AssetManager()
     
-    # Priority Cascade: Lyria-2 -> Minimax -> MusicGen
-    # If generic "music" requested, default to Lyria-2 as primary
+    # Priority Cascade: Music-1.5 -> Lyria-2 -> MusicGen
+    # If generic "music" requested, default to Music-1.5 as primary
     if "music-01" in model_name:
-         target_model = "minimax/music-01"
+         target_model = "minimax/music-1.5" # 01 is deprecated/hard to use
+    elif "music-1.5" in model_name:
+         target_model = "minimax/music-1.5"
     elif "musicgen" in model_name:
          target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
     else:
-         target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
+         target_model = "minimax/music-1.5" # Default high quality
 
     # We might need an LLM for lyrics if Minimax
     # Using lazy import to avoid circular dependency or heavy init if unused
