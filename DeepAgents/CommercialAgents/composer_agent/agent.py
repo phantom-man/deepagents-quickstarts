@@ -34,7 +34,7 @@ except ImportError:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ComposerAgent")
 
-def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio", max_mb: int = 20) -> Optional[str]:
+def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio", max_mb: int = 20, force_extension: Optional[str] = None) -> Optional[str]:
     """
     Downloads and validates audio from a URL.
     Returns local filepath if valid, None if failed/invalid.
@@ -69,21 +69,24 @@ def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio
             return None
 
         # Fix Extension Logic: Prioritize Content-Type, fallback to URL, default to .mp3
-        ct = r.headers.get("content-type", "").lower()
-        if "wav" in ct:
-            ext = "wav"
-        elif "mpeg" in ct or "mp3" in ct:
-            ext = "mp3"
+        if force_extension:
+            ext = force_extension.strip(".").lower()
         else:
-            # Fallback to URL extension if valid
-            if url.lower().endswith(".wav"):
+            ct = r.headers.get("content-type", "").lower()
+            if "wav" in ct:
                 ext = "wav"
-            elif url.lower().endswith(".mp3"):
+            elif "mpeg" in ct or "mp3" in ct:
                 ext = "mp3"
             else:
-                # Force .mp3 if unknown, as ffmpeg/libraries usually handle mime sniffing
-                # but Replicate NEEDS the extension in the filename.
-                ext = "mp3"
+                # Fallback to URL extension if valid
+                if url.lower().endswith(".wav"):
+                    ext = "wav"
+                elif url.lower().endswith(".mp3"):
+                    ext = "mp3"
+                else:
+                    # Force .mp3 if unknown, as ffmpeg/libraries usually handle mime sniffing
+                    # but Replicate NEEDS the extension in the filename.
+                    ext = "mp3"
 
         tmp_name = f"temp_{prefix}_{session_id}_{uuid.uuid4().hex[:6]}.{ext}"
 
@@ -298,13 +301,18 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             base_prompt = f"Instrumental backing track, {input_text}"
             
             logger.info("   Using Lyria-2 for base track...")
-            # Lyria usually takes simple prompt, duration is often not supported or fixed.
+            # User Hint: "Must be at least a 15 second clip" and "select mp3 or wav"
+            # Lyria-2 does not support duration/extension params. 
+            # We must rely on its default output (usually ~20s WAV).
             mg_out = _safe_replicate_run(
                 base_model, 
-                input_data={"prompt": base_prompt}
+                input_data={
+                    "prompt": base_prompt
+                }
             )
             
             if mg_out:
+                # Download with native extension (likely .wav)
                 temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_lyria")
                 if temp_base:
                     instrumental_file_path = temp_base
@@ -364,8 +372,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         logger.info(f"🎙️ Selected Voice Reference: {os.path.basename(selected_voice)}")
 
                 payload = {
-                    "lyrics": lyrics,
-                    "model_name": "music_01"
+                    "lyrics": lyrics
                 }
                 if instrumental_file_path:
                     payload["instrumental_file"] = open(instrumental_file_path, "rb")
