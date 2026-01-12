@@ -52,25 +52,29 @@ def push_system_prompt(handle: str, content: str):
         # Use LangSmith Client directly
         # Note: The ID should probably be 'deepagents/director-main'
         url = client.push_prompt(handle, object=prompt)
-        print(f"Successfully pushed {handle} to {url}")
+        print(f"✅ Successfully pushed {handle} to {url}")
     except Exception as e:
-        print(f"Failed to push {handle}: {e}")
+        # Handle "Nothing to commit" (409) as a success state
+        if "409" in str(e) and "Nothing to commit" in str(e):
+            print(f"OK: {handle} is up to date.")
+        else:
+            print(f"Failed to push {handle}: {e}")
 
 if __name__ == "__main__":
     print("--- Pushing DeepAgents Prompts to LangSmith Hub ---")
     
     # 1. Director Agent
     # Note: Using simple names, hub should append owner handle if authenticated
-    push_system_prompt("director-system-main", DEFAULT_DIRECTOR_INSTRUCTIONS)
+    push_system_prompt("director-system-prompt", DEFAULT_DIRECTOR_INSTRUCTIONS)
     
     # 2. Research Agent
-    push_system_prompt("researcher-system-main", RESEARCHER_INSTRUCTIONS)
+    push_system_prompt("researcher-system-prompt", RESEARCHER_INSTRUCTIONS)
     
     # 3. Confidence Agent
-    push_system_prompt("confidence-system-main", CONFIDENCE_INSTRUCTIONS)
+    push_system_prompt("confidence-system-prompt", CONFIDENCE_INSTRUCTIONS)
     
     # 4. Composer Agent
-    push_system_prompt("composer-system-main", DEFAULT_COMPOSER_INSTRUCTIONS)
+    push_system_prompt("composer-system-prompt", DEFAULT_COMPOSER_INSTRUCTIONS)
 
     # 5. Cinematographer Agent
-    push_system_prompt("cinematographer-system-main", DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS)
+    push_system_prompt("cinematographer-system-prompt", DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS)

@@ -1,82 +1,32 @@
 """Prompts for the Research Agent."""
-
-import json
-import os
 import logging
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
 
-# Load Canon Ontology (The Source of Truth)
-canon_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Canon", "Research_Agent_Ontology.md"))
-try:
-    with open(canon_path, "r", encoding='utf-8') as f:
-        ONTOLOGY_STR = f.read()
-except Exception:
-    ONTOLOGY_STR = "Ontology path not found. Proceed with standard research protocols."
+DEFAULT_RESEARCHER_INSTRUCTIONS = """You are the **Research Agent** [AURA].
+Your goal is to gather verified, structured information to support the creative process.
 
-# Load Epistemology (Truth Verification Framework)
-epistemic_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "Canon", "Epistemology_Ontology.md"))
-try:
-    with open(epistemic_path, "r", encoding='utf-8') as f:
-        EPISTEMOLOGY_STR = f.read()
-except Exception:
-    EPISTEMOLOGY_STR = "Epistemology path not found. Proceed with caution."
+**EPISTEMOLOGICAL PROTOCOL (TRUTH FRAMEWORK):**
+To ensure truth without a complex external file, you must adhere to the **SIFT** Method:
+1.  **Stop:** Do not just grab the first result.
+2.  **Investigate:** Check the source domain. Is it reputable?
+3.  **Find:** Locate the original study or primary source if possible.
+4.  **Trace:** Verify claims across **at least 3 independent sources**.
 
-# Load Bad Examples (Feedback Loop)
-bad_examples_path = os.path.join(os.path.dirname(__file__), "bad_examples.md")
-try:
-    with open(bad_examples_path, "r") as f:
-        BAD_EXAMPLES = f.read()
-except Exception:
-    BAD_EXAMPLES = "None yet."
+**YOUR OBJECTIVE:**
+When the Director or other agents ask for information (e.g., "What does a 1980s Walkman look like?" or "Details on the NVIDIA B100"), you must find the truth using this framework.
 
-RESEARCHER_INSTRUCTIONS = f"""You are the **Research Agent**, an autonomous investigation unit.
-Your goal is to gather verified, structured information on any given topic, strictly adhering to your definition in the Canon.
+**TOOLS:**
+1.  **tavily_search**: Use for general web search and fact-checking.
+2.  **scrape_webpage**: Use to read deep technical specs or articles.
 
-**CANON (YOUR OPERATING OS):**
-{ONTOLOGY_STR}
+**OUTPUT:**
+You must provide a summary of your findings.
+If the request implies saving data, use the `write_file` tool to save a JSON report.
 
-**EPISTEMOLOGICAL CONSTITUTION (YOUR TRUTH FRAMEWORK):**
-{EPISTEMOLOGY_STR}
-
-**FEEDBACK LOOP (Avoid these mistakes):**
-The following are examples of poor research that was previously discarded. Do NOT repeat these patterns:
-{BAD_EXAMPLES}
-
-**Output Requirements:**
-You must save your raw findings to a file named `research_data/{{project_name}}/raw_findings.md`.
-The file MUST be structured as a JSON list of findings to facilitate downstream processing by other agents.
-
-Example format for `raw_findings.md`:
-```json
-[
-  {{
-    "topic": "Market Context",
-    "claim": "The sector has grown 20% YoY.",
-    "source_url": "https://example.com/report",
-    "evidence": "Report states 2024 revenue hit $5B, up from $4B."
-  }},
-   {{
-    "topic": "Visual Inspiration",
-    "claim": "Cyberpunk aesthetics are trending in this demographic.",
-    "source_url": "https://design-blog.com",
-    "evidence": "Analysis of top 10 campaigns shows neon/noir color palettes."
-  }}
-]
-```
-
-**Tools:**
-*   Use `tavily_search` to find information.
-*   Use `scrape_webpage` to read specific pages in depth.
-*   Use `write_file` to save the `raw_findings.md`.
-
-**Process:**
-1.  **Deconstruct**: Analyze the User's Request or Product Name.
-2.  **Epistemic Check**: Apply the SIFT Method (Stop, Investigate, Find, Trace) to all potential sources. Reject sources that lack raw data availability or have clear conflicts of interest (Incentive Analysis).
-3.  **Strategize**: Determine if this is Exploratory, Specific, or Creative research (see Canon).
-4.  **Execute**: Perform searches, verify sources using the Retraction Watch/PubPeer mindset.
-5.  **Synthesize**: Save `raw_findings.md` (JSON format).
+**CRITICAL RULE:**
+Do NOT hallucinate. If you can't find info, say "I cannot verify this."
 """
 
 def _get_instructions():
@@ -85,10 +35,9 @@ def _get_instructions():
     STRICT MODE: Will PUSH local default if missing. Will FAIL if sync breaks.
     """
     return get_or_push_prompt(
-        repo_name="researcher-system-main",
-        default_content=RESEARCHER_INSTRUCTIONS
+        repo_name="researcher-system-prompt", # RENAMED from -main
+        default_content=DEFAULT_RESEARCHER_INSTRUCTIONS
     )
 
 # Exposed constant
-RESEARCHER_INSTRUCTIONS = _get_instructions()
 RESEARCHER_INSTRUCTIONS = _get_instructions()

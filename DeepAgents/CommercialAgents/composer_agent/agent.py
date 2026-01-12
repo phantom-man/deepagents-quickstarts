@@ -22,6 +22,13 @@ from langchain.tools import tool
 
 from DeepAgents.agent_factory import create_deep_agent
 from DeepAgents.asset_manager import AssetManager
+from DeepAgents.hub_manager import get_or_push_prompt
+
+try:
+    from DeepAgents.CommercialAgents.composer_agent.prompts import COMPOSER_INSTRUCTIONS
+except ImportError:
+    # Basic fallback if file missing
+    COMPOSER_INSTRUCTIONS = "You are an expert Music Composer AI."
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -285,16 +292,28 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         logger.info("🎹 Step 1: Pre-generating Base Track for Minimax...")
         try:
             # Prefer MusicGen for Minimax Base because of Codec/Format consistency
+            # Minimax requires MP3 for music_01 specifically sometimes, even though doc says wav.
+            # Let's force mp3 extension on the download if possible or convert.
+            # MusicGen outputs WAV. We must rely on the download tool to save it as is, but Minimax might be picky.
+            
             base_model = "meta/musicgen"
             base_prompt = f"Instrumental backing track, {input_text}"
             
-            logger.info("   Using MusicGen for base track to ensure valid WAV format...")
+            logger.info("   Using MusicGen for base track...")
             mg_out = _safe_replicate_run(
                 base_model, 
                 input_data={"prompt": base_prompt, "duration": 20}
             )
             
             if mg_out:
+                # Force .mp3 extension for Minimax compatibility if WAV fails
+                # The browser might save as wav, but we need to check if we can convert or just rename if the codec allows.
+                # Actually, standard WAVE is usually fine, but let's check input requirements.
+                # The error was "audio format is not supported"
+                # Let's try downloading with a forced .mp3 name if the tool allows, OR just rely on re-encoding if we had ffmpeg
+                # Since we don't have ffmpeg guaranteed, let's try just renaming it to .mp3 if it's a wav containers often work.
+                # BETTER: Use a MusicGen version that outputs mp3? No, default is wav.
+                
                 temp_base = _download_and_validate_asset(str(mg_out), session_id, prefix="base_mg")
                 if temp_base:
                     instrumental_file_path = temp_base
@@ -318,8 +337,9 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 lyrics = lyric_data.get("lyrics", input_text)
                 
                  # Voice Library Selection
-                voice_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "voices")
-                available_voices = glob.glob(os.path.join(voice_dir, "*.wav"))
+                # Path: agent.py -> composer_agent -> CommercialAgents -> DeepAgents -> root -> data -> voices
+                voice_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "voices")
+                available_voices = glob.glob(os.path.join(voice_dir, "*.wav")) + glob.glob(os.path.join(voice_dir, "*.mp3"))
                 
                 selected_voice = None
                 if available_voices:
@@ -356,8 +376,11 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                     "lyrics": lyrics,
                     "model_name": "music_01"
                 }
+
                 if selected_voice:
-                    payload["refer_voice"] = open(selected_voice, "rb")
+                     # FIX: Replicate Minimax Music-01 uses 'voice_file' NOT 'refer_voice'
+                     logger.info(f"📂 Attaching voice_file: {selected_voice}")
+                     payload["voice_file"] = open(selected_voice, "rb")
 
                 minimax_out = _safe_replicate_run("minimax/music-01", input_data=payload)
                 final_url = str(minimax_out)
@@ -393,6 +416,34 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         return "Generation failed: No URL returned."
 
     except Exception as e:
+        # If E004 (Unavailable) or E003 (Access denied) or other Replicate API errors occur
+        # we should try to fallback gracefully.
+        error_msg = str(e)
+        if "E004" in error_msg:  # Service Unavailable
+             logger.warning("Minimax Service Unavailable (E004). ")
+        elif "E006" in error_msg: # Invalid Input (often format)
+             logger.warning("Minimax Invalid Input (E006). ")
+        
+        # Try one last Hail Mary fallback if we haven't tried MusicGen yet as the primary engine 
+        if "musicgen" not in current_model_used and "lyria" not in current_model_used:
+             logger.info("↩️ Fallback: Attempting pure MusicGen instrumental as safety net.")
+             try:
+                 mg_out = _safe_replicate_run(
+                    "meta/musicgen", 
+                    input_data={"prompt": input_text, "duration": 20}
+                 )
+                 final_url = str(mg_out)
+                 if final_url:
+                    fname = _generate_descriptive_filename(input_text, session_id)
+                    local_path = _download_and_validate_asset(final_url, session_id, prefix="final_fallback")
+                    if local_path:
+                        final_path = os.path.join(os.path.dirname(local_path), fname)
+                        os.rename(local_path, final_path)
+                        logger.info(f"🎉 Fallback Asset Ready: {final_path}")
+                        return f"**Audio Generated (Fallback MusicGen):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed, provided instrumental)*"
+             except Exception as ex:
+                 logger.error(f"Fallback failed: {ex}")
+
         logger.error(f"Replicate Pipeline Failure: {e}")
         return f"Error: {e}"
 
@@ -413,7 +464,8 @@ def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> s
          target_model = "minimax/music-01"
     elif "musicgen" in model_name:
          target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-    target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
+    else:
+         target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
 
     # We might need an LLM for lyrics if Minimax
     # Using lazy import to avoid circular dependency or heavy init if unused
@@ -444,40 +496,21 @@ def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> s
 
 
 @tool
-def compose_tool(request: str) -> str:
+def generate_music_tool(prompt: str) -> str:
     """
-    Multimodal Composer Tool [ORPHEUS].
-    Capabilities:
-    1. Compose Music/Lyrics: "Create a sad song about robots."
-    2. Historical Narrative Analysis: "Analyze the fall of Rome for tragic themes."
-
-    Use this tool for ANY task involving Music, Sound, Lyrics, OR Deep Historical/Narrative Analysis.
+    Generates music/audio based on a text description.
+    You MUST use this tool to actually create the audio file when the user asks for a song, melody, or composition.
+    Input example: "A sad piano melody", "An upbeat rock song with lyrics about coding".
+    Returns the path/link to the generated audio or an error message.
     """
     try:
-        # Check if Replicate package is installed
-        try:
-            # pylint: disable=import-outside-toplevel, unused-import
-            import replicate as _replicate_pkg  # noqa: F401
-
-            has_replicate_pkg = True
-        except ImportError:
-            has_replicate_pkg = False
-
-        # Default configuration
-        # Only use Replicate if Token exists AND package is installed
-        use_replicate = os.environ.get("REPLICATE_API_TOKEN") and has_replicate_pkg
-
-        config = {"provider": "Replicate" if use_replicate else "Google"}
-        agent_runner = create_composer_agent(
-            model_config=config, session_id="tool_call"
-        )
-
-        if not agent_runner:
-            return "Error: Could not initialize Composer Agent."
-
-        return agent_runner(request)
+        # Determine likely model based on prompt content (simple heuristic)
+        # The agent.py logic already does this in _handle_replicate_generation
+        # So we just pass the prompt.
+        # We default to 'minimax/music-01' as the "high quality" default if not specified
+        return generate_music_audio(prompt, model_name="minimax/music-01")
     except Exception as e:
-        return f"Composer Tool Error: {e}"
+        return f"Error generation music: {e}"
 
 
 @tool
@@ -600,11 +633,16 @@ def create_composer_agent(
 
     # 3. Initialize Agent
     # Fix: Restored valid 'browse_library_tool'
+    
+    # 🔗 HUB INTEGRATION: Pull System Prompt
+    hub_prompt = get_or_push_prompt("composer-system-prompt", COMPOSER_INSTRUCTIONS)
+    
+    # We replace 'compose_tool' (which was recursive) with 'generate_music_tool' (which wraps the logic)
     agent = create_deep_agent(
         model=llm,
-        tools=[compose_tool, browse_library_tool], 
-        system_prompt=COMPOSER_INSTRUCTIONS,
+        tools=[generate_music_tool, browse_library_tool], 
+        system_prompt=hub_prompt,
     )
-
+    
     return agent
 

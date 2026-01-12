@@ -29,4 +29,14 @@
 
 - `data/agent_config.json` fully updated to reflect the hybrid Google/Replicate stack.
 
+### 5. LangSmith Authentication Fix (Jan 11, 2026)
+
+- **Problem**: `HTTP 400 No Owner`/`403 Forbidden` errors when pulling prompts from LangSmith Hub, despite valid keys in `.env`.
+- **Root Cause**: Organization-Scoped Keys require an explicit `workspace_id` context. The previous implementation relied on `os.environ`, which was unreliable in the complex `ignite_atlas` runtime (likely due to import ordering or caching).
+- **Resolution**: Refactored `DeepAgents/hub_manager.py` to:
+  1.  Dynamically load `.env`.
+  2.  Extract `LANGSMITH_WORKSPACE_ID`.
+  3.  Inject it directly into the `Client(api_key=..., workspace_id=...)` constructor.
+- **Outcome**: Prompt sync restored. "Strict Mode" (crash on missing prompt) is now safe to enable.
+
 **Status**: Ready for Ignition.

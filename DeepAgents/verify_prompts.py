@@ -38,11 +38,11 @@ if __name__ == "__main__":
     print("--- Verifying DeepAgents LangSmith Prompts ---")
     
     handles = [
-        "director-system-main",
-        "researcher-system-main",
-        "confidence-system-main",
-        "composer-system-main",
-        "cinematographer-system-main"
+        "director-system-prompt",
+        "researcher-system-prompt",
+        "confidence-system-prompt",
+        "composer-system-prompt",
+        "cinematographer-system-prompt"
     ]
     
     results = []

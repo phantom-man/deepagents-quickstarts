@@ -140,8 +140,16 @@ else:
     for agent in agents:
         with st.sidebar.expander(f"⚙️ {agent} Settings", expanded=False):
             # Load saved values
-            saved_provider = current_conf.get(agent, {}).get("provider", "Google")
-            saved_model = current_conf.get(agent, {}).get("model", "gemini-1.5-flash")
+            # Policy: Default to Anthropic for Intelligence, Replicate/Google for Media (but Intelligence is Anthropic)
+            # User Restriction: ALL Agents must use Anthropic/Haiku for Intelligence.
+            default_provider = "Anthropic"
+            default_model = "claude-3-haiku-20240307"
+            
+            # (Previous logic overriden by strict user requirement)
+            # if agent == "Cinematographer": ... 
+            
+            saved_provider = current_conf.get(agent, {}).get("provider", default_provider)
+            saved_model = current_conf.get(agent, {}).get("model", default_model)
             
             # Provider Selector
             providers = ["Google", "Replicate", "Anthropic"]
@@ -156,33 +164,18 @@ else:
             # Model Logic (Generic for now to avoid direct API calls in GUI loop)
             # We use a static list or cached list from session state if available 
             # (Note: Removed direct API call get_available_models from main loop for performance)
-            model_list = [saved_model, "gemini-1.5-pro", "gemini-1.5-flash"]
-            if provider == "Anthropic": model_list = ["claude-3-5-sonnet-20240620", "claude-3-opus-20240229"]
-            
-            # Replicate Specifics
-            if provider == "Replicate":
-                if agent == "Composer":
-                     options = get_model_options("audio")
-                elif agent == "Cinematographer": # Use Video for Cinematographer (mostly) but what about LLM?
-                     # Cinematographer has two roles: prompts (LLM) and video (Gen). The dropdown here sets the MAIN model for the factory.
-                     # In `create_cinematographer_agent`, `model` is the LLM. `video_model` is separate.
-                     # So we should show LLM options here! 
-                     # Wait, Cinematographer was set to use Meta Llama 3 8B in config.
-                     options = get_model_options("llm")
-                elif agent in ["Director", "Researcher", "Confidence"]:
-                     options = get_model_options("llm")
-                else: 
-                     # Default fallback
-                     options = get_model_options("llm")
-                
-                model_list = [k for n, k in options]
+            if provider == "Anthropic": 
+                model_list = ["claude-3-haiku-20240307"]
+            elif provider == "Replicate":
+                 # Fallback if user explicitly selects Replicate for Intelligence (not recommended by policy but allow list)
+                 model_list = ["meta/meta-llama-3-70b-instruct"]
+            else:
+                # Default Google
+                model_list = list(set([saved_model, "gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"]))
             
             model = st.selectbox(f"Model ({agent})", model_list, index=0, key=f"mod_{agent}")
-            
-            # Save if changed
-            if provider != saved_provider or model != saved_model:
-                config_manager.set_agent_config(agent, provider, model)
-                # st.toast(f"Updated {agent}")
+            config_manager.set_agent_config(agent, provider, model)
+            # st.toast(f"Updated {agent}")
 
 # --- MAIN INTERFACE (GATED) ---
 if not system_health:
@@ -229,6 +222,26 @@ with tab_director:
 
     if run_btn and directive:
         # Create new session if needed
+        if not session_id or session_id == "New Session":
+             session_id = session_manager.create_session("New Director Run")
+             st.session_state.current_session_id = session_id
+             st.rerun()
+
+    # Session State Persistence for Results
+    if "director_result" not in st.session_state:
+        st.session_state.director_result = ""
+    if "final_asset_path" not in st.session_state:
+        st.session_state.final_asset_path = None
+    if "agent_logs" not in st.session_state:
+        st.session_state.agent_logs = []
+
+    if run_btn and directive:
+        # Clear previous logs
+        st.session_state.agent_logs = []
+        st.session_state.director_result = ""
+        st.session_state.final_asset_path = None
+        
+        # Create new session if needed
         st.session_state.current_session_id = SessionManager().session_id
         manager = SessionManager(st.session_state.current_session_id)
         # Re-init runner with manager
@@ -240,6 +253,9 @@ with tab_director:
             # --- PHASE 1: DIRECTION ---
             director_result = ""
             for agent, type_, content in runner.stream_director(directive): 
+                # Log to state
+                st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
+                
                 if type_ == "thinking":
                     with st.expander(f"💭 {agent} Thinking...", expanded=False):
                         st.markdown(content)
@@ -250,6 +266,8 @@ with tab_director:
                 elif type_ == "error":
                     st.error(content)
             
+            st.session_state.director_result = director_result
+
             # --- PHASE 2: CINEMATOGRAPHY (AUTO-HANDOFF) ---
             if director_result:
                 st.divider()
@@ -261,6 +279,7 @@ with tab_director:
                     max_shots=None, 
                     duration_sec=None
                 ): 
+                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
                     if type_ == "thinking":
                         with st.expander(f"💭 {agent} Thinking...", expanded=False):
                              st.markdown(content)
@@ -274,6 +293,7 @@ with tab_director:
                 st.divider()
                 st.info("🎬 Director > 🎻 Handoff to Composer...")
                 for agent, type_, content in runner.run_composer(director_result): 
+                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
                     if type_ == "thinking":
                         with st.expander(f"💭 {agent} Thinking...", expanded=False):
                              st.markdown(content)
@@ -292,8 +312,29 @@ with tab_director:
                      st.success(f"🎬 FINAL CUT COMPLETE!")
                      st.video(merge_result)
                      st.markdown(f"**Path**: `{merge_result}`")
+                     st.session_state.final_asset_path = merge_result
                 else:
                      st.warning("Could not merge assets (Missing video or audio?)")
+    
+    # RENDER PERSISTED RESULTS (If not running now, but have results)
+    elif st.session_state.get("agent_logs") and mode == "Live Operation":
+        with output_container:
+            for log in st.session_state.agent_logs:
+                agent, type_, content = log['agent'], log['type'], log['content']
+                if type_ == "thinking":
+                    with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                        st.markdown(content)
+                elif type_ == "output":
+                     st.markdown(f"### {agent} Output")
+                     st.markdown(content)
+                elif type_ == "error":
+                    st.error(content)
+            
+            if st.session_state.get("final_asset_path"):
+                st.divider()
+                st.success(f"🎬 FINAL CUT COMPLETE!")
+                st.video(st.session_state.final_asset_path)
+                st.markdown(f"**Path**: `{st.session_state.final_asset_path}`")
 
     elif mode == "Review History" and session_id:
         # Replay Log
@@ -307,8 +348,19 @@ with tab_director:
                     elif log['type'] == 'output':
                         st.markdown("### 🎬 Director Output")
                         st.markdown(log['content'])
-    
-    # --- SESSION ASSETS SECTION ---
+        
+        # MERGE BUTTON FOR HISTORICAL CONTEXT
+        st.divider()
+        if st.button("✂️ Merge Session Assets"):
+             with output_container:
+                 st.info(f"Starting Manual Merge for Session: {session_id}...")
+                 merge_result = runner.run_editor_merge(session_id)
+                 if merge_result:
+                     st.success(f"🎬 FINAL CUT COMPLETE!")
+                     st.video(merge_result)
+                     st.markdown(f"**Path**: `{merge_result}`")
+                 else:
+                     st.error("Could not merge assets (Missing video or audio?)")
     st.divider()
     st.subheader("📂 Session Assets")
     cur_sess = manager.session_id

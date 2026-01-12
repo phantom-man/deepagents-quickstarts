@@ -19,6 +19,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from DeepAgents.replicate_adapter import ChatReplicate
 from DeepAgents.agent_factory import create_deep_agent
+from DeepAgents.hub_manager import get_or_push_prompt
 
 # Local imports
 # PYTHONPATH should be set to repo root
@@ -164,12 +165,14 @@ def create_director_agent(
                     model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
                 )
             except Exception as replicate_error:
-                logger.error("Replicate Fallback Failed: %s. Creating Dummy Model.", replicate_error)
-                # Last resort to avoid crash loop
-                from langchain_community.chat_models import FakeListChatModel
-                model = FakeListChatModel(responses=["System Error: No LLM Available."])
+                logger.critical("Replicate Fallback Failed: %s. SYSTEM HALT.", replicate_error)
+                raise replicate_error
 
     # Create the Deep Agent
+    # 🔗 HUB INTEGRATION: Pull System Prompt
+    # Using simple name so HubManager resolves owner via Workspace ID
+    hub_prompt = get_or_push_prompt("director-system-prompt", DIRECTOR_INSTRUCTIONS)
+
     # WORKAROUND: If using Google + LangGraph, tools binding might be failing schema validation.
     # We can try to bind them MANUALLY and pass the bound model.
     # But create_deep_agent expects raw model + tools list usually.
@@ -183,7 +186,7 @@ def create_director_agent(
             consult_research_agent,
             validate_scene_logic,
         ],
-        system_prompt=DIRECTOR_INSTRUCTIONS,
+        system_prompt=hub_prompt,
         checkpointer=checkpointer
     )
 

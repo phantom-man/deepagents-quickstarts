@@ -1,6 +1,10 @@
-# DeepAgents (Project Atlas) Project Brief
+# DeepAgents (Project Atlas)
 
 ## Project Summary
+
+DeepAgents ("Atlas") is an autonomous multi-agent studio system that transforms concepts into high-fidelity audiovisual content using a strict 'Hub-and-Spoke' architecture where Intelligence (Anthropic) directs Media (Replicate) with rigid state management (Postgres).
+
+
 
 DeepAgents (codenamed "Atlas") is an autonomous multi-agent studio system designed to produce high-fidelity audiovisual content (Commercials, Music Videos, Narratives, Synthetic Personas) from high-level concepts. It simulates a real-world production team with specialized agents collaborating to create a final output.
 
@@ -37,3 +41,28 @@ DeepAgents (codenamed "Atlas") is an autonomous multi-agent studio system design
 - **Phase**: System Evaluation & Optimization.
 - **Modules**: Director, Researcher, Confidence, Composer, Cinematographer (Active).
 - **Infrastructure**: Fully instrumented (Postgres + OTLP).
+
+
+## Goals
+
+- Autonomous Production: zero-touch creation of AV assets.
+- Epistemic Integrity: Fact-checking via Confidence Agent.
+- Enterprise Architecture: LangGraph (Async) + Postgres (OLTP).
+- Strict Observability: Full OTLP Tracing + Hub Prompt Management.
+
+
+
+## Constraints
+
+- Model: Anthropic (Intelligence), Replicate (Media).
+- Prompts: Must sync with LangSmith Hub (No Local Failover).
+- Quality: 'The Jewel Standard' - 10/10 Linting.
+- Standards: Strict JSON/Markdown Ontologies.
+
+
+
+## Stakeholders
+
+- Creative Agencies
+- Developers
+

@@ -59,7 +59,7 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
         agent = create_react_agent(
             model=model,
             tools=tools,
-            state_modifier=system_prompt,
+            prompt=system_prompt,
             checkpointer=checkpointer
         )
         return agent

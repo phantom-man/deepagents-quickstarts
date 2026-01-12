@@ -1,7 +1,6 @@
 """
-Hub Manager Module.
-Strictly manages synchronization between Local code and LangSmith Hub.
-Enforces "No Failover" policy: If a prompt cannot be retrieved or created in the Hub, the system MUST fail.
+Hub Manager Module (Restored Strict-Simple).
+Restored to the logic that was proven to work in 'test_hub_lookup.py'.
 """
 import os
 import logging
@@ -9,101 +8,90 @@ from dotenv import load_dotenv
 from langsmith import Client
 from langchain_core.prompts import ChatPromptTemplate
 
-# Load Env Forcefully
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+# Load Env Forcefully (Override system env to ensure .env is Truth)
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 
 logger = logging.getLogger("HubManager")
 
 def get_or_push_prompt(repo_name: str, default_content: str) -> str:
     """
-    Retrieves a prompt from LangSmith Hub.
-    If it does not exist, PUSHES the local default to create it.
-    If it fails to connect or sync, RAISES an exception (No failover to local silent).
+    Retrieves a prompt from LangSmith Hub using the Simple Name strategy.
     
-    Args:
-        repo_name: The simple name of the repo (e.g., "director-system-main").
-        default_content: The local system prompt string to use as the source of truth if Hub is empty.
-        
-    Returns:
-        The prompt template string (content of the System Message).
+    CRITICAL: Requires LANGSMITH_WORKSPACE_ID to be set in .env for Organization Keys.
     """
-    handle = os.getenv("LANGCHAIN_HUB_HANDLE")
-    if not handle:
-        raise ValueError("CRITICAL: LANGCHAIN_HUB_HANDLE is not set in .env. Cannot sync with LangSmith Hub.")
+    
+    # 1. Environment Verification
+    ws_id = os.getenv("LANGSMITH_WORKSPACE_ID")
+    api_key = os.getenv("LANGCHAIN_API_KEY")
+    
+    # Debug Key State
+    masked_key = f"{api_key[:5]}...{api_key[-4:]}" if api_key and len(api_key) > 10 else "None"
+    logger.info(f"HubManager: 🔑 Active Key: {masked_key} | Workspace: {ws_id}")
 
-    full_repo = f"{handle}/{repo_name}"
-    client = Client()
+    if not ws_id:
+        logger.error("❌ LANGSMITH_WORKSPACE_ID is missing from environment variables.")
+        logger.error("   For Organization Keys, this ID is required to define the 'Owner' context.")
+        raise ValueError("LANGSMITH_WORKSPACE_ID not set. Cannot authenticate Hub requests.")
+
+    # 2. Strategy: Use SIMPLE NAME. The SDK uses the Workspace ID to resolve the owner.
+    target = repo_name 
+    
+    logger.info(f"HubManager: 🚀 Context Active (Workspace: {ws_id})")
+    logger.info(f"HubManager: Attempting Strict Pull for '{target}'...")
+    
+    # Explicitly pass configuration to the Client to bypass environment variable caching/timing issues.
+    # We verified via inspection that 'workspace_id' is a valid parameter in this SDK version.
+    client_kwargs = {}
+    if api_key:
+        client_kwargs['api_key'] = api_key
+    if ws_id:
+        client_kwargs['workspace_id'] = ws_id
+        
+    client = Client(**client_kwargs)
     
     try:
-        logger.info(f"📡 Attempting to Pull Prompt: {full_repo}")
-        prompt_obj = client.pull_prompt(full_repo)
+        # Pull Attempt
+        prompt_obj = client.pull_prompt(target)
         
-        # Extract System Message Content from ChatPromptTemplate
-        # Expected Structure: ChatPromptTemplate(messages=[SystemMessagePromptTemplate(prompt=PromptTemplate(template='...')), ...])
-        
+        # Validation
         if hasattr(prompt_obj, "messages") and len(prompt_obj.messages) > 0:
              first_msg = prompt_obj.messages[0]
-             
-             # Case A: SystemMessagePromptTemplate
              if hasattr(first_msg, "prompt") and hasattr(first_msg.prompt, "template"):
+                 logger.info(f"HubManager: ✅ Success for '{target}'.")
                  return first_msg.prompt.template
-                 
-             # Case B: Direct Message (unlikely for Hub pull but possible)
              if hasattr(first_msg, "content"):
+                 logger.info(f"HubManager: ✅ Success for '{target}'.")
                  return first_msg.content
         
-        # Fallback: If we can't parse it but pulled it, wait... strict mode?
-        # If we can't understand the format, we can't use it as a 'system_prompt' string.
-        # But maybe we can just return the default if parsing fails? 
-        # User said "No failover to local".
-        # So we must raise error or fix parsing.
-        
-        # Let's assume standard push/pull structure.
-        # If it fails to parse, we might be getting a weird object.
-        logger.warning(f"⚠️ Prompt retrieved but structure unclear. Type: {type(prompt_obj)}")
-        # Try converting to string representation or check input_variables
-        raise ValueError(f"Retrieved prompt {full_repo} does not match expected System Message format.")
+        raise ValueError(f"Prompt '{target}' retrieved but has invalid structure.")
 
     except Exception as e:
-        # Check if it is a 404 / Not Found
+        logger.error(f"HubManager: ❌ Failure for '{target}'. trace: {e}")
+        
+        # Check for 404/400 to attempt Push (Self-Healing)
         error_str = str(e).lower()
-        # '404' or 'not found' is typical SDK response for missing repo
+        should_push = False
         if "404" in error_str or "not found" in error_str:
-            logger.warning(f"⚠️ Prompt {full_repo} not found in Hub. PUSHING Local Default...")
+            should_push = True
+        elif "no prompt owner" in error_str and ws_id:
+             # If we have a workspace ID but still get this, it's very strange, but try pushing.
+             should_push = True
+
+        if should_push:
+            logger.warning(f"HubManager: Prompt missing. Attempting PUSH to '{target}'...")
             try:
-                # Push the default as a clean ChatPromptTemplate
                 prompt = ChatPromptTemplate.from_messages([
                     ("system", default_content),
                     ("placeholder", "{messages}")
                 ])
-                
-                # Attempt Push
-                try:
-                    url = client.push_prompt(full_repo, object=prompt)
-                except Exception as tenant_error:
-                    # Check for Tenant Mismatch (User put wrong handle in .env)
-                    if "another tenant" in str(tenant_error) or "Current tenant" in str(tenant_error):
-                        logger.warning(f"⚠️ Handle mismatch ('{handle}'). Pushing to default authenticated tenant...")
-                        # Push to simple name, let SDK resolve the handle
-                        # Note: This means 'full_repo' variable is technically wrong for the return log, but the URL will be right.
-                        url = client.push_prompt(repo_name, object=prompt)
-                    else:
-                        raise tenant_error
-                        
-                logger.info(f"✅ Successfully Pushed: {url}")
-                
-                # Update: Since we just pushed, we can trust the default content matches.
+                # Push to Simple Name (SDK resolves owner via Workspace ID)
+                url = client.push_prompt(target, object=prompt)
+                logger.info(f"HubManager: ✅ Push Success: {url}")
                 return default_content
-                
-            except Exception as push_error:
-                # SPECIAL CASE: 409 Conflict "Nothing to commit"
-                # This happens if we tried to push, but the content is actually identical to what's already there.
-                # This implies state is actually valid/synced.
-                if "409" in str(push_error) and "Nothing to commit" in str(push_error):
-                    logger.info("ℹ️ Prompt already exists and is up to date (No changes detected).")
-                    return default_content
-                    
-                raise RuntimeError(f"🔥 CRITICAL FAILURE: Could not PUSH prompt to Hub: {push_error}") from push_error
-        else:
-            # Genuine Connection/Auth Error -> Strict Fail
-            raise RuntimeError(f"🔥 CRITICAL FAILURE: Could not PULL prompt from Hub: {e}") from e
+            except Exception as push_err:
+                 raise RuntimeError(f"CRITICAL: Hub Push Failed: {push_err}") from push_err
+        
+        # Raise original error if not a missing prompt
+        raise RuntimeError(f"CRITICAL: Hub Pull Failed: {e}") from e
+
+

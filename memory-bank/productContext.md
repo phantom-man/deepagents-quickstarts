@@ -2,6 +2,15 @@
 
 ## Project Description
 
+Multi-Agent System for content creation, research, and deep retrieval.
+Now configured to strictly use **Claude 3 Haiku** due to access constraints.
+
+
+
+Commercial-grade multi-agent studio for autonomous audio-visual production.
+
+
+
 DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
 Originally focused on commercials, the studio has expanded to support Music Production, Narrative Video, and Synthetic Personas.
 Current Brain: Anthropic Claude 3 Haiku.
@@ -37,6 +46,31 @@ The system is designed for "Zero Touch" operation, handling research, creative d
 - **MemoriPilot**: Self-referential memory for the developer (Copilot) to maintain context across sessions.
 
 ## Architecture
+
+# DeepAgents Architecture
+
+## Core Components
+- **Framework**: LangGraph (Orchestration), Streamlit (UI).
+- **Communication (AgentComms)**: PostgreSQL based message passing.
+- **Memory (AgentMemory)**: PostgreSQL based short-term memory (checkpoints).
+- **Knowledge (KnowledgeStore)**: LanceDB (Vector Store) for long-term recall.
+- **Hub**: LangChain Hub (Prompt versioning). **Status**: Fixed & Stable (v2 Auth).
+
+## Models & Providers
+- **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
+- **Vision/Media**: **Replicate** (Flux for Image, Zeroscope for Video, XTTS for Voice).
+- **Comms/Music**: Replicate (Minimax Music).
+
+## Deployment
+- **Local**: `streamlit run DeepAgents/gui/app.py`.
+- **Environment**: Python 3.10+ VENV.
+- **Secrets**: Managed via `.env` and `st.secrets` (implied).
+
+
+
+Hub-and-Spoke Orchestra (LangGraph). Postgres (OLTP) for state, LanceDB for knowledge. Streamlit (Sync) with Asyncio Bridge for UI.
+
+
 
 The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core.
 
@@ -110,6 +144,26 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 
 ## Libraries and Dependencies
 
+- langchain
+- langgraph
+- streamlit
+- anthropic
+- google-genai
+- replicate
+- lancedb
+- psycopg
+
+
+
+- langgraph
+- langsmith
+- streamlit
+- asyncpg
+- lancedb
+- anthropic
+
+
+
 - LangChain
 - LangGraph
 - Streamlit
@@ -137,6 +191,20 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 
 
 ## Technologies
+
+- Anthropic Claude 3 Haiku
+- Streamlit
+- LangChain
+- Replicate
+
+
+
+- Intelligence: Anthropic Claude 3 Haiku (Primary).
+- Visuals: Replicate Flux/Zeroscope.
+- Voice: Replicate XTTS-v2.
+- Infrastructure: Postgres + LanceDB + OTLP.
+
+
 
 - Anthropic Claude 3 Haiku
 - Google Vertex AI (Fallback)

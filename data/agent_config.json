@@ -21,7 +21,7 @@
     },
     "Composer": {
         "provider": "Replicate",
-        "model": "minimax/music-01"
+        "model": "meta/meta-llama-3-70b-instruct"
     },
     "Voice": {
         "provider": "Replicate",
