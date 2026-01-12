@@ -30,15 +30,23 @@
 - **Optimization**: Verified "Winning Stack" quotas via `probe_quotas.py`, identifying safe high-throughput models.
 - **Observability (OTLP)**: Installed `langsmith[otel]` and configured `agent_runner.py` to emit OpenTelemetry traces.
 - **Persistence (OLTP)**: Updated `agent_runner.py` to use `DeepAgents/persistence.py` (AsyncPostgresSaver) for robust state management.
+- **Dependency Resolution**: Installed `psycopg-binary` and `arxiv` to resolve `ImportError` crashes. Verified `requirements.txt` reflects the migration to `psycopg` (v3) for Async Postgres support.
+- **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable audio generation.
+- **Best Practices Implementation**:
+    - **Retries**: Implemented `tenacity` with exponential backoff in `run_director_eval.py` to handle API rate limits robustly.
+    - **Configuration**: Updated `.env.example` to explicitly include `OTEL_EXPORTER_OTLP_ENDPOINT`, making observability setup transparent.
+    - **Linting**: Created `.pylintrc` to suppress noisy `import-error` warnings, improving the developer experience.
 
 ## Active Questions
 
+- Does the new `generate_music_tool` correctly handle all Minimax/MusicGen API edge cases in production?
 - Does the new Google-based Apollo Agent correctly bind tools and execute the full commercial pipeline?
 - Does the Replicate fallback logic in `Cinematographer` successfully catch any Google Imagen errors?
 - Are traces appearing correctly in LangSmith?
 
 ## Next Steps
 
-1. **Verify Apollo**: Issue a complex task via the GUI to test the new Gemini 2.0 Flash brain.
-2. **Verify Cinematographer**: Request a storyboard to test Imagen 4 Fast integration.
-3. **Monitor**: Check LangSmith for clean traces and cost tracking.
+1. **Verify Composer**: Confirm generation quality in the GUI.
+2. **Verify Apollo**: Issue a complex task via the GUI to test the new Gemini 2.0 Flash brain.
+3. **Verify Cinematographer**: Request a storyboard to test Imagen 4 Fast integration.
+4. **Monitor**: Check LangSmith for clean traces and cost tracking.

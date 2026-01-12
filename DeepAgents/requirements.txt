@@ -25,3 +25,4 @@ numpy<2.3.0
 asyncpg
 psycopg-pool
 psycopg-binary
+tenacity

@@ -5,6 +5,7 @@ from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langsmith import Client, evaluate
 from langsmith.schemas import Example, Run
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # Import Director Agent
 # Need to add repo root to path
@@ -17,10 +18,23 @@ from DeepAgents.CommercialAgents.director_agent.agent import create_director_age
 # Load env
 load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env")))
 
-import time
-
 # Initialize Agent
 director_app = create_director_agent(model_name="gemini-3-pro-preview")
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=2, min=5, max=60),
+    retry=retry_if_exception_type(Exception), # Broad for now, narrow to specific API errors in prod
+    reraise=True
+)
+def _invoke_agent_safe(user_query: str):
+    """
+    Invokes the agent with exponential backoff for rate limits.
+    """
+    return director_app.invoke(
+        {"messages": [HumanMessage(content=user_query)]},
+        config={"tags": ["eval_run"]}
+    )
 
 def target(inputs: dict) -> dict:
     """
@@ -29,16 +43,8 @@ def target(inputs: dict) -> dict:
     """
     user_query = inputs["input_text"]
     
-    # Throttle to avoid Rate Limits (Free Tier)
-    print("Sleeping 30s for Rate Limits...")
-    time.sleep(30)
-
-    # Run the agent
-    # LangGraph input: state dict with 'messages'
-    final_state = director_app.invoke(
-        {"messages": [HumanMessage(content=user_query)]},
-        config={"tags": ["eval_run"]}
-    )
+    # Run the agent (with Retry Logic)
+    final_state = _invoke_agent_safe(user_query)
     
     # Extract final response
     # The output of create_react_agent is state. 'messages'[-1] is the AI response.

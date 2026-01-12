@@ -8,7 +8,7 @@ The core architecture of "Atlas" (DeepAgents) relies on a hybrid persistence mod
 
 - **LLM**: Google Gemini (Pro/Flash) via `google-genai` SDK.
 - **Vector Database**: LanceDB (768 dimensions via `text-embedding-004`).
-- **Nervous System (OLTP)**: PostgreSQL via `asyncpg` (Async) and `psycopg2` (Sync Legacy).
+- **Nervous System (OLTP)**: PostgreSQL via `psycopg` (Async V3) and `psycopg2` (Sync Legacy).
 - **Orchestration**: LangGraph with `langgraph-checkpoint-postgres`.
 - **Observability (OTLP)**: OpenTelemetry via LangSmith (`LANGSMITH_OTEL_ENABLED=true`).
 - **Voice**: XTTS-v2 via Replicate.
@@ -23,7 +23,7 @@ The system maintains two distinct types of "Memory":
 - **Hippocampus (Semantic)**: LanceDB stores unstructured vectors (documents, learnings).
 - **Nervous System (Reflex/State)**: PostgreSQL stores:
   - **Sync State**: Tool configurations, global registry (`agent_brain.py` via `psycopg2`).
-  - **Async State**: LangGraph checkpoints for pausing/resuming agent threads (`persistence.py` via `asyncpg`).
+  - **Async State**: LangGraph checkpoints for pausing/resuming agent threads (`persistence.py` via `psycopg` V3).
 
 ### 2. Async-Sync Bridge (UI Layer)
 
