@@ -329,9 +329,10 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         # Case: Minimax
         if "minimax" in target_model:
             if not instrumental_file_path:
-                logger.warning("Minimax requires base track >15s. Fallback to MusicGen.")
-                target_model = "meta/musicgen" # Switch strategy
-            else:
+                logger.warning("Minimax base track missing. Continuing generation without instrumental base.")
+            
+            # Proceed with Minimax logic (using 'if True' to maintain indentation of existing block)
+            if True:
                 logger.info("🎤 Step 2: Adding Vocals with Minimax...")
                 lyric_data = _generate_lyrics_and_style(input_text, llm)
                 lyrics = lyric_data.get("lyrics", input_text)
@@ -372,10 +373,11 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         logger.info(f"🎙️ Selected Voice Reference: {os.path.basename(selected_voice)}")
 
                 payload = {
-                    "instrumental_file": open(instrumental_file_path, "rb"),
                     "lyrics": lyrics,
                     "model_name": "music_01"
                 }
+                if instrumental_file_path:
+                    payload["instrumental_file"] = open(instrumental_file_path, "rb")
 
                 if selected_voice:
                      # FIX: Replicate Minimax Music-01 uses 'voice_file' NOT 'refer_voice'
@@ -440,15 +442,15 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         final_path = os.path.join(os.path.dirname(local_path), fname)
                         os.rename(local_path, final_path)
                         logger.info(f"🎉 Fallback Asset Ready: {final_path}")
-                        return f"**Audio Generated (Fallback MusicGen):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed, provided instrumental)*"
+                        return f"**Audio Generated (Fallback MusicGen):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed. Error: {str(e)})*"
              except Exception as ex:
                  logger.error(f"Fallback failed: {ex}")
 
         logger.error(f"Replicate Pipeline Failure: {e}")
         return f"Error: {e}"
 
-@tool
-def generate_music_audio(prompt: str, model_name: str = "minimax/music-01") -> str:
+
+def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music-01") -> str:
     """
     Directly generates audio using a Replicate model (MusicGen or Minimax).
     Args:
@@ -508,7 +510,7 @@ def generate_music_tool(prompt: str) -> str:
         # The agent.py logic already does this in _handle_replicate_generation
         # So we just pass the prompt.
         # We default to 'minimax/music-01' as the "high quality" default if not specified
-        return generate_music_audio(prompt, model_name="minimax/music-01")
+        return _generate_music_audio_internal(prompt, model_name="minimax/music-01")
     except Exception as e:
         return f"Error generation music: {e}"
 

@@ -4,7 +4,7 @@ tavily-python
 langchain-tavily
 google-genai
 langchain-anthropic
-langsmith
+langsmith[otel]
 google-cloud-aiplatform
 # langchain-google-vertexai # Deprecated in favor of langchain-google-genai
 replicate
