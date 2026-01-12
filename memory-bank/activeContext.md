@@ -10,6 +10,7 @@
 - [x] Rename "Director" Agent to "Apollo" (Identity Update).
 - [x] Clean LangSmith Hub (Remove `*-main` repos, enforce `*-system-prompt`).
 - [x] Fix and Launch GUI (`DeepAgents/gui/app.py`).
+- [x] Add Tracing to Workspace (LangChain Tracing V2 + OTLP).
 
 ## Recent Changes
 
@@ -36,6 +37,9 @@
     - **Retries**: Implemented `tenacity` with exponential backoff in `run_director_eval.py` to handle API rate limits robustly.
     - **Configuration**: Updated `.env.example` to explicitly include `OTEL_EXPORTER_OTLP_ENDPOINT`, making observability setup transparent.
     - **Linting**: Created `.pylintrc` to suppress noisy `import-error` warnings, improving the developer experience.
+- **Composer Upgrade**: Switched the primary music generation engine from `minimax/music-01` to `minimax/music-1.5`.
+    - **Reason**: `music-01` required `mp3` inputs for voice/instrumental references, causing failures with Lyria-generated `wav` files in environments lacking `ffmpeg`.
+    - **Benefit**: `music-1.5` generates full capability audio from text/lyrics alone, removing the complex two-step pipeline and file format dependency.
 
 ## Active Questions
 

@@ -41,8 +41,8 @@ The system is designed for "Zero Touch" operation, handling research, creative d
   - **Director (Apollo)**: Creative Lead.
   - **Researcher (Delphi)**: Truth verification.
   - **Confidence (The Editor)**: Quality assurance.
-  - **Cinematographer (Lumiere)**: Visual synthesis.
-  - **Composer (Orpheus)**: Audio synthesis.
+  - **Cinematographer (Lumiere)**: Visual synthesis (Google Imagen 4 Fast / Replicate).
+  - **Composer (Orpheus)**: Audio synthesis (Minimax Music-1.5).
 - **MemoriPilot**: Self-referential memory for the developer (Copilot) to maintain context across sessions.
 
 ## Architecture
