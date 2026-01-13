@@ -29,6 +29,7 @@ These are the immutable facts of the current project state. Copilot must priorit
     - `DeepAgents/orchestrator.py` is the package entry point (renamed from `DeepAgents.py` to avoid collisions).
 
 ### 3. Operational Protocols
+- **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
 - **MemoriPilot Protocol (CRITICAL)**: You MUST read `DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py`.
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only`.
