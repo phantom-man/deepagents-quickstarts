@@ -1,16 +1,21 @@
 ## Active Context
 
 ### Current Focus
-- **Component**: Cinematographer Agent (Lumiere) & Orchestration.
-- **Task**: Implementing "Mesh Topology" where agents can call each other (Cinematographer calls Composer) to simplify orchestration.
-- **Recent Success**: 
-  - Refactored `Cinematographer Agent` (Generator Pattern) to use a manual ReAct loop, allowing it to "Think" and "Act" using internal tools.
-  - Enabled **Inter-Agent Communication**: Cinematographer can now autonomously call `consult_composer` to get music before generating video.
-  - Verified with `test_cinema_tools.py`: Cinematographer successfully ordered music (Composer/Minimax) and an image (Google/Imagen) in one session.
-- **Next Step**: Configure the Director/Editor to merge these assets into a final video file.
+
+- **Component**: Agent Orchestration & Discovery.
+- **Task**: Refining the "Mesh Topology" to ensure all agents can dynamically discover and collaborate with each other.
+- **Recent Success**:
+  - Implemented **Meta-Discovery**: Created `agency_registry.py` and the `discover_agents` tool.
+  - **Director Upgrade**: Apollo can now use `discover_agents` to find the right expert (e.g., "Who can make music?") without hardcoded instructions.
+  - **Cinematographer Upgrade**: Lumiere is now a **Generator-based ReAct Agent** that can autonomously plan shots and call the Composer for music.
+  - **Observability Fix**: Suppressed noisy OpenTelemetry warnings in agent logs.
+- **Next Step**: Configure the Director/Editor to merge these assets into a final video file in a Zero-Touch pipeline.
 
 ## Recent Changes
 
+- **Meta-Discovery System**:
+  - **Concept**: Agents are no longer isolated silos. They can query the `AgencyRegistry` to find peers based on skills.
+  - **Implementation**: Added `discover_agents` tool to Director and Cinematographer.
 - **Mesh Topology Implementation**:
   - **Cinematographer Upgrade**: Completely rewrote `cinematographer_agent/agent.py`. It is no longer a linear script but a dynamic Agent that binds tools (`generate_image`, `generate_video`, `consult_composer`).
   - **Autonomy**: The Cinematographer now decides *order of operations* (e.g., "Get music first to understand the mood").

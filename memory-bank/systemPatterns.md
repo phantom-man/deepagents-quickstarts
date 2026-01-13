@@ -43,7 +43,14 @@ Rules:
 - Ontologies are ingested at runtime via MemoriPilot.
 - Ontologies are "Constitution-grade" (immutable during execution).
 
-### 4. Negative Feedback Loop
+### 4. Mesh Topology (Meta-Discovery)
+
+Moving away from a strict Top-Down hierarchy, the system uses a **Mesh Topology**:
+- **Registry**: `agency_registry.py` defines the skills and roles of every agent.
+- **Discovery**: Agents possess a `discover_agents` tool. If they encounter a task outside their domain, they query the registry to find a peer who can handle it.
+- **Dynamic Handoff**: This allows for emergent behavior (e.g., Cinematographer realizing they need music and calling Composer directly).
+
+### 5. Negative Feedback Loop
 
 The system learns from failure via explicit rejection logs:
 
