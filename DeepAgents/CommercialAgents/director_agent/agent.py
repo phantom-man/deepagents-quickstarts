@@ -47,6 +47,8 @@ load_dotenv(ENV_PATH)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
+# Suppress noisy OpenTelemetry attribute warnings
+logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
