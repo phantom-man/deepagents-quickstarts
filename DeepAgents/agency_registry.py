@@ -50,12 +50,13 @@ AGENCY_REGISTRY = {
     "cinematographer_agent": {
         "name": "Lumiere (Cinematographer)",
         "role": "Visual Synthesis",
-        "description": "Generates Images (Storyboards) and Video clips. Can plan shots.",
+        "description": "Generates Images (Storyboards) and Video clips. Can plan shots. Handles movie, film, and scene visualization.",
         "skills": [
             "Generate Images (Flux/Imagen)",
             "Generate Video (Replicate)",
             "Storyboard Creation",
             "Visual Analysis",
+            "Make Movie / Film / Scene",
         ],
         "module": "DeepAgents.CommercialAgents.cinematographer_agent.agent",
         "entry_point": "run_cinematographer_task",
@@ -95,11 +96,21 @@ def find_agent_for_task(task_description: str) -> str:
     
     for key, data in AGENCY_REGISTRY.items():
         score = 0
-        if any(skill.lower() in task for skill in data['skills']):
-            score += 2
-        if any(word in task for word in data['description'].lower().split()):
-            score += 1
-            
+        # Check if skills are requested
+        # We split skills into keywords to be more flexible
+        for skill in data['skills']:
+            # If significant words from skill appear in task
+            keywords = [w for w in skill.lower().split() if len(w) > 3]
+            for kw in keywords:
+                if kw in task:
+                    score += 1
+                    
+        # Check role/description
+        desc_keywords = [w for w in data['description'].lower().split() if len(w) > 3]
+        for kw in desc_keywords:
+            if kw in task:
+                score += 1
+                
         if score > 0:
             matches.append((score, data['name']))
             
@@ -108,4 +119,4 @@ def find_agent_for_task(task_description: str) -> str:
     if matches:
         return f"Best Match: {matches[0][1]}. (Also consider: {[m[1] for m in matches[1:]]})"
     
-    return "No direct match found. Try splitting the task into smaller parts."
+    return "No direct match found. Try splitting the task into smaller parts or look up 'all'."

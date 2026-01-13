@@ -8,17 +8,17 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 try:
     # Try exact match first
-    print("Attempting to fetch minimax/speech-02")
+    print("Attempting to fetch minimax/music-1.5")
     try:
          # Note: Replicate models are usually owner/name
-         model = replicate.models.get("minimax/speech-02")
+         model = replicate.models.get("minimax/music-1.5")
          print(f"FOUND: {model.name}")
          print("--- SCHEMA ---")
          # Print schemas to understand inputs
-         for version in model.versions.list()[:1]:
-             print(json.dumps(version.openapi_schema, indent=2))
+         version = model.latest_version
+         print(json.dumps(version.openapi_schema['components']['schemas']['Input'], indent=2))
     except Exception as e:
-        print(f"Could not find speech-02: {e}")
+        print(f"Could not find music-1.5: {e}")
 
     print("\nAttempting to search/list minimax models...")
     # There isn't a clean search API in the client, but we can try to find 'minimax' in collection or just guess.

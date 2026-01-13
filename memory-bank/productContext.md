@@ -5,27 +5,20 @@
 Multi-Agent System for content creation, research, and deep retrieval.
 Now configured to strictly use **Claude 3 Haiku** due to access constraints.
 
-
-
 Commercial-grade multi-agent studio for autonomous audio-visual production.
-
-
 
 DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
 Originally focused on commercials, the studio has expanded to support Music Production, Narrative Video, and Synthetic Personas.
 Current Brain: Anthropic Claude 3 Haiku.
 Infrastructure: Modernized LangGraph implementation.
 
-
-
 DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
 Originally focused on commercials, the studio has expanded to support Music Production, Narrative Video, and Synthetic Personas.
 Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
 
-
-
-DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets. 
+DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
 Originally focused on commercials, the studio has expanded to support:
+
 - **Music Production**: Complete songs with lyrics and instrumentals.
 - **Narrative Video**: Short films, YouTube content, and storytelling.
 - **Synthetic Personas**: High-fidelity, believable artificial personalities for content creation.
@@ -33,7 +26,6 @@ Originally focused on commercials, the studio has expanded to support:
 The system is designed for "Zero Touch" operation, handling research, creative direction, asset generation, and quality assurance autonomously.
 
 ## Core Features
-
 
 - **The Nervous System (Hybrid Persistence)**: Combines Semantic Memory (LanceDB for knowledge) and State Persistence (Postgres for workflow checkpointing).
 - **Orchestra GUI**: A centralized Streamlit dashboard for controlling agents, monitoring system health (OTLP diagnostics), and reviewing generated assets.
@@ -50,6 +42,7 @@ The system is designed for "Zero Touch" operation, handling research, creative d
 # DeepAgents Architecture
 
 ## Core Components
+
 - **Framework**: LangGraph (Orchestration), Streamlit (UI).
 - **Communication (AgentComms)**: PostgreSQL based message passing.
 - **Memory (AgentMemory)**: PostgreSQL based short-term memory (checkpoints).
@@ -57,20 +50,18 @@ The system is designed for "Zero Touch" operation, handling research, creative d
 - **Hub**: LangChain Hub (Prompt versioning). **Status**: Fixed & Stable (v2 Auth).
 
 ## Models & Providers
+
 - **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
 - **Vision/Media**: **Replicate** (Flux for Image, Zeroscope for Video, XTTS for Voice).
 - **Comms/Music**: Replicate (Minimax Music).
 
 ## Deployment
+
 - **Local**: `streamlit run DeepAgents/gui/app.py`.
 - **Environment**: Python 3.10+ VENV.
 - **Secrets**: Managed via `.env` and `st.secrets` (implied).
 
-
-
 Hub-and-Spoke Orchestra (LangGraph). Postgres (OLTP) for state, LanceDB for knowledge. Streamlit (Sync) with Asyncio Bridge for UI.
-
-
 
 The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core.
 
@@ -78,8 +69,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - **Backend Orchestration**: LangGraph (Async) managing stateful agent threads.
 - **Data Layer**: LanceDB (Vector) + Postgres (OLTP).
 - **Observability**: OpenTelemetry (OTLP) exporting traces to LangSmith.
-
-
 
 The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core.
 
@@ -89,8 +78,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
   - **OLTP**: `psycopg` (v3) connection pool.
   - **Vector**: LanceDB for semantic search.
 - **Observability**: OpenTelemetry (OTLP) exporting traces to LangSmith.
-
-
 
 The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core (formerly `DeepAgents.py`).
 
@@ -153,8 +140,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - lancedb
 - psycopg
 
-
-
 - langgraph
 - langsmith
 - streamlit
@@ -162,8 +147,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - lancedb
 - anthropic
 
-
-
 - LangChain
 - LangGraph
 - Streamlit
@@ -171,16 +154,12 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - LanceDB
 - Psycopg
 
-
-
 - LangChain
 - LangGraph
 - Streamlit
 - Pydantic
 - LanceDB
 - Psycopg
-
-
 
 - langchain
 - langsmith
@@ -189,7 +168,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - google-genai
 - deepagents (middleware)
 
-
 ## Technologies
 
 - Anthropic Claude 3 Haiku
@@ -197,24 +175,17 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
 - LangChain
 - Replicate
 
-
-
 - Intelligence: Anthropic Claude 3 Haiku (Primary).
 - Visuals: Replicate Flux/Zeroscope.
 - Voice: Replicate XTTS-v2.
 - Infrastructure: Postgres + LanceDB + OTLP.
 
-
-
 - Anthropic Claude 3 Haiku
 - Google Vertex AI (Fallback)
 - Replicate (Visuals/Voice)
 - OpenTelemetry
 
-
-
 - Anthropic Claude 3 Haiku
 - Google Vertex AI (Fallback)
 - Replicate (Visuals/Voice)
 - OpenTelemetry
-

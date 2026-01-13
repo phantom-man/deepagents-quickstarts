@@ -305,6 +305,17 @@ def _safe_replicate_run(model_id: str, input_data: Dict[str, Any], wait_time: in
     return replicate.run(model_id, input=input_data)
 
 
+def _extract_replicate_url(output: Any) -> Optional[str]:
+    """Helper to extract clean URL from Replicate output (List or String)."""
+    if not output:
+        return None
+    if isinstance(output, (list, tuple)):
+        if len(output) > 0:
+            return str(output[0])
+        return None
+    return str(output)
+
+
 def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     model_name: str, input_text: str, llm: Any, assets: Any, session_id: str
 ) -> str:
@@ -388,7 +399,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             logger.info(f"   Payload: {payload.keys()}")
             
             minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
-            final_url = str(minimax_out)
+            final_url = _extract_replicate_url(minimax_out)
 
         # Case: Minimax Music-01 (Legacy)
         elif "music-01" in target_model:
@@ -451,13 +462,13 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                      payload["voice_file"] = open(selected_voice, "rb")
 
                 minimax_out = _safe_replicate_run("minimax/music-01", input_data=payload)
-                final_url = str(minimax_out)
+                final_url = _extract_replicate_url(minimax_out)
 
         # Case: Lyria-2 (Fallback or Primary)
         if "lyria" in target_model and not final_url: # Check not final_url in case above switch logic ran
             logger.info("🎵 Generating with Google Lyria-2...")
             lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
-            final_url = str(lyria_out)
+            final_url = _extract_replicate_url(lyria_out)
             current_model_used = "google/lyria-2"
 
         # Case: MusicGen (Fallback or Explicit)
@@ -467,7 +478,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 "meta/musicgen", 
                 input_data={"prompt": input_text, "duration": 20}
             )
-            final_url = str(mg_out)
+            final_url = _extract_replicate_url(mg_out)
             current_model_used = "meta/musicgen"
 
         # C. Save & Rename
@@ -509,7 +520,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
              logger.info("↩️ Fallback: Attempting Lyria-2 instrumental as safety net.")
              try:
                  lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
-                 final_url = str(lyria_out)
+                 final_url = _extract_replicate_url(lyria_out)
                  if final_url:
                     fname = _generate_descriptive_filename(input_text, session_id)
                     local_path = _download_and_validate_asset(final_url, session_id, prefix="final_fallback")

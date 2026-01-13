@@ -52,6 +52,8 @@ ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env")
 load_dotenv(ENV_PATH)
 
 logging.basicConfig(level=logging.INFO)
+# Suppress noisy OpenTelemetry attribute warnings
+logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
@@ -67,7 +69,7 @@ def _initialize_llm(provider: str, model_name: str) -> Optional[BaseChatModel]:
             )
         if provider == "Anthropic":
             return ChatAnthropic(
-                model_name=model_name, temperature=0.7, timeout=None, stop=None
+                model_name=model_name, temperature=0.7  # type: ignore
             )
         # Default fallback
         return ChatGoogleGenerativeAI(
