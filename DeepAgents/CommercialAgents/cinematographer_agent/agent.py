@@ -45,7 +45,7 @@ try:
     from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
 except ImportError:
     logging.warning("Could not import Composer Agent directly. Cross-agent calls may fail.")
-    def run_composer_task(req): return "Error: Composer Interface Unavailable."
+    def run_composer_task(request_description: str) -> str: return "Error: Composer Interface Unavailable."
 
 # Load Env
 ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
@@ -59,8 +59,7 @@ def _initialize_llm(provider: str, model_name: str) -> Optional[BaseChatModel]:
     """Initialize the LLM/Chat Model."""
     try:
         if provider == "Google":
-            from langchain_google_genai import ChatGoogleGenerativeAI
-
+            # Already imported globally
             return ChatGoogleGenerativeAI(
                 model=model_name,
                 temperature=0.7,
@@ -152,10 +151,11 @@ def create_cinematographer_agent(
                 )
                 if response and response.generated_images:
                     img_bytes = response.generated_images[0].image.image_bytes
-                    return assets.save_asset(
+                    path = assets.save_asset(
                         img_bytes, "image", session_id, prompt,
                         metadata={"model": img_model, "provider": "Google"}
                     )
+                    return path if path else "Error: Failed to save Google Image."
             except Exception as e:
                 logger.error(f"Google Image Gen Failed: {e}")
                 # Fallback to Replicate
@@ -176,10 +176,11 @@ def create_cinematographer_agent(
             if image_url:
                 resp = requests.get(str(image_url), timeout=30)
                 if resp.status_code == 200:
-                    return assets.save_asset(
+                    path = assets.save_asset(
                         resp.content, "image", session_id, prompt,
                         metadata={"model": "flux-schnell", "provider": "Replicate"}
                     )
+                    return path if path else "Error: Failed to save Replicate Image."
         except Exception as e:
             return f"Error Generating Image: {e}"
         return "Error: Image Generation returned no data."
@@ -195,7 +196,7 @@ def create_cinematographer_agent(
              
         try:
             # Map common args
-            input_args = {"prompt": prompt}
+            input_args: Dict[str, Any] = {"prompt": prompt}
             # Add specific args if model requires (simple mapping for now)
             if "zeroscope" in vid_model:
                 input_args["num_frames"] = 24
@@ -204,10 +205,11 @@ def create_cinematographer_agent(
             video_url = output[0] if isinstance(output, list) else output
             
             if video_url:
-                return assets.save_asset(
+                path = assets.save_asset(
                     str(video_url), "video", session_id, prompt,
                     metadata={"model": vid_model, "provider": "Replicate"}
                 )
+                return path if path else "Error: Failed to save Video."
         except Exception as e:
             return f"Error Generating Video: {e}"
         return "Error: Video Generation returned no data."
