@@ -1,19 +1,23 @@
-# Active Context
+## Active Context
 
-## Current Goals
-
-- [x] Restore "Strict Mode" for Hub Synchronization (No Failover).
-- [x] Address the `401 Unauthorized`/`400 No Owner` errors causing application crash.
-    - **Resolution**: Updated `hub_manager.py` to inject `workspace_id` directly into the LangSmith `Client` constructor. Environment variable caching was the culprit.
-- [x] Verify `ignite_atlas.py` startup.
-    - **Status**: Running. Systems Nominal.
-- [x] Rename "Director" Agent to "Apollo" (Identity Update).
-- [x] Clean LangSmith Hub (Remove `*-main` repos, enforce `*-system-prompt`).
-- [x] Fix and Launch GUI (`DeepAgents/gui/app.py`).
-- [x] Add Tracing to Workspace (LangChain Tracing V2 + OTLP).
+### Current Focus
+- **Component**: Cinematographer Agent (Lumiere) & Orchestration.
+- **Task**: Implementing "Mesh Topology" where agents can call each other (Cinematographer calls Composer) to simplify orchestration.
+- **Recent Success**: 
+  - Refactored `Cinematographer Agent` (Generator Pattern) to use a manual ReAct loop, allowing it to "Think" and "Act" using internal tools.
+  - Enabled **Inter-Agent Communication**: Cinematographer can now autonomously call `consult_composer` to get music before generating video.
+  - Verified with `test_cinema_tools.py`: Cinematographer successfully ordered music (Composer/Minimax) and an image (Google/Imagen) in one session.
+- **Next Step**: Configure the Director/Editor to merge these assets into a final video file.
 
 ## Recent Changes
 
+- **Mesh Topology Implementation**:
+  - **Cinematographer Upgrade**: Completely rewrote `cinematographer_agent/agent.py`. It is no longer a linear script but a dynamic Agent that binds tools (`generate_image`, `generate_video`, `consult_composer`).
+  - **Autonomy**: The Cinematographer now decides *order of operations* (e.g., "Get music first to understand the mood").
+- **Schema Enforcement (Composer)**:
+  - **Dynamic Prompting**: Hardcoded the Minimax Music-1.5 schema (Verse/Chorus/Bridge/Outro) and strict character budgets directly into the `_generate_lyrics_and_style` prompt.
+
+  - **Anti-Hallucination**: Modified `generate_music_tool` return values to include `**(Verified Lyrics Used)**`, effectively forcing the Agent to report reality rather than invention.
 - **GUI Restoration**: Fixed `NameError` (undefined `model` variable) in `DeepAgents/gui/app.py`. The Streamlit app now launches successfully and model selection logic is robust.
 - **GUI Restoration**: Fixed multiple `IndentationError` and `SyntaxError` issues in `DeepAgents/gui/app.py`.
 - **Composer Fixes**:
@@ -34,12 +38,12 @@
 - **Dependency Resolution**: Installed `psycopg-binary` and `arxiv` to resolve `ImportError` crashes. Verified `requirements.txt` reflects the migration to `psycopg` (v3) for Async Postgres support.
 - **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable audio generation.
 - **Best Practices Implementation**:
-    - **Retries**: Implemented `tenacity` with exponential backoff in `run_director_eval.py` to handle API rate limits robustly.
-    - **Configuration**: Updated `.env.example` to explicitly include `OTEL_EXPORTER_OTLP_ENDPOINT`, making observability setup transparent.
-    - **Linting**: Created `.pylintrc` to suppress noisy `import-error` warnings, improving the developer experience.
+  - **Retries**: Implemented `tenacity` with exponential backoff in `run_director_eval.py` to handle API rate limits robustly.
+  - **Configuration**: Updated `.env.example` to explicitly include `OTEL_EXPORTER_OTLP_ENDPOINT`, making observability setup transparent.
+  - **Linting**: Created `.pylintrc` to suppress noisy `import-error` warnings, improving the developer experience.
 - **Composer Upgrade**: Switched the primary music generation engine from `minimax/music-01` to `minimax/music-1.5`.
-    - **Reason**: `music-01` required `mp3` inputs for voice/instrumental references, causing failures with Lyria-generated `wav` files in environments lacking `ffmpeg`.
-    - **Benefit**: `music-1.5` generates full capability audio from text/lyrics alone, removing the complex two-step pipeline and file format dependency.
+  - **Reason**: `music-01` required `mp3` inputs for voice/instrumental references, causing failures with Lyria-generated `wav` files in environments lacking `ffmpeg`.
+  - **Benefit**: `music-1.5` generates full capability audio from text/lyrics alone, removing the complex two-step pipeline and file format dependency.
 
 ## Active Questions
 
