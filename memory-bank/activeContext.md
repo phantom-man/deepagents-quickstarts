@@ -2,18 +2,20 @@
 
 ### Current Focus
 
-- **Component**: Governance & Logic Hardening.
-- **Task**: Enforce heavy epistemological verification via Confidence Agent.
+- **Component**: Governance & Human-in-the-Loop (HITL).
+- **Task**: Implement true Manual Approval gates for asset generation that pauses execution until user consent.
 - **Recent Success**:
-  - **Audit Loop**: Integrated `submit_finding_for_review` tool into Research Agent, forcing it to pass findings to Confidence Agent for scoring.
-  - **Scoring Rubric**: Implemented a strict 0.0-1.0 scoring system in Confidence Agent (Provenance, Cross-Validation, Logic, Safety).
-  - **Composer Fix**: Removed incompatible "rhyming" constraint and markdown output formatting.
+  - **Approval Manager**: Created `DeepAgents/approval_manager.py` as a lightweight JSON persistence layer for approved/rejected assets.
+  - **Blocking Logic**: Updated `run_cinematographer_task` and `run_composer_task` (Director's tools) to check `approval_manager`. If an asset isn't approved, they return `HITL_REVIEW_REQUIRED` and halt the Director.
+  - **GUI Controls**: Updated `DeepAgents/gui/app.py` to intercept HITL signals and render "Approve/Reject" buttons for both Cinematographer and Composer tabs.
+  - **Feedback Loop**: Rejection triggers a retry with user critique injected into the prompt.
+  - **Visual Comms**: Implemented Tab 6 "Agent Comms" to visualize inter-agent messaging via Postgres.
 
 ## Recent Changes
 
 - **Logic Hardening (2026-01-14)**:
   - **Confidence Agent**: Updated prompt to act as "The Editor" with a precise JSON scoring contract. Passing score is > 0.8.
-  - **Researcher Agent**: Added mandatory `submit_finding_for_review` tool. Directed agent to "Research Again" if score is low.
+  - **Researcher Agent**: Added mandatory `submit_finding_for_review` tool. Automatically logs failures to LanceDB ("Negative Reinforcement") and successes to Memory ("Positive Reinforcement").
   - **Copilot Instructions**: Added mandate to "Evaluate need for research" as the FIRST action after receiving a prompt.
 - **Ontology Consolidation (2026-01-14)**:
   - **Action**: Deprecated `Director_Ontology.md`, `Cinematographer_Ontology.md`, and `Composer_Ontology.md`. They now point to `MASTER_ONTOLOGY.md`.
