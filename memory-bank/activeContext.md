@@ -2,16 +2,23 @@
 
 ### Current Focus
 
-- **Component**: Music Generation Tuning (Composer Agent).
-- **Task**: Restoring `minimax/music-1.5` as default and implementing "The 600-Char Challenge" prompt strategy.
+- **Component**: Configuration & Deployment.
+- **Task**: Centralize all Provider Strategies in LangSmith to ensure "Zero Touch" versatility.
 - **Recent Success**:
-  - **Prompt Engineering**: Adopted specific user guidance for `music-1.5` (Section skeleton, punchy lines, no forced rhyme, strict limits).
-  - **Logic Switch**: Defaulted `agent.py` back to `minimax/music-1.5` (ACE-Step remains available on request).
-  - **Constraint Enforcement**: Added "CRITICAL CONSTRAINTS" section to the LLM system prompt to ensure <580 chars.
-- **Next Step**: User Testing of the new "High Density" Minimax prompting.
+  - **Hub Configuration V2**: Updated `deepagents-system-config` to v1.1.0, adding a `provider_settings` object.
+  - **Strategy Definition**: Defined explicit strategies for Google, Anthropic, OpenAI, and Replicate inside the Hub config (Native vs Middle).
+  - **SystemConfig API**: Updated `SystemConfiguration.get_provider_strategy()` to expose these details to agents.
+  - **Asset Storage**: GCS Integration fully deployed for one-click history.
 
 ## Recent Changes
 
+- **Provider Strategy Centralization (2026-01-14)**:
+  - **Action**: Moved the definition of *how* to connect to providers (e.g., "Use `ChatGoogleGenerativeAI`") into the LangSmith Hub configuration.
+  - **Benefit**: Changing underlying SDKs or implementation classes can now be signaled via configuration, effectively decoupling logic from hardcoded choices.
+- **Asset Storage & GCS (2026-01-14)**:
+  - **GCS Integration**: `AssetManager` calls implicit GCP Auth to upload every generated asset to a public-read path.
+  - **Cinematographer Update**: Refactored `_generate_image/video` tools to fetch and return this Cloud URL.
+  - **Config Matrix**: Updated `Cinematographer` capabilities in the System Configuration to include `image_generation` (Google Imagen 3 / Flux).
 - **Configuration Refactor (2026-01-13)**:
   - **Dynamic System**: Removed hardcoded GUI model selectors. Implemented `SystemConfiguration` to hydrate agent capabilities from LangSmith Hub (`deepagents-system-config`).
   - **Asset Consolidation**: Moved all data/assets to `Artifacts/`. Updated `AssetManager` to use global paths defined in the system config.

@@ -10,6 +10,10 @@ import shutil
 import logging
 from typing import Optional, Union, List, Dict, Any
 import requests
+from dotenv import load_dotenv
+
+# Load env for GCS
+load_dotenv()
 
 # Setup simple logger if not running in context of main app
 logger = logging.getLogger("AssetManager")
@@ -17,7 +21,7 @@ logger = logging.getLogger("AssetManager")
 class AssetManager:
     """
     Manages the storage and retrieval of generated assets (Image, Video, Audio).
-    Structure: data/assets/{session_id}/{asset_type}/
+    Structure: Artifacts/{Category}/{Subcategory}/{Extension}/
     """
     def __init__(self, base_dir: Optional[str] = None):
         if base_dir is None:
@@ -27,6 +31,19 @@ class AssetManager:
             )
         else:
             self.base_dir = base_dir
+            
+        # GCS Setup
+        self.bucket_name = os.getenv("GCP_STORAGE_BUCKET")
+        self.gcs_client = None
+        if self.bucket_name:
+            try:
+                from google.cloud import storage
+                self.gcs_client = storage.Client()
+                logger.info(f"AssetManager: GCS Enabled ({self.bucket_name})")
+            except ImportError:
+                logger.warning("AssetManager: google-cloud-storage not installed. Cloud history unavailable.")
+            except Exception as e:
+                logger.error(f"AssetManager: GCS Init Failed: {e}")
 
         # Try to load System Configuration for Global/Reference paths
         try:
@@ -37,28 +54,80 @@ class AssetManager:
 
     def get_global_assets(self, asset_type: str) -> List[str]:
         """Returns list of global reference assets of a given type."""
-        # Map user type to config key
-        key_map = {"audio": "audio", "video": "video", "image": "images", "voice": "audio"}
-        cfg_key = key_map.get(asset_type.lower(), asset_type.lower())
-        
-        path = self.global_config.get(cfg_key)
-        if not path:
-             # Fallback
-             base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-             if asset_type == "voice": path = os.path.join(base, "Artifacts/Audio/Voices")
-             else: path = os.path.join(base, f"Artifacts/{asset_type.capitalize()}")
+        # Simple local file listing (Voice references are local)
+        path = None
+        if asset_type.lower() == "voice":
+             path = os.path.join(self.base_dir, "Audio/Voices/System")
+        elif asset_type.lower() == "audio":
+             path = os.path.join(self.base_dir, "Audio/Music")
              
-        if path and not os.path.isabs(path):
-             path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", path))
-
-        if os.path.exists(path):
-            return [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        if path and os.path.exists(path):
+             # Recursively find files
+             files = []
+             for root, _, filenames in os.walk(path):
+                 for f in filenames:
+                    files.append(os.path.join(root, f))
+             return files
         return []
 
-    def _get_session_dir(self, session_id: str, asset_type: str) -> str:
-        path = os.path.join(self.base_dir, str(session_id), asset_type)
-        os.makedirs(path, exist_ok=True)
-        return path
+    def _get_storage_path(self, asset_type: str, extension: str, subtype: str = None) -> str:
+        """Determines the canonical path based on Media Type logic."""
+        # Map generic types to specific Artifact structure
+        # Structure: Artifacts/Audio/Music/mp3/filename.mp3
+        
+        category = "Data"
+        subcategory = "General"
+        
+        if asset_type == "audio":
+            category = "Audio"
+            if subtype == "voice":
+                subcategory = "Voices/Clones"
+            elif subtype == "music":
+                subcategory = "Music"
+            else:
+                subcategory = "General"
+        elif asset_type == "video":
+            category = "Video"
+            subcategory = "mp4" # Flattened if no subtype
+        elif asset_type == "image":
+            category = "Images"
+            if subtype == "storyboard":
+                 subcategory = "Storyboards"
+            else:
+                 subcategory = "General"
+                 
+        # Ensure we don't duplicate extension in path if it's already the folder name
+        if subcategory != extension and extension:
+             ext_folder = extension
+        else:
+             ext_folder = ""
+             
+        # Normalize relative path
+        rel_path = os.path.join(category, subcategory, ext_folder)
+        full_path = os.path.join(self.base_dir, rel_path)
+        os.makedirs(full_path, exist_ok=True)
+        return full_path
+
+    def _upload_to_gcs(self, local_path: str, filename: str) -> str:
+        """Uploads file to GCS and returns Public URL."""
+        if not self.gcs_client or not self.bucket_name:
+            return None
+            
+        try:
+            bucket = self.gcs_client.bucket(self.bucket_name)
+            # Create a blob with a logical path (Year/Month/Filename) for better organization in bucket
+            blob_name = f"history/{time.strftime('%Y/%m')}/{filename}"
+            blob = bucket.blob(blob_name)
+            blob.upload_from_filename(local_path)
+            
+            # Since bucket is Uniform/Public or we need Signed URL:
+            # We will generate a signed URL valid for 7 days (max allowed for V4 usually)
+            # Or usually standard Storage URL if public.
+            # User said "bucket is public", so we use public link.
+            return blob.public_url
+        except Exception as e:
+            logger.error(f"GCS Upload Failed: {e}")
+            return None
 
     def save_asset( # pylint: disable=too-many-arguments, too-many-locals
         self,
@@ -67,67 +136,67 @@ class AssetManager:
         session_id: str,
         prompt: str,
         metadata: Optional[Dict[str, Any]] = None,
-        extension: Optional[str] = None
+        extension: Optional[str] = None,
+        subtype: str = None # New param for strict categorization
     ) -> Optional[str]:
         """
-        Saves an asset to disk.
-        data: bytes (for raw data) or str (for URL to download)
-        asset_type: 'image', 'video', 'audio', 'storyboard'
+        Saves an asset to disk AND uploads to GCS for history.
+        subtype: 'music', 'voice', 'storyboard' etc.
         """
         if metadata is None:
             metadata = {}
 
         # Determine extension
         if not extension:
-            if asset_type in ('image', 'storyboard'):
-                extension = "png"
-            elif asset_type == 'video':
-                extension = "mp4"
-            elif asset_type == 'audio':
-                extension = "wav"
-            else:
-                extension = "bin"
+            if asset_type in ('image', 'storyboard'): extension = "png"
+            elif asset_type == 'video': extension = "mp4"
+            elif asset_type == 'audio': extension = "wav"
+            else: extension = "bin"
+            
+        # Clean extension
+        extension = extension.replace(".", "")
 
         # Unique Filename
         timestamp = int(time.time())
-        # Use first 32 chars of prompt hash to avoid too long names
         prompt_hash = hashlib.md5(prompt.encode("utf-8")).hexdigest()[:8]
-        filename = f"{timestamp}_{prompt_hash}.{extension}"
+        filename = f"{asset_type}_{subtype or 'gen'}_{timestamp}_{prompt_hash}.{extension}"
 
-        target_dir = self._get_session_dir(session_id, asset_type)
+        # Get Target Directory
+        target_dir = self._get_storage_path(asset_type, extension, subtype)
         file_path = os.path.join(target_dir, filename)
 
-        # Save Data
+        # Save Data Locally
         try:
             # Handle Replicate FileOutput objects
             if hasattr(data, "read") and hasattr(data, "url"):
-                 # It's a FileOutput/Stream object. Use its URL.
                  data = str(data)
 
             if isinstance(data, str) and (data.startswith("http://") or data.startswith("https://")):
-                # Download URL - Add timeout!
                 with requests.get(data, stream=True, timeout=30) as r:
                     r.raise_for_status()
                     with open(file_path, 'wb') as f:
                         shutil.copyfileobj(r.raw, f)
             else:
-                # Save Bytes
                 mode = 'wb' if isinstance(data, bytes) else 'w'
-                # pylint: disable=unspecified-encoding
-                # Binary mode doesn't take encoding, text mode needs it
                 if 'b' in mode:
-                    with open(file_path, mode) as f:
-                        f.write(data) # type: ignore
+                    with open(file_path, mode) as f: f.write(data) # type: ignore
                 else:
-                    with open(file_path, mode, encoding="utf-8") as f:
-                        f.write(data) # type: ignore
+                    with open(file_path, mode, encoding="utf-8") as f: f.write(data) # type: ignore
 
-            # Save Metadata
+            # Upload to Cloud (History)
+            cloud_url = self._upload_to_gcs(file_path, filename)
+
+            # Save Metadata (Enriched)
             meta = {
                 "prompt": prompt,
                 "timestamp": timestamp,
+                "date": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "asset_type": asset_type,
+                "subtype": subtype,
                 "filename": filename,
+                "local_path": file_path,
+                "cloud_url": cloud_url,
+                "session_id": session_id,
                 "metadata": metadata
             }
             with open(file_path + ".json", "w", encoding="utf-8") as f:

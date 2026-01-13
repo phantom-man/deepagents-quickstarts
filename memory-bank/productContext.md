@@ -35,12 +35,12 @@ Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
 - **Communication (AgentComms)**: PostgreSQL based message passing.
 - **Memory (AgentMemory)**: PostgreSQL based short-term memory (checkpoints).
 - **Knowledge (KnowledgeStore)**: LanceDB (Vector Store) for long-term recall.
-- **Assets**: Consolidated `Artifacts/` directory.
+- **Assets**: Consolidated `Artifacts/` directory + Google Cloud Storage Mirror.
 
 ## Models & Providers (Managed via LangSmith)
 
 - **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
-- **Vision/Media**: **Replicate** (Flux/Imagen/Zeroscope/Minimax).
+- **Vision/Media**: **Google Vertex** (Imagen 3), **Replicate** (Flux/Zeroscope/Minimax).
 - **Priorities**: Defined dynamically in the configuration matrix (e.g. Minimax 1.5 > ACE-Step).
 
 ## Deployment

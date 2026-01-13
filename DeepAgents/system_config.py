@@ -4,8 +4,33 @@ from typing import Dict, Any, List
 
 # Default System Configuration (The Truth)
 DEFAULT_SYSTEM_CONFIG = {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "DeepAgents Global Configuration Matrix",
+    "provider_settings": {
+        "google": {
+            "strategy": "native",
+            "package": "langchain_google_genai",
+            "class_name": "ChatGoogleGenerativeAI",
+            "description": "Uses Native Google GenAI SDK (Vertex Compatible). Avoid ChatVertexAI wrapper.",
+            "default_region": "us-central1"
+        },
+        "anthropic": {
+            "strategy": "native",
+            "package": "langchain_anthropic",
+            "class_name": "ChatAnthropic",
+            "description": "Native Anthropic Integration."
+        },
+        "openai": {
+            "strategy": "native",
+            "package": "langchain_openai",
+            "class_name": "ChatOpenAI"
+        },
+        "replicate": {
+            "strategy": "api_proxy",
+            "package": "replicate",
+            "description": "Direct API calls via Replicate Python Client."
+        }
+    },
     "agents": {
         "Director": {
             "intelligence_model": "anthropic/claude-3-haiku-20240307",
@@ -58,14 +83,29 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "video_generation",
                     "models": [
                         {
-                            "id": "haiper/v2",
+                            "id": "replicate/zeroscope-v2-xl",
                             "priority": 100,
-                            "description": "High quality video generation.",
+                            "description": "Standard video generation.",
                         },
                         {
-                            "id": "minimax/video-01",
+                            "id": "haiper/v2",
+                            "priority": 80,
+                            "description": "High quality video generation.",
+                        }
+                    ]
+                },
+                {
+                    "type": "image_generation",
+                    "models": [
+                        {
+                            "id": "google/imagen-3.0-generate-001",
+                            "priority": 100,
+                            "description": "Google Vertex AI Imagen 3"
+                        },
+                        {
+                            "id": "replicate/flux-schnell",
                             "priority": 90,
-                             "description": "Fast video generation.",
+                            "description": "Black Forest Labs Flux Model"
                         }
                     ]
                 }
@@ -111,6 +151,14 @@ class SystemConfiguration:
             self._config = DEFAULT_SYSTEM_CONFIG
             
         return self._config
+
+    def get_provider_strategy(self, provider_name: str) -> Dict[str, Any]:
+        """
+        Returns the implementation strategy for a given provider.
+        (e.g., Which package/class to use).
+        """
+        cfg = self.load_config()
+        return cfg.get("provider_settings", {}).get(provider_name.lower(), {})
 
     def get_agent_intelligence(self, agent_name: str):
         cfg = self.load_config()

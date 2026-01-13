@@ -39,6 +39,7 @@ from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
     CINEMATOGRAPHER_INSTRUCTIONS,
 )
 from DeepAgents.inter_agent_comms import discover_agents
+from DeepAgents.system_config import SystemConfiguration
 
 # Cross-Agent Imports
 try:
@@ -60,14 +61,14 @@ logger = logging.getLogger(__name__)
 def _initialize_llm(provider: str, model_name: str) -> Optional[BaseChatModel]:
     """Initialize the LLM/Chat Model."""
     try:
-        if provider == "Google":
+        if provider.lower() == "google":
             # Already imported globally
             return ChatGoogleGenerativeAI(
                 model=model_name,
                 temperature=0.7,
                 max_output_tokens=2048,
             )
-        if provider == "Anthropic":
+        if provider.lower() == "anthropic":
             return ChatAnthropic(
                 model_name=model_name, temperature=0.7  # type: ignore
             )
@@ -93,6 +94,12 @@ def _initialize_gen_client() -> Any:
         logger.error("GenAI Client Init Failed: %s", e)
     return None
 
+def _parse_model_string(model_str: str, default_provider: str = "Google", default_model: str = "gemini-1.5-flash") -> tuple:
+    """Parses 'provider/model' string."""
+    if "/" in model_str:
+        parts = model_str.split("/", 1)
+        return parts[0], parts[1]
+    return default_provider, model_str or default_model
 
 def create_cinematographer_agent(
     model_config: Optional[Dict[str, Any]] = None,
@@ -104,25 +111,43 @@ def create_cinematographer_agent(
     Factory to create the Cinematographer Agent runner with Tool Support.
     Returns a Generator Function `run_agent`.
     """
-    if model_config is None:
-        model_config = {"provider": "Anthropic", "model": "claude-3-haiku-20240307"}
+    # Load System Config
+    sys_conf = SystemConfiguration()
+    agent_name = "Cinematographer"
+    
+    # 1. Determine Intelligence Model (Logic/LLM)
+    # Priority: Runtime Arg > System Config > Default
+    llm_provider, llm_model_name = "Anthropic", "claude-3-haiku-20240307"
+    
+    if model_config and "provider" in model_config:
+         llm_provider = model_config["provider"]
+         llm_model_name = model_config.get("model", llm_model_name)
+    else:
+         # Query System Config
+         config_model_str = sys_conf.get_agent_intelligence(agent_name)
+         llm_provider, llm_model_name = _parse_model_string(config_model_str, "Anthropic", "claude-3-haiku-20240307")
+         
+    # 2. Determine Capability Models (Image/Video)
+    img_cap = sys_conf.get_capability_model(agent_name, "image_generation")
+    if img_cap:
+         img_provider, img_model = _parse_model_string(img_cap["id"], "Google", "imagen-3.0-generate-001")
+    else:
+         img_provider, img_model = "Google", "imagen-3.0-generate-001"
+         
+    vid_cap = sys_conf.get_capability_model(agent_name, "video_generation")
+    if vid_cap:
+         vid_provider, vid_model = _parse_model_string(vid_cap["id"], "Replicate", "zeroscope-v2-xl")
+    else:
+         vid_provider, vid_model = "Replicate", "zeroscope-v2-xl"
 
-    # Configurations
-    provider = model_config.get("provider", "Anthropic")
-    model_name = model_config.get("model", "claude-3-haiku-20240307")
-
-    img_provider = model_config.get("image_provider", "Google")
-    img_model = model_config.get("image_model", "imagen-4.0-fast-generate-001")
-
-    vid_provider = model_config.get("video_provider", "Replicate")
-    vid_model = model_config.get("video_model", "zeroscope/v2-xl")
+    logger.info(f"Cinematographer Config: LLM={llm_provider}/{llm_model_name} | IMG={img_provider}/{img_model} | VID={vid_provider}/{vid_model}")
 
     # Asset Manager & Replicate
     assets = AssetManager()
     # replicate module is imported globally
 
     # 1. Initialize Brain LLM
-    llm = _initialize_llm(provider, model_name)
+    llm = _initialize_llm(llm_provider, llm_model_name)
     if not llm:
         return lambda *args, **kwargs: "Error: LLM Initialization Failed"
 
@@ -134,10 +159,22 @@ def create_cinematographer_agent(
 
     # --- DEFINE TOOLS (Closures to access config/state) ---
 
+    def _get_cloud_url(local_path: str) -> str:
+        """Helper to extract Cloud URL from metadata if available."""
+        if not local_path or not os.path.exists(local_path + ".json"):
+            return ""
+        try:
+            with open(local_path + ".json", 'r') as f:
+                meta = json.load(f)
+            url = meta.get("cloud_url")
+            return f" (Link: {url})" if url else ""
+        except:
+            return ""
+
     def _generate_image(prompt: str) -> str:
         """
         Generates a photorealistic image based on the prompt. 
-        Returns local file path.
+        Returns local file path (and cloud link).
         """
         logger.info(f"🎨 Generating Image: {prompt[:40]}...")
         # Google Strategy
@@ -157,7 +194,8 @@ def create_cinematographer_agent(
                         img_bytes, "image", session_id, prompt,
                         metadata={"model": img_model, "provider": "Google"}
                     )
-                    return path if path else "Error: Failed to save Google Image."
+                    if path: return f"Saved: {path}{_get_cloud_url(path)}"
+                    return "Error: Failed to save Google Image."
             except Exception as e:
                 logger.error(f"Google Image Gen Failed: {e}")
                 # Fallback to Replicate
@@ -182,7 +220,8 @@ def create_cinematographer_agent(
                         resp.content, "image", session_id, prompt,
                         metadata={"model": "flux-schnell", "provider": "Replicate"}
                     )
-                    return path if path else "Error: Failed to save Replicate Image."
+                    if path: return f"Saved: {path}{_get_cloud_url(path)}"
+                    return "Error: Failed to save Replicate Image."
         except Exception as e:
             return f"Error Generating Image: {e}"
         return "Error: Image Generation returned no data."
@@ -190,7 +229,7 @@ def create_cinematographer_agent(
     def _generate_video(prompt: str, duration: int = 4) -> str:
         """
         Generates a video clip (2-4s) based on the prompt.
-        Returns local file path.
+        Returns local file path (and cloud link).
         """
         logger.info(f"🎥 Generating Video: {prompt[:40]}...")
         if vid_provider != "Replicate":
@@ -211,7 +250,8 @@ def create_cinematographer_agent(
                     str(video_url), "video", session_id, prompt,
                     metadata={"model": vid_model, "provider": "Replicate"}
                 )
-                return path if path else "Error: Failed to save Video."
+                if path: return f"Saved: {path}{_get_cloud_url(path)}"
+                return "Error: Failed to save Video."
         except Exception as e:
             return f"Error Generating Video: {e}"
         return "Error: Video Generation returned no data."

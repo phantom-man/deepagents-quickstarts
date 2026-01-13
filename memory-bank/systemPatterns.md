@@ -53,13 +53,18 @@ Rules:
   - Code should be migrated to pure `asyncio` patterns where possible to remove the need for blocking permission.
 
 ### 6. Meta-Discovery System
+
 - **Discovery**: Agents possess a `discover_agents` tool. If they encounter a task outside their domain, they query the registry to find a peer who can handle it.
 - **Dynamic Handoff**: This allows for emergent behavior (e.g., Cinematographer realizing they need music and calling Composer directly).
 
 ### 7. Configuration-Driven Interface (The Matrix)
-- **Source of Truth**: LangSmith Hub (`deepagents-system-config`) is the single source of truth for Agent Models, Capabilities, and Priorities.
-- **Frontend Logic**: The GUI does not offer choices; it reflects the Matrix.
-- **Backend Logic**: Agents query the Matrix (via `SystemConfiguration`) to "overload" their capabilities (e.g., finding the best Music Model for a specific capability type).
+
+- **Source of Truth**: LangSmith Hub (`deepagents-system-config`) is the single source of truth for:
+  - **Agent Models**: Which LLM to use.
+  - **Capabilities**: Which tools (Video/Audio) are enabled.
+  - **Provider Strategies**: How to connect (native SDK vs Middleware).
+- **Zero-Touch Logic**: Agents query the Matrix to determine implementation details (e.g., "Use `langchain_google_genai` for Gemini").
+- **Priorities**: Agents overload capabilities based on priorities defined in the Matrix.
 
 ### 5. Negative Feedback Loop
 
