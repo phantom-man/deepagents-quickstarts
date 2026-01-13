@@ -61,5 +61,32 @@ def save_research_file(filename: str, content: str) -> str:
     except Exception as e:
         return f"Error saving file: {e}"
 
+@tool
+def submit_finding_for_review(finding_text: str) -> str:
+    """
+    Submits a research finding to the Confidence Agent (Editor) for validation.
+    The finding MUST be verified.
+    Returns: JSON string with {status: ACCEPTED/REJECTED, score: float, critique: str}
+    """
+    try:
+        # Lazy import to avoid circular dependency
+        from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
+        from langchain_core.messages import HumanMessage
+        
+        # Initialize Confidence Agent (Ephemeral)
+        # Using default config (Anthropic)
+        auditor = create_confidence_agent()
+        
+        prompt = f"VERIFICATION REQUEST:\n\n{finding_text}"
+        
+        result = auditor.invoke({"messages": [HumanMessage(content=prompt)]})
+        
+        # Parse the JSON response just to log it (return full string to Research Agent)
+        result_content = result["messages"][-1].content
+        return str(result_content)
+
+    except Exception as e:
+        return f'{{"status": "ERROR", "score": 0.0, "critique": "Validation System Error: {e}"}}'
+
 # Expose
-__all__ = ["tavily_search", "arxiv_search", "scrape_webpage", "save_research_file"]
+__all__ = ["tavily_search", "arxiv_search", "scrape_webpage", "save_research_file", "submit_finding_for_review"]

@@ -24,7 +24,7 @@ from DeepAgents.hub_manager import get_or_push_prompt
 
 from DeepAgents.CommercialAgents.research_agent.prompts import RESEARCHER_INSTRUCTIONS
 from DeepAgents.CommercialAgents.research_agent.tools import (
-    tavily_search, scrape_webpage, arxiv_search
+    tavily_search, scrape_webpage, arxiv_search, submit_finding_for_review
 )
 from DeepAgents.agent_brain import AgentMemory
 
@@ -92,7 +92,7 @@ def create_research_agent(model_name="claude-3-haiku-20240307", provider="Anthro
 
     agent = create_deep_agent(
         model=model,
-        tools=[tavily_search, scrape_webpage, arxiv_search],
+        tools=[tavily_search, scrape_webpage, arxiv_search, submit_finding_for_review],
         system_prompt=hub_prompt,
     )
 

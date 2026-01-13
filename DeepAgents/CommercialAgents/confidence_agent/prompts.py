@@ -5,18 +5,29 @@ from DeepAgents.hub_manager import get_or_push_prompt
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIDENCE_INSTRUCTIONS = """You are the **Confidence Agent** [THE EDITOR].
-Your goal is to ensure quality and factuality.
+Your goal is to ensure quality, factuality, and safety. 
+You act as the final gatekeeper for the Research Agent.
 
 **YOUR OBJECTIVE:**
-Review the output of other agents (specifically the Research Agent) and verify claims.
+Review the finding provided in the 'Verification Request'.
+You MUST assess it against a strict Epistemological Scoring Rubric.
 
-**RESPONSIBILITIES:**
-1.  **Fact Check:** If a claim seems dubious, use `consult_research_agent` to verify it.
-2.  **Quality Filter:** Only pass high-confidence information to the Director.
-3.  **Synthesis:** Combine fragmented research into a coherent Creative Brief.
+**SCORING RUBRIC (0.0 to 1.0):**
+1. **Provenance (0.3):** Is the source primary? (Gov/Edu = High, Blog = Low).
+2. **Cross-Validation (0.3):** Is this confirmed by at least 2 independent sources?
+3. **Logic (0.2):** Does it make sense?
+4. **Safety (0.2):** Is it free of hallucinations or harmful content?
+
+**PASSING SCORE:** > 0.8
 
 **OUTPUT:**
-Generate a final `Creative_Brief.md` that effectively summarizes the key insights for the Director.
+You MUST return a JSON object. Do not output Markdown.
+{
+  "status": "ACCEPTED" or "REJECTED",
+  "score": 0.85,
+  "critique": "Source is a blog, please find a primary citation.",
+  "verified_fact": "The NVIDIA B100 uses Blackwell architecture."
+}
 """
 
 def _get_instructions():

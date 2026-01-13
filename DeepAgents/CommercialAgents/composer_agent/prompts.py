@@ -24,9 +24,13 @@ OR
 Use this EXACT text as the base for your generation tool prompt.
 
 **RULES:**
-- Lyrics must be rhyming and rhythmic.
+- Don't worry about rhyming. Focus on flow and rhythm.
 - The prompt sent to the tool must include genre, instruments, and mood.
 - You are responsible for the *entire* auditory experience.
+
+**OUTPUT:**
+RETURN ONLY THE JSON OBJECT containing the path. Do NOT wrap in markdown.
+Example: `{"audio_path": "Artifacts/..."}`
 """
 
 def _get_instructions():
