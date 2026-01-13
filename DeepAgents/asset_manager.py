@@ -230,11 +230,18 @@ class AssetManager:
                     with open(os.path.join(root, file), 'r', encoding="utf-8") as f:
                         meta = json.load(f)
 
-                    # Filter
-                    if session_id and str(session_id) not in root:
-                        continue
+                    # Filter by Session ID (check metadata, not path)
+                    if session_id:
+                        meta_sid = str(meta.get("session_id", ""))
+                        if meta_sid != str(session_id):
+                            continue
+
                     if asset_type and meta.get("asset_type") != asset_type:
                         continue
+                        
+                    # Add Cloud URL if available
+                    if "cloud_url" not in meta and "url" in meta:
+                         meta["cloud_url"] = meta["url"] # Legacy fix
 
                     # Add full path
                     # Construct image path from metadata filename

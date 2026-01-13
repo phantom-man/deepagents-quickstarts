@@ -15,7 +15,6 @@ from DeepAgents.gui.history_manager import SessionManager, list_sessions
 from DeepAgents.gui.agent_runner import AgentRunner
 from DeepAgents.agent_brain import AgentConfig
 from DeepAgents.asset_manager import AssetManager
-from DeepAgents.model_registry import REPLICATE_MODELS, get_model_options, get_model_info 
 from DeepAgents.cost_calculator import estimate_cost
 
 # Initialize Config
@@ -188,9 +187,12 @@ with tab_director:
     if run_btn and directive:
         # Create new session if needed
         if not session_id or session_id == "New Session":
-             session_id = session_manager.create_session("New Director Run")
-             st.session_state.current_session_id = session_id
-             st.rerun()
+             if manager:
+                session_id = manager.create_session("New Director Run")
+                st.session_state.current_session_id = session_id
+                st.rerun()
+             else:
+                session_id = str(int(time.time()))
 
     # Session State Persistence for Results
     if "director_result" not in st.session_state:
@@ -238,11 +240,12 @@ with tab_director:
                 st.divider()
                 st.info("🎬 Director > 🎥 Handoff to Cinematographer...")
                 # Autonomous mode: Agent decides shots/duration based on prompt or defaults
+                # We pass defaults to ensure safety, but Agent is autonomous
                 for agent, type_, content in runner.run_cinematographer(
                     director_result, 
-                    mode="both", 
-                    max_shots=None, 
-                    duration_sec=None
+                    mode="storyboard",  # Default mode
+                    max_shots=1,        # Logic moved to agent, but runner needs valid int
+                    duration_sec=4
                 ): 
                     st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
                     if type_ == "thinking":

@@ -171,16 +171,29 @@ class AgentConfig:
         logger.info("⚙️ Config update ignored (Managed by LangSmith Rules).")
 
     def get_agent_config(self, agent_role: str) -> Dict[str, Any]:
-        """Returns config for specific agent."""
-        # Adapter to map new structure to old expected structure where possible
-        agent_data = self.config.get(agent_role, {})
+        """Returns config for specific agent, adapting new schema to old."""
+        # 1. Get raw data from System Config
+        agent_data = self.config.get(agent_role, {}).copy()
         
-        # Ensure 'model' and 'provider' exist for legacy compatibility
-        if "intelligence_model" in agent_data:
-            # Parse provider/model from "anthropic/claude..." string if needed
-            # For now, just return what we have, callers might need updating if they expect strict keys
-            pass
-            
+        # 2. Polyfill 'model' from 'intelligence_model'
+        if "intelligence_model" in agent_data and "model" not in agent_data:
+            # Format: 'provider/model-id' (e.g. anthropic/claude-3-haiku...)
+            i_model = agent_data["intelligence_model"]
+            if "/" in i_model:
+                parts = i_model.split("/", 1)
+                # Auto-detect provider if missing or implicit
+                if "provider" not in agent_data:
+                    agent_data["provider"] = parts[0].capitalize()
+                agent_data["model"] = parts[1]
+            else:
+                agent_data["model"] = i_model
+
+        # 3. Polyfill 'provider' fallback
+        if "provider" not in agent_data:
+             if "anthropic" in agent_data.get("model", "").lower(): agent_data["provider"] = "Anthropic"
+             elif "gemini" in agent_data.get("model", "").lower(): agent_data["provider"] = "Google"
+             else: agent_data["provider"] = "Anthropic" # Default
+
         return agent_data
 
     def set_agent_config(
