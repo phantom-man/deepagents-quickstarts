@@ -257,3 +257,53 @@ class AssetManager:
         # Sort by timestamp desc
         assets.sort(key=lambda x: x.get("timestamp", 0), reverse=True)
         return assets
+
+    def sync_local_to_cloud(self, dry_run=False) -> List[str]:
+        """
+        Backfills existing local assets to GCS.
+        Updates the JSON metadata with the new cloud_url.
+        """
+        if not self.gcs_client:
+            logger.error("Sync Failed: GCS not configured.")
+            return []
+
+        synced_files = []
+        logger.info(f"Starting Cloud Sync (Dry Run: {dry_run})...")
+
+        for root, _, files in os.walk(self.base_dir):
+            for file in files:
+                if file.endswith(".json"): continue
+                
+                # Check for companion metadata file
+                meta_path = os.path.join(root, file + ".json")
+                if not os.path.exists(meta_path):
+                    # Maybe it's a raw file? Skip for now to assume we only sync generated assets.
+                    continue
+                    
+                try:
+                    with open(meta_path, 'r', encoding='utf-8') as f:
+                        meta = json.load(f)
+                    
+                    # Skip if already synced
+                    if meta.get("cloud_url") and "storage.googleapis.com" in meta.get("cloud_url"):
+                        continue
+                        
+                    # Upload
+                    local_path = os.path.join(root, file)
+                    if not dry_run:
+                        # Use existing logic
+                        url = self._upload_to_gcs(local_path, file)
+                        if url:
+                            meta["cloud_url"] = url
+                            # Update JSON
+                            with open(meta_path, 'w', encoding='utf-8') as f:
+                                json.dump(meta, f, indent=2)
+                            synced_files.append(file)
+                            logger.info(f"Synced: {file}")
+                    else:
+                        synced_files.append(file + " (dry)")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to sync {file}: {e}")
+                    
+        return synced_files
