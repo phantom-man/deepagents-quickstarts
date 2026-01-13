@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Default System Configuration (The Truth)
 DEFAULT_SYSTEM_CONFIG = {
@@ -122,7 +122,8 @@ DEFAULT_SYSTEM_CONFIG = {
 
 class SystemConfiguration:
     _instance = None
-    _config: Dict[str, Any] = None
+    _config: Optional[Dict[str, Any]] = None
+    logger: logging.Logger
 
     def __new__(cls):
         if cls._instance is None:
