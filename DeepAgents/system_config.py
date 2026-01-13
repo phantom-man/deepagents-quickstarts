@@ -151,6 +151,8 @@ class SystemConfiguration:
             self.logger.error(f"Failed to load from Hub, using local default. Error: {e}")
             self._config = DEFAULT_SYSTEM_CONFIG
             
+        if self._config is None:
+            return DEFAULT_SYSTEM_CONFIG
         return self._config
 
     def get_provider_strategy(self, provider_name: str) -> Dict[str, Any]:
