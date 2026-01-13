@@ -128,73 +128,66 @@ class AgentMemory:
 class AgentConfig:
     """
     Manages persistent configuration for Agents (Providers, Models).
-    Stores data in a local JSON file (acting as a simple database).
+    Now serves as a wrapper around SystemConfiguration (LangSmith-backed).
     """
 
-    def __init__(self, config_path: str = "../data/agent_config.json"):
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        self.config_path = os.path.abspath(os.path.join(base_dir, config_path))
-        self.config = self._load_config()
+    def __init__(self, config_path: str = None):
+        # Config path is deprecated but kept for signature compatibility
+        try:
+            from DeepAgents.system_config import SystemConfiguration
+            self.sys_config = SystemConfiguration()
+            self.config = self._load_config()
+        except ImportError:
+            # Fallback if system_config isn't ready
+            logger.warning("SystemConfiguration not available, using defaults.")
+            self.config = self._default_config()
 
     def _load_config(self) -> Dict[str, Any]:
-        """Loads configuration from disk."""
-        if not os.path.exists(self.config_path):
-            return self._default_config()
+        """Loads configuration from System Configuration."""
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("Failed to load config: %s", e)
+            full_config = self.sys_config.load_config()
+            return full_config.get("agents", self._default_config())
+        except Exception:
             return self._default_config()
 
     def _default_config(self) -> Dict[str, Any]:
         """Returns default configuration."""
         return {
-            "Director": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
-            "Researcher": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
-            "Confidence": {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"},
+            "Director": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
+            "Researcher": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
+            "Confidence": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
             "Cinematographer": {
-                "provider": "Replicate",
-                "model": "meta/meta-llama-3-70b-instruct",
-                "image_provider": "Replicate",
-                "image_model": "black-forest-labs/flux-1.1-pro",
-                "video_provider": "Replicate",
-                "video_model": "zeroscope/v2-xl",
+                "provider": "Anthropic",
+                "model": "claude-3-haiku-20240307",
+                "capabilities": [{"type": "video_generation", "models": [{"id": "haiper/v2"}]}]
             },
-            "Composer": {"provider": "Replicate", "model": "meta/musicgen"},
+            "Composer": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
         }
 
     def save_config(self) -> None:
         """Persists configuration to disk."""
-        try:
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self.config, f, indent=4)
-            logger.info("⚙️ Configuration saved.")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error("Failed to save config: %s", e)
+        # No-op: We do not save back to LangSmith from here automatically to avoid thrashing.
+        # Updates should happen via LangSmith UI or specific admin tools.
+        logger.info("⚙️ Config update ignored (Managed by LangSmith Rules).")
 
     def get_agent_config(self, agent_role: str) -> Dict[str, Any]:
         """Returns config for specific agent."""
-        return self.config.get(
-            agent_role, {"provider": "Replicate", "model": "meta/meta-llama-3-70b-instruct"}
-        )
+        # Adapter to map new structure to old expected structure where possible
+        agent_data = self.config.get(agent_role, {})
+        
+        # Ensure 'model' and 'provider' exist for legacy compatibility
+        if "intelligence_model" in agent_data:
+            # Parse provider/model from "anthropic/claude..." string if needed
+            # For now, just return what we have, callers might need updating if they expect strict keys
+            pass
+            
+        return agent_data
 
     def set_agent_config(
         self, agent_role: str, provider: str, model: str, **kwargs
     ) -> None:
         """Updates config for specific agent."""
-        # Start with existing or new dict
-        cfg = self.config.get(agent_role, {})
-        # Update basics
-        cfg["provider"] = provider
-        cfg["model"] = model
-        # Update extras (like image_provider)
-        for k, v in kwargs.items():
-            cfg[k] = v
-
-        self.config[agent_role] = cfg
-        self.save_config()
+        logger.warning("Attempted to set local config. This is disabled in Dynamic mode.")
 
 
 class AgentComms:

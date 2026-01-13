@@ -129,53 +129,18 @@ runner = AgentRunner(manager)
 
 # Configuration Selectors
 st.sidebar.divider()
-st.sidebar.subheader("Agent Configuration")
+st.sidebar.subheader("System Configuration")
 if not system_health:
     st.sidebar.error("🔒 Configuration Locked (System Check Failed)")
 else:
-    # ... (Existing Config Code Logic) ...
-    agents = ["Director", "Researcher", "Confidence", "Cinematographer", "Composer"]
-    current_conf = config_manager.config 
+    from DeepAgents.system_config import SystemConfiguration
+    sys_config = SystemConfiguration().load_config()
+    st.sidebar.info(f"✅ Loaded from LangSmith (Ver: {sys_config.get('version', 'Unknown')})")
     
-    for agent in agents:
-        with st.sidebar.expander(f"⚙️ {agent} Settings", expanded=False):
-            # Load saved values
-            # Policy: Default to Anthropic for Intelligence, Replicate/Google for Media (but Intelligence is Anthropic)
-            # User Restriction: ALL Agents must use Anthropic/Haiku for Intelligence.
-            default_provider = "Anthropic"
-            default_model = "claude-3-haiku-20240307"
-            
-            # (Previous logic overriden by strict user requirement)
-            # if agent == "Cinematographer": ... 
-            
-            saved_provider = current_conf.get(agent, {}).get("provider", default_provider)
-            saved_model = current_conf.get(agent, {}).get("model", default_model)
-            
-            # Provider Selector
-            providers = ["Google", "Replicate", "Anthropic"]
-            
-            try: 
-                prov_idx = providers.index(saved_provider) 
-            except ValueError: 
-                prov_idx = 0
-                
-            provider = st.selectbox(f"Provider ({agent})", providers, index=prov_idx, key=f"prov_{agent}")
-            
-            # Model Logic (Generic for now to avoid direct API calls in GUI loop)
-            # We use a static list or cached list from session state if available 
-            # (Note: Removed direct API call get_available_models from main loop for performance)
-            if provider == "Anthropic": 
-                model_list = ["claude-3-haiku-20240307"]
-            elif provider == "Replicate":
-                 # Fallback if user explicitly selects Replicate for Intelligence (not recommended by policy but allow list)
-                 model_list = ["meta/meta-llama-3-70b-instruct"]
-            else:
-                # Default Google
-                model_list = list(set([saved_model, "gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"]))
-            
-            model = st.selectbox(f"Model ({agent})", model_list, index=0, key=f"mod_{agent}")
-            config_manager.set_agent_config(agent, provider, model)
-            # st.toast(f"Updated {agent}")
+    with st.sidebar.expander("Active Configuration Matrix"):
+        st.json(sys_config)
+    
+    st.sidebar.caption("To modify capabilities or priorities, update 'deepagents-system-config' in LangSmith Hub.")
 
 # --- MAIN INTERFACE (GATED) ---
 if not system_health:

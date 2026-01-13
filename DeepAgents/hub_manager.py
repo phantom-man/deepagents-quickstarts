@@ -94,4 +94,19 @@ def get_or_push_prompt(repo_name: str, default_content: str) -> str:
         # Raise original error if not a missing prompt
         raise RuntimeError(f"CRITICAL: Hub Pull Failed: {e}") from e
 
+def get_or_push_configuration(repo_name: str, default_json: str) -> str:
+    """
+    Retrieves a JSON Configuration string from LangSmith Hub.
+    Treats the configuration as a System Message in a ChatPromptTemplate.
+    """
+    try:
+        # Use existing logic to get content
+        content = get_or_push_prompt(repo_name, default_json)
+        return content
+    except Exception as e:
+        logger.error(f"HubManager: Config Pull Failed: {e}")
+        # Fallback to default for config specifically to avoid app crash
+        return default_json
+
+
 

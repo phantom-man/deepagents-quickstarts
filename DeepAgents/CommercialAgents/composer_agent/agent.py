@@ -498,27 +498,30 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         return f"Error: {e}"
 
 
-def _generate_music_audio_internal(prompt: str, model_name: str = "lucataco/ace-step") -> str:
+def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music-1.5") -> str:
     """
-    Directly generates audio using a Replicate model (ACE-Step, Minimax, MusicGen).
+    Directly generates audio using a Replicate model determined by System Configuration.
     Args:
         prompt: The description of the music.
-        model_name: "lucataco/ace-step" or "minimax/music-1.5" etc.
+        model_name: Optional override, but System Config takes precedence for Capabilities.
     """
-    logger.info("🎵 Direct Audio Tool called: %s (%s)", prompt, model_name)
+    logger.info("🎵 Direct Audio Tool called: %s", prompt)
     assets = AssetManager()
     
-    # Priority Cascade: ACE-Step -> Music-1.5 -> Lyria-2 -> MusicGen
-    if "music-01" in model_name:
-         target_model = "minimax/music-1.5" 
-    elif "music-1.5" in model_name:
+    # Dynamic Model Selection via LangSmith Config
+    try:
+        from DeepAgents.system_config import SystemConfiguration
+        sys_config = SystemConfiguration()
+        model_cfg = sys_config.get_capability_model("Composer", "music_generation")
+        if model_cfg:
+            target_model = model_cfg.get("id")
+            logger.info(f"System Optimized Model Selection: {target_model} (Priority: {model_cfg.get('priority')})")
+        else:
+            logger.warning("System Config missing 'music_generation' capability. Using default.")
+            target_model = "minimax/music-1.5"
+    except Exception as e:
+         logger.error(f"Config Load Error: {e}")
          target_model = "minimax/music-1.5"
-    elif "musicgen" in model_name:
-         target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
-    elif "ace" in model_name:
-         target_model = "lucataco/ace-step"
-    else:
-         target_model = "minimax/music-1.5" # Default high quality
 
     # We might need an LLM for lyrics if Minimax or ACE-Step
     # Using lazy import to avoid circular dependency or heavy init if unused

@@ -21,12 +21,39 @@ class AssetManager:
     """
     def __init__(self, base_dir: Optional[str] = None):
         if base_dir is None:
-            # Default to ../../data/assets relative to this file
+            # Default to ../Artifacts relative to this file
             self.base_dir = os.path.abspath(
-                os.path.join(os.path.dirname(__file__), "../data/assets")
+                os.path.join(os.path.dirname(__file__), "../Artifacts")
             )
         else:
             self.base_dir = base_dir
+
+        # Try to load System Configuration for Global/Reference paths
+        try:
+             from DeepAgents.system_config import SystemConfiguration
+             self.global_config = SystemConfiguration().load_config().get("global_assets", {})
+        except:
+             self.global_config = {}
+
+    def get_global_assets(self, asset_type: str) -> List[str]:
+        """Returns list of global reference assets of a given type."""
+        # Map user type to config key
+        key_map = {"audio": "audio", "video": "video", "image": "images", "voice": "audio"}
+        cfg_key = key_map.get(asset_type.lower(), asset_type.lower())
+        
+        path = self.global_config.get(cfg_key)
+        if not path:
+             # Fallback
+             base = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+             if asset_type == "voice": path = os.path.join(base, "Artifacts/Audio/Voices")
+             else: path = os.path.join(base, f"Artifacts/{asset_type.capitalize()}")
+             
+        if path and not os.path.isabs(path):
+             path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", path))
+
+        if os.path.exists(path):
+            return [os.path.join(path, f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        return []
 
     def _get_session_dir(self, session_id: str, asset_type: str) -> str:
         path = os.path.join(self.base_dir, str(session_id), asset_type)
