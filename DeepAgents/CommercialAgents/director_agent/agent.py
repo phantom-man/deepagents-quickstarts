@@ -26,10 +26,17 @@ from DeepAgents.hub_manager import get_or_push_prompt
 try:
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
+    from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
+    from DeepAgents.CommercialAgents.cinematographer_agent.agent import run_cinematographer_task
+    from DeepAgents.editor_tools import merge_video_audio
+    from DeepAgents.inter_agent_comms import discover_agents
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
+    from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
+    from DeepAgents.CommercialAgents.cinematographer_agent.agent import run_cinematographer_task
+    from DeepAgents.editor_tools import merge_video_audio
 
     # Note: If these fail in fallback, the script will crash, but environment should be consistent now.
 
@@ -101,6 +108,63 @@ def consult_research_agent(topic: str) -> str:
     if result:
         return result
     return "Research Agent could not find significant information."
+
+
+@tool
+def consult_composer_agent(request: str) -> str:
+    """
+    Consults the Composer Agent (Orpheus) to generate music, lyrics, or a style guide.
+    Use this when the scene requires a soundtrack, score, or specific song.
+    
+    Args:
+        request: A detailed description of the music needed (e.g., "A sad violin solo in D Minor", "An EDM track with lyrics about robots").
+    
+    Returns:
+        Verification string or path to the generated asset (if applicable), or the lyrics/text.
+    """
+    logger.info("🎬 Director > 🎻 Calling Composer Agent about: %s", request)
+    # Call the synchronous wrapper we created in the Composer Agent
+    result = run_composer_task(request)
+    if result:
+        return result
+    return "Composer Agent failed to generate content."
+
+
+@tool
+def consult_cinematographer_agent(request: str) -> str:
+    """
+    Consults the Cinematographer Agent to generate Storyboards (Images) or Video clips.
+    Use this to visualize a scene described in the script.
+    
+    Args:
+        request: A detailed visual description (e.g., "Storyboard for Scene 1: A man walking in rain, cinematic lighting").
+    
+    Returns:
+        Path to the generated image/video files or status report.
+    """
+    logger.info("🎬 Director > 🎥 Calling Cinematographer Agent about: %s", request)
+    result = run_cinematographer_task(request)
+    if result:
+        return result
+    return "Cinematographer Agent failed to generate content."
+
+
+@tool
+def assemble_final_cut(video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4") -> str:
+    """
+    Assembles the final video by merging video clips and an audio track.
+    Use this when you have collected all necessary assets (video and audio).
+    
+    Args:
+        video_paths: List of file paths to the video clips.
+        audio_path: File path to the audio track (music/voice).
+        output_name: Desired filename for the output.
+        
+    Returns:
+        Path to the final assembled video file.
+    """
+    logger.info("🎬 Director > ✂️ Assembling Final Cut: %s + %s", video_paths, audio_path)
+    return merge_video_audio(video_paths, audio_path, output_name)
 
 
 def create_director_agent(
@@ -185,6 +249,10 @@ def create_director_agent(
         tools=[
             consult_research_agent,
             validate_scene_logic,
+            consult_composer_agent,
+            consult_cinematographer_agent,
+            assemble_final_cut,
+            discover_agents, # NEW: Meta-Discovery Tool
         ],
         system_prompt=hub_prompt,
         checkpointer=checkpointer
@@ -218,9 +286,26 @@ def _parse_event_messages(event: Dict[str, Any]) -> List[BaseMessage]:
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         USER_INPUT = sys.argv[1]
-        print(f"Starting Director Agent with input: {USER_INPUT}")
-        # Note: No main loop logic here for Director yet in original file?
-        # Original file seems to be missing main execution logic or I didn't read it all.
-        # But I replaced proper content.
+        print(f"🎬 Starting Director Agent with input: {USER_INPUT}")
+        
+        # Create the agent
+        director = create_director_agent()
+        
+        # Invoke
+        from langchain_core.messages import HumanMessage
+        initial_state = {"messages": [HumanMessage(content=USER_INPUT)]}
+        
+        print("⚡ Invoking Director Graph...")
+        try:
+            # Stream the output to see tool calls
+            for event in director.stream(initial_state):
+                 # Simple print of the last message if available
+                 for key, value in event.items():
+                     if "messages" in value:
+                         last_msg = value["messages"][-1]
+                         print(f"[{key}]: {last_msg.content}")
+        except Exception as e:
+            print(f"❌ Error running Director: {e}")
+            
     else:
-        print("Director Agent Module ready.")
+        print("Director Agent Module ready. Pass a prompt to test.")

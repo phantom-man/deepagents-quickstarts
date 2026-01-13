@@ -38,6 +38,7 @@ from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
     CINEMATOGRAPHER_INSTRUCTIONS,
 )
+from DeepAgents.inter_agent_comms import discover_agents
 
 # Cross-Agent Imports
 try:
@@ -236,7 +237,8 @@ def create_cinematographer_agent(
             func=_consult_composer,
             name="consult_composer",
             description="Call Composer Agent for music/audio. Input: Description of music needed."
-        )
+        ),
+        discover_agents # NEW: Meta-Discovery capability
     ]
 
     # Bind Tools to LLM
