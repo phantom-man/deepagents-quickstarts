@@ -43,11 +43,16 @@ Rules:
 - Ontologies are ingested at runtime via MemoriPilot.
 - Ontologies are "Constitution-grade" (immutable during execution).
 
-### 4. Mesh Topology (Meta-Discovery)
+### 5. Deployment Constraints (Windows/Dev vs Prod)
 
-Moving away from a strict Top-Down hierarchy, the system uses a **Mesh Topology**:
+- **Windows Development**: The `langgraph_cli` server on Windows encounters `BlockingIOError` (WinError 183) during file operations (shutil.move).
+  - **Workaround**: ALL local dev servers on Windows must run with `--allow-blocking`.
+  - **Trade-off**: This couples the event loop, potentially slowing down concurrent requests.
+- **Production**:
+  - MUST set `BG_JOB_ISOLATED_LOOPS=true` to ensure background workers do not block the main API loop.
+  - Code should be migrated to pure `asyncio` patterns where possible to remove the need for blocking permission.
 
-- **Registry**: `agency_registry.py` defines the skills and roles of every agent.
+### 6. Meta-Discovery System
 - **Discovery**: Agents possess a `discover_agents` tool. If they encounter a task outside their domain, they query the registry to find a peer who can handle it.
 - **Dynamic Handoff**: This allows for emergent behavior (e.g., Cinematographer realizing they need music and calling Composer directly).
 

@@ -2,16 +2,23 @@
 
 ### Current Focus
 
-- **Component**: Full Pipeline Integration (Director -> Editor).
-- **Task**: Verifying the "Zero-Touch" workflow where the Director autonomously commissions assets and then edits them together.
+- **Component**: Music Generation Tuning (Composer Agent).
+- **Task**: Restoring `minimax/music-1.5` as default and implementing "The 600-Char Challenge" prompt strategy.
 - **Recent Success**:
-  - **Codebase Health**: Achieved **Zero Pylance Errors** across all core agents (`Cinematographer`, `Composer`, `Director`, `Research`).
-  - **Bug Fix**: Resolved critical "Silent Failure" in Composer where Replicate's list output (`['url']`) was mishandled, causing hallucinations.
-  - **Discovery**: Implemented "Mesh Topology" where agents dynamically find each other via `agency_registry.py`.
-- **Next Step**: Configure the Director to use the `editor_tools` to assemble the final video.
+  - **Prompt Engineering**: Adopted specific user guidance for `music-1.5` (Section skeleton, punchy lines, no forced rhyme, strict limits).
+  - **Logic Switch**: Defaulted `agent.py` back to `minimax/music-1.5` (ACE-Step remains available on request).
+  - **Constraint Enforcement**: Added "CRITICAL CONSTRAINTS" section to the LLM system prompt to ensure <580 chars.
+- **Next Step**: User Testing of the new "High Density" Minimax prompting.
 
 ## Recent Changes
 
+- **Audio Quality Decision (2026-01-13)**:
+  - **Decision**: ACE-Step quality was inconsistent. Minimax 1.5 is "Radio Quality" but has strict limits.
+  - **Strategy**: Instead of fighting the limit, we optimized the prompt to "maximize density" (Short lines, compressed imagery) to fit a full song into 600 chars.
+- **Music Generation Upgrade (2026-01-13)**:
+  - **Default Model**: Switched from ACE-Step back to `minimax/music-1.5`.
+  - **Smart Prompting**: Composer now intelligently auto-generates rich technical tags or expands user styles (e.g. "Beatles") into detailed production descriptors.
+  - **Parameter Tuning**: Hardcoded optimal `euler` scheduler and `apg` guidance settings based on model documentation.
 - **Reliability Engineering**:
   - **Replicate URL Normalization**: Implemented `_extract_replicate_url` in Composer Agent to handle inconsistent return types (Lists vs Strings) from Minimax/MusicGen.
   - **Static Analysis**: Conducted a comprehensive Pylance sweep, fixing type hint errors (e.g., `ChatAnthropic` signature mismatches) and suppressing noisy OpenTelemetry (`opentelemetry.attributes`) logs.
@@ -28,17 +35,13 @@
 - **Hub Hygiene**: Created `cleanup_prompts.py` to remove legacy `*-main` repositories. Updated `push_prompts.py` to strictly use the `*-system-prompt` naming convention.
 - **Hub Authentication Fix**: Refactored `DeepAgents/hub_manager.py` to instantiate `langsmith.Client` with dynamic arguments (`api_key`, `workspace_id`) derived from the `.env` file. This bypasses the flaky `os.environ` behavior in the complex application runtime.
 - **Composer Upgrade**: Switched the primary music generation engine from `minimax/music-01` to `minimax/music-1.5`.
-- **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable audio generation.
+- **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable execution.
 
 ## Active Questions
 
-- Does the new `generate_music_tool` correctly handle all Minimax/MusicGen API edge cases in production? (Fix applied, validating now).
-- Does the new Google-based Apollo Agent correctly bind tools and execute the full commercial pipeline?
-- Does the Replicate fallback logic in `Cinematographer` successfully catch any Google Imagen errors?
-- Are traces appearing correctly in LangSmith?
+- **Optimization**: Can the "Compressed Imagery" prompting strategy consistently fit a full song arc into Minimax's 600-character limit without losing narrative depth?
 
 ## Next Steps
 
-1. **Start Server**: Launch `langgraph_cli dev` to verify the new stable state.
-2. **Pipeline Test**: Issue a full "Make a movie about X" command to the Director via LangGraph Studio.
-3. **Monitor**: Watch logs for the specific "Audio Generated" success message from Composer.
+1. **Verify Minimax**: Use LangGraph Studio to send a test request using the new dense prompting style.
+2. **Monitor**: Listen to the generated audio for "Outro" completion (ensure the song didn't get cut off).

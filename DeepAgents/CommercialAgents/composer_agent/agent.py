@@ -135,6 +135,7 @@ def check_service_status() -> Dict[str, bool]:
     Returns: Dict of model_slug -> is_available
     """
     status_map = {
+        "lucataco/ace-step": True,
         "minimax/music-01": True,
         "google/lyria-2": True,
         "meta/musicgen": True
@@ -179,55 +180,71 @@ def composer_consult_research(topic: str) -> str:
     return "Research Agent could not find significant information."
 
 
-def _generate_lyrics_and_style(input_text: str, llm: Any) -> Dict[str, str]:
+def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "minimax") -> Dict[str, str]:
     """
     Helper to generate lyrics and style using the LLM.
-    Implements a Reflexion Loop to strictly enforce Minimax API constraints (Lyrics < 600 chars).
+    Implements a Reflexion Loop to strictly enforce API constraints.
+    Supports: Minimax Music-1.5, ACE-Step.
     """
     if not llm:
-        return {"prompt": input_text}
+        return {"prompt": input_text, "tags": input_text}
 
-    # RE-ENGINEERED PROMPT: Dynamic Schema Enshrinement for Minimax Music-1.5
-    # Strict Sectional Budgets based on User's verified 576-char example.
-    schema_compliant_prompt = (
-        f'You are an expert Songwriter specialized in the Minimax Music-1.5 Schema.\n'
-        f'The user wants a song about: "{input_text}".\n\n'
-        "CRITICAL ARCHITECTURAL CONSTRAINTS (API WILL CRASH IF VIOLATED):\n"
-        "1. TOTAL LENGTH: Must be UNDER 600 characters. (Ideal: ~550 chars).\n"
-        "2. STRUCTURE: You must use EXACTLY these headers: [Verse], [Chorus], [Bridge], [Outro].\n"
-        "3. SECTION BUDGETS (Strict Character Limits):\n"
-        "   - [Verse]:  Max 140 chars (approx 4 lines)\n"
-        "   - [Chorus]: Max 140 chars (approx 4 lines)\n"
-        "   - [Bridge]: Max 140 chars (approx 4 lines)\n"
-        "   - [Outro]:  Max 80 chars (approx 2 lines)\n"
-        "4. DO NOT TRUNCATE by just cutting off text. You must RE-VISION the song to fit these limits natively.\n"
-        "   If the story is long, condense it poetically. Do not write a novel.\n\n"
-        "REQUIRED OUTPUT FORMAT (JSON-like Strictness):\n"
-        "STYLE: <style description, max 200 chars>\n"
-        "LYRICS:\n"
-        "[Verse]\n"
-        "In the hush of night, we find our space,\n"
-        "Wrapped in moonlight’s gentle embrace.\n"
-        "Your whisper’s soft, like a velvet song,\n"
-        "In this tender moment, where we both belong.\n"
-        "\n"
-        "[Chorus]\n"
-        "Just you and me, in this lazy jazz,\n"
-        "Our souls entwined, nothing else we ask.\n"
-        "In this serenade, we sway and sigh,\n"
-        "Lost in this love, beneath the starry sky.\n"
-        "\n"
-        "[Bridge]\n"
-        "Your voice, a lullaby, soothes my soul,\n"
-        "In this night, together, we feel whole.\n"
-        "Each moment shared, a timeless flight,\n"
-        "In this gentle jazz, we find our light.\n"
-        "\n"
-        "[Outro]\n"
-        "As dawn approaches, and stars fade away,\n"
-        "In your arms, I wish to forever stay.\n"
-        "(End of response. Do NOT add explanation or conversational text after Lyrics.)"
-    )
+    if model_type == "ace-step":
+        # ACE-Step Schema
+        schema_compliant_prompt = (
+            f'You are an expert Songwriter specialized in the ACE-Step Music Schema.\n'
+            f'The user wants a song about: "{input_text}".\n\n'
+            "REQUIRED OUTPUT FORMAT:\n"
+            "TAGS: <Generate 5-10 comma-separated descriptive keywords. STRICTLY ADHERE to the user's requested style/artist. Do NOT add unrelated genres (e.g. do not add 'rap' if user asked for 'rock'). If Style is 'REO Speedwagon', use tags like: 'Rock, 1980s, Power Ballad, Electric Guitar, Synthesizer, Male Vocals'.>\n"
+            "LYRICS:\n"
+            "[verse]\n"
+            "<lyrics here>\n\n"
+            "[chorus]\n"
+            "<lyrics here>\n\n"
+            "[bridge]\n"
+            "<lyrics here>\n\n"
+            "[instrumental] (Optional, use instead of lyrics if instrumental requested)\n"
+            "(End of response)"
+        )
+    else:
+        # Defaults to Minimax Music-1.5 Schema (High-Quality Condensed)
+        # Optimized for "The 600-Char Challenge" per User Guidance
+        schema_compliant_prompt = (
+            f'You are an expert Songwriter specialized in the Minimax Music-1.5 Schema.\n'
+            f'The user wants a song about: "{input_text}".\n\n'
+            "CRITICAL CONSTRAINTS (THE 600-CHAR CHALLENGE):\n"
+            "This model provides Radio-Quality audio but has a STRICT 600-character limit for lyrics.\n"
+            "To succeed, you must use a 'Section-Label Skeleton' with maximizing density.\n\n"
+            "RULES FOR SUCCESS:\n"
+            "1. STRUCTURE: Must use these sections: [Intro], [Verse], [Chorus], [Bridge], [Outro].\n"
+            "2. LENGTH: Keep each section 2-4 lines MAX. Short, punchy lines allow musical expansion.\n"
+            "3. IMAGERY: Use compressed, evocative imagery. (e.g., 'City nights, empty streets' vs 'I am walking alone at night').\n"
+            "4. STYLE: Put the Genre/Mood in the 'STYLE' field, NOT the lyrics.\n"
+            "5. CHORUS: Make it simple and repetitive (The model loves repetition).\n"
+            "6. RHYME: Avoid forced rhymes. Use light rhyme or no rhyme to prevent melodic derailment.\n"
+            "7. ENDING: Always end with [Outro] to prevent infinite looping.\n"
+            "8. BUDGET: Total Lyrics MUST be ~450-550 characters. Do NOT go over 580.\n\n"
+            "REQUIRED OUTPUT FORMAT:\n"
+            "STYLE: <Genre, Mood, Instrumentation. E.g., 'Emotional pop ballad, female vocals, atmospheric synths'>\n"
+            "LYRICS:\n"
+            "[Intro]\n"
+            "Soft lights, slow breath\n\n"
+            "[Verse]\n"
+            "City nights calling me back\n"
+            "Your voice in the static haze\n"
+            "I chase the ghost of what we were\n"
+            "Lost between the beats\n\n"
+            "[Chorus]\n"
+            "Hold on, hold on\n"
+            "I’m not letting go\n"
+            "Hold on, hold on\n"
+            "You’re the fire in my soul\n\n"
+            "[Bridge]\n"
+            "One spark and we rise again\n\n"
+            "[Outro]\n"
+            "Fade into the dawn\n"
+            "(End of response)"
+        )
 
     messages = [HumanMessage(content=schema_compliant_prompt)]
     last_valid_result = {}
@@ -241,44 +258,48 @@ def _generate_lyrics_and_style(input_text: str, llm: Any) -> Dict[str, str]:
             result = {}
 
             # Parse Output
-            style_match = re.search(r"STYLE:\s*(.*)", content, re.IGNORECASE)
-            result["prompt"] = style_match.group(1).strip() if style_match else input_text
+            if model_type == "ace-step":
+                tags_match = re.search(r"TAGS:\s*(.*)", content, re.IGNORECASE)
+                result["tags"] = tags_match.group(1).strip() if tags_match else input_text
+            else:
+                style_match = re.search(r"STYLE:\s*(.*)", content, re.IGNORECASE)
+                result["prompt"] = style_match.group(1).strip() if style_match else input_text
 
             lyrics_match = re.search(r"LYRICS:\s*(.*)", content, re.IGNORECASE | re.DOTALL)
             lyrics = lyrics_match.group(1).strip() if lyrics_match else ""
             result["lyrics"] = lyrics
 
-            # Validate Constraints
+            # Validate Constraints (Minimax Only)
             constraint_errors = []
-            if len(lyrics) > 550: # Safety buffer below 600
-                constraint_errors.append(f"Lyrics are {len(lyrics)} chars (Max 550 allowable)")
-            if len(result["prompt"]) > 290: # Safety buffer below 300
-                constraint_errors.append(f"Style Prompt is {len(result['prompt'])} chars (Max 300 allowable)")
+            if model_type == "minimax":
+                if len(lyrics) > 550: # Safety buffer below 600
+                    constraint_errors.append(f"Lyrics are {len(lyrics)} chars (Max 550 allowable)")
+                prompt_val = result.get("prompt", "")
+                if len(prompt_val) > 290: # Safety buffer below 300
+                    constraint_errors.append(f"Style Prompt is {len(prompt_val)} chars (Max 300 allowable)")
+            
+            # ACE-Step Constraints (Loose for now)
+            if model_type == "ace-step":
+                 if not result.get("tags") and not lyrics:
+                     constraint_errors.append("Failed to generate Tags or Lyrics")
 
-            if not constraint_errors and lyrics:
-                logger.info(f"✅ Generated Valid Lyrics/Style (Attempt {attempt})")
-                logger.info("Generated Style: %s", result.get("prompt"))
+            if not constraint_errors and (lyrics or result.get("tags")):
+                logger.info(f"✅ Generated Valid Lyrics/Style (Attempt {attempt}, Model: {model_type})")
                 return result
 
             # Reflexion: Add feedback to history for next turn
             logger.warning(f"⚠️ Constraint Violation (Attempt {attempt}): {', '.join(constraint_errors)}. Retrying...")
             messages.append(AIMessage(content=content))
-            messages.append(HumanMessage(content=f"SYSTEM ERROR: The output violated strict API limits. \nErrors: {'; '.join(constraint_errors)}. \n\nPlease REWRITE the content to be significantly shorter. Keep the lyrics to just 4-6 lines maximum."))
+            messages.append(HumanMessage(content=f"SYSTEM ERROR: The output violated strict API requirements. \nErrors: {'; '.join(constraint_errors)}. \n\nPlease REWRITE the content to comply."))
             last_valid_result = result # Save just in case but don't return yet
 
-        # Fallback if 3 attempts fail: Strict Truncation (The "Nuclear Option")
-        logger.error("❌ Max retries reached. Applying forced truncation to fit schema.")
-        final_lyrics = last_valid_result.get("lyrics", "")[:550]
-        if "\n" in final_lyrics:
-            final_lyrics = final_lyrics.rsplit("\n", 1)[0]
-        last_valid_result["lyrics"] = final_lyrics
-        last_valid_result["prompt"] = last_valid_result.get("prompt", input_text)[:290]
-        
+        # Fallback if 3 attempts fail
+        logger.error("❌ Max retries reached. Using best effort.")
         return last_valid_result
 
     except Exception as llm_err:  # pylint: disable=broad-exception-caught
         logger.error("Lyric generation failed: %s. Using raw input.", llm_err)
-        return {"prompt": input_text}
+        return {"prompt": input_text, "tags": input_text, "lyrics": ""}
 
 
 def _generate_descriptive_filename(prompt: str, session_id: str, ext: str = "mp3") -> str:
@@ -320,7 +341,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     model_name: str, input_text: str, llm: Any, assets: Any, session_id: str
 ) -> str:
     """
-    Handle generation via Replicate (Lyria, Minimax, MusicGen, Bark).
+    Handle generation via Replicate (ACE-Step, Minimax, Lyria, MusicGen).
     Implements cascading fallback, service checks, and voice library integration.
     """
     if not os.environ.get("REPLICATE_API_TOKEN"):
@@ -328,34 +349,36 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
     # --- 1. Service Availability Check ---
     status_map = check_service_status()
-    # Also check music-1.5 status (implied true if not checked explicitly but good to know)
-    status_map["minimax/music-1.5"] = True # Assume true for now or add to check_service_status
     
     # --- 2. Strategy Selection & Fallback ---
     # Default selection logic
     target_model = model_name
-    # if generic, pick based on intent
+    
+    # Logic: Default to ACE-Step unless specific model requested
     if "/" not in target_model:
         lower_input = input_text.lower()
         if "voice" in lower_input or "speech" in lower_input:
-            # STRICT POLICY: Use Minimax Speech, NEVER Bark
             target_model = "minimax/speech-01"
-        elif "lyria" in target_model.lower() or "music" in target_model.lower():
-            # [UPDATE] Default to Minimax 1.5 for basic music as it is superior
+        elif "minimax" in lower_input:
             target_model = "minimax/music-1.5"
-        elif "minimax" in target_model.lower():
-            target_model = "minimax/music-1.5"
+        elif "lyria" in lower_input:
+            target_model = "google/lyria-2"
+        elif "ace" in lower_input:
+            target_model = "lucataco/ace-step"
         else:
+            # NEW DEFAULT: Minimax Music-1.5 (High Fidelity, Strict Formatting)
             target_model = "minimax/music-1.5"
 
     logger.info(f"🎼 Initial Strategy: {target_model}")
 
     # Apply Service Status Fallbacks
-    # Map music-01 requests to music-1.5 automatically
+    if "ace-step" in target_model and not status_map.get("lucataco/ace-step", True):
+        logger.warning("🚨 ACE-Step is DOWN. Falling back to Minimax 1.5.")
+        target_model = "minimax/music-1.5"
+
     if "music-01" in target_model:
         logger.info("ℹ️ Upgrading request from Music-01 to Music-1.5")
         target_model = "minimax/music-1.5"
-
 
     if "lyria" in target_model and status_map.get("google/lyria-2") is False:
         logger.warning("🚨 Lyria-2 is DOWN. Falling back to MusicGen.")
@@ -363,123 +386,95 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     
     logger.info(f"✅ Final Strategy: {target_model}")
 
-    # --- 3. Voice Generation (DEPRECATED: Bark) ---
     if "bark" in target_model or "suno-ai" in target_model:
-        return "Error: Suno Bark is deprecated due to high latency. Use Minimax or XTTS-v2."
+        return "Error: Suno Bark is deprecated due to high latency. Use ACE-Step or Minimax."
 
     # --- 4. Music Generation Pipeline ---
-    
-    # A. Generate Instrumental Base (if Minimax Music-01 still used, unlikely)
-    instrumental_file_path = None
-    
-    # [PATCH] Music-1.5 does not need instrumental base.
-    if "music-01" in target_model:
-        # [PATCH] Disabled Lyria Base Gen due to WAV output incompatibility (Minimax needs MP3)
-        logger.info("🎹 Step 1: Pre-generating Base Track skipped (No FFmpeg).")
-        pass
-
-    # B. Final Generation
     try:
         final_url = None
         current_model_used = target_model
+
+        # Parse Duration (Global Logic for all models)
+        duration_sec = None
+        dur_match = re.search(r"(\d+)\s*(min|minute|sec|second)", input_text, re.IGNORECASE)
+        if dur_match:
+            val = int(dur_match.group(1))
+            unit = dur_match.group(2).lower()
+            if "min" in unit:
+                duration_sec = min(val * 60, 300) # Cap at 300s (5 mins) for Minimax
+            else:
+                duration_sec = min(val, 300)
+            logger.info(f"   Duration parsed: {duration_sec}s")
         
-        # Case: Minimax Music-1.5 (Preferred)
-        if "music-1.5" in target_model:
+        # Case: ACE-Step (Primary Default)
+        if "ace-step" in target_model:
+            logger.info("🎤 Generating with ACE-Step (Text-to-Music)...")
+            
+            # Map global duration to ACE specific logic (Cap 240s)
+            ace_duration = min(duration_sec, 240) if duration_sec else 60
+            logger.info(f"   ACE-Step Duration set to: {ace_duration}s")
+
+            # Generate Tags/Lyrics
+            lyric_data = _generate_lyrics_and_style(input_text, llm, model_type="ace-step")
+            tags = lyric_data.get("tags", input_text)
+            lyrics = lyric_data.get("lyrics", "[inst]")
+
+            # Hardcoded Options from Examples (Tuned for Quality)
+            payload = {
+                "tags": tags,
+                "lyrics": lyrics,
+                "duration": ace_duration,
+                "scheduler": "heun",
+                "guidance_type": "apg",
+                "guidance_scale": 20,        # Boosted to 20 for strict adherence
+                "number_of_steps": 200,      # MAX (200) for best quality
+                "granularity_scale": 10,
+                "guidance_interval": 0.5,
+                "min_guidance_scale": 3,
+                "tag_guidance_scale": 10,    # MAX (10) - Absolute Stlye Adherence
+                "lyric_guidance_scale": 10,  # MAX (10) - Absolute Lyric Adherence
+                "guidance_interval_decay": 0
+            }
+            logger.info(f"   Payload Keys: {payload.keys()}")
+            
+            ace_out = _safe_replicate_run("lucataco/ace-step", input_data=payload)
+            final_url = _extract_replicate_url(ace_out)
+
+        # Case: Minimax Music-1.5
+        elif "music-1.5" in target_model:
             logger.info("🎤 Generating with Minimax Music-1.5 (Text-to-Music)...")
-            lyric_data = _generate_lyrics_and_style(input_text, llm)
+
+            # Minimax doesn't have explicit 'duration' param typically, but we should pass it 
+            # if the new API supports it, or rely on lyric length.
+            # Assuming 'duration' int/float is supported per user instruction.
+            
+            lyric_data = _generate_lyrics_and_style(input_text, llm, model_type="minimax")
             lyrics_text = lyric_data.get("lyrics", input_text)
             style_prompt = lyric_data.get("prompt", input_text)
             
-            # Schema: prompt (str), lyrics (str)
-            # No files needed!
             payload = {
                 "prompt": style_prompt,
                 "lyrics": lyrics_text
             }
-            logger.info(f"   Payload: {payload.keys()}")
+            # Note: Minimax Music-1.5 does NOT support 'duration'. Length is determined by text/lyrics.
             
             minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
             final_url = _extract_replicate_url(minimax_out)
 
-        # Case: Minimax Music-01 (Legacy)
-        elif "music-01" in target_model:
-            if not instrumental_file_path:
-                logger.warning("Minimax base track missing. Continuing generation without instrumental base.")
-            
-            # Proceed with Minimax logic (using 'if True' to maintain indentation of existing block)
-            if True:
-
-                logger.info("🎤 Step 2: Adding Vocals with Minimax...")
-                lyric_data = _generate_lyrics_and_style(input_text, llm)
-                lyrics = lyric_data.get("lyrics", input_text)
-                
-                 # Voice Library Selection
-                # Path: agent.py -> composer_agent -> CommercialAgents -> DeepAgents -> root -> data -> voices
-                voice_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "voices")
-                # [PATCH] Only load MP3s for Minimax compatibility (WAV causes code=400)
-                available_voices = glob.glob(os.path.join(voice_dir, "*.mp3"))
-                # available_voices = glob.glob(os.path.join(voice_dir, "*.wav")) + glob.glob(os.path.join(voice_dir, "*.mp3"))
-                
-                selected_voice = None
-                if available_voices:
-                    # Basic matching
-                    search_text = input_text.lower() + " " + lyrics.lower()
-                    
-                    # Priority: Match specific keywords
-                    filtered = []
-                    if "female" in search_text:
-                        filtered = [v for v in available_voices if "female" in os.path.basename(v)]
-                    elif "male" in search_text:
-                        filtered = [v for v in available_voices if "male" in os.path.basename(v)]
-                    
-                    # Secondary: Style
-                    if not filtered:
-                        filtered = available_voices # Reset
-                        
-                    final_candidates = []
-                    for v in filtered:
-                        fname = os.path.basename(v).lower()
-                        if any(style in search_text for style in ["rock", "pop", "jazz", "narrator", "ethereal"]):
-                             if any(s in fname for s in ["rock", "pop", "jazz", "narrator", "ethereal"] if s in search_text):
-                                 final_candidates.append(v)
-                    
-                    if not final_candidates:
-                        final_candidates = filtered
-                    
-                    if final_candidates:
-                        selected_voice = random.choice(final_candidates)
-                        logger.info(f"🎙️ Selected Voice Reference: {os.path.basename(selected_voice)}")
-
-                payload = {
-                    "lyrics": lyrics
-                }
-                if instrumental_file_path:
-                    payload["instrumental_file"] = open(instrumental_file_path, "rb")
-
-                if selected_voice:
-                     # FIX: Replicate Minimax Music-01 uses 'voice_file' NOT 'refer_voice'
-                     logger.info(f"📂 Attaching voice_file: {selected_voice}")
-                     payload["voice_file"] = open(selected_voice, "rb")
-
-                minimax_out = _safe_replicate_run("minimax/music-01", input_data=payload)
-                final_url = _extract_replicate_url(minimax_out)
-
-        # Case: Lyria-2 (Fallback or Primary)
-        if "lyria" in target_model and not final_url: # Check not final_url in case above switch logic ran
+        # Case: Lyria-2
+        elif "lyria" in target_model:
             logger.info("🎵 Generating with Google Lyria-2...")
             lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
             final_url = _extract_replicate_url(lyria_out)
-            current_model_used = "google/lyria-2"
 
-        # Case: MusicGen (Fallback or Explicit)
-        if not final_url: 
+        # Case: MusicGen
+        else:
             logger.info("🎵 Generating with MusicGen...")
             mg_out = _safe_replicate_run(
                 "meta/musicgen", 
                 input_data={"prompt": input_text, "duration": 20}
             )
             final_url = _extract_replicate_url(mg_out)
-            current_model_used = "meta/musicgen"
 
         # C. Save & Rename
         if final_url:
@@ -491,73 +486,41 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 os.rename(local_path, final_path)
                 logger.info(f"🎉 Final Asset Ready: {final_path}")
                 
-                # Retrieve used lyrics depending on the path taken
-                used_lyrics_display = ""
-                if "minimax" in current_model_used.lower():
-                     # Try to recover the variable from local locals if possible, 
-                     # but cleaner to have assigned it to a shared var. 
-                     # Since we can't easily refactor the whole function safely in one go, 
-                     # let's assume 'lyrics_text' or 'lyrics' variable is in scope from the blocks above.
-                     # However, Python scoping leak in if-blocks is risky.
-                     # Better: Let's assume the user wants transparency.
-                     pass 
+                # Retrieve used lyrics for display
+                used_lyrics = locals().get("lyrics", locals().get("lyrics_text", "N/A"))
 
-                return f"**Audio Generated ({current_model_used}):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n\n**(Verified Lyrics Used)**:\n{locals().get('lyrics_text', locals().get('lyrics', 'N/A'))}"
+                return f"**Audio Generated ({current_model_used}):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n\n**(Verified Lyrics Used)**:\n{used_lyrics}"
             
         return "Generation failed: No URL returned."
 
     except Exception as e:
-        # If E004 (Unavailable) or E003 (Access denied) or other Replicate API errors occur
-        # we should try to fallback gracefully.
-        error_msg = str(e)
-        if "E004" in error_msg:  # Service Unavailable
-             logger.warning("Minimax Service Unavailable (E004). ")
-        elif "E006" in error_msg: # Invalid Input (often format)
-             logger.warning("Minimax Invalid Input (E006). ")
-        
-        # Try one last Hail Mary fallback if we haven't tried Lyria yet as the primary engine 
-        if "lyria" not in current_model_used:
-             logger.info("↩️ Fallback: Attempting Lyria-2 instrumental as safety net.")
-             try:
-                 lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
-                 final_url = _extract_replicate_url(lyria_out)
-                 if final_url:
-                    fname = _generate_descriptive_filename(input_text, session_id)
-                    local_path = _download_and_validate_asset(final_url, session_id, prefix="final_fallback")
-                    if local_path:
-                        final_path = os.path.join(os.path.dirname(local_path), fname)
-                        os.rename(local_path, final_path)
-                        logger.info(f"🎉 Fallback Asset Ready: {final_path}")
-                        return f"**Audio Generated (Fallback Lyria):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n*(Note: Primary model failed. Error: {str(e)})*"
-             except Exception as ex:
-                 logger.error(f"Fallback failed: {ex}")
-
         logger.error(f"Replicate Pipeline Failure: {e}")
         return f"Error: {e}"
 
 
-def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music-01") -> str:
+def _generate_music_audio_internal(prompt: str, model_name: str = "lucataco/ace-step") -> str:
     """
-    Directly generates audio using a Replicate model (MusicGen or Minimax).
+    Directly generates audio using a Replicate model (ACE-Step, Minimax, MusicGen).
     Args:
         prompt: The description of the music.
-        model_name: "minimax/music-01" or "meta/musicgen..."
+        model_name: "lucataco/ace-step" or "minimax/music-1.5" etc.
     """
     logger.info("🎵 Direct Audio Tool called: %s (%s)", prompt, model_name)
     assets = AssetManager()
     
-    # Priority Cascade: Music-1.5 -> Lyria-2 -> MusicGen
-    # If generic "music" requested, default to Music-1.5 as primary
+    # Priority Cascade: ACE-Step -> Music-1.5 -> Lyria-2 -> MusicGen
     if "music-01" in model_name:
-         target_model = "minimax/music-1.5" # 01 is deprecated/hard to use
+         target_model = "minimax/music-1.5" 
     elif "music-1.5" in model_name:
          target_model = "minimax/music-1.5"
     elif "musicgen" in model_name:
          target_model = "meta/musicgen:b05b1dff1d8c6dc63d14b0cdb42135378dcb87f6373b0d3d341ede46e59e2b38"
+    elif "ace" in model_name:
+         target_model = "lucataco/ace-step"
     else:
          target_model = "minimax/music-1.5" # Default high quality
 
-    # We might need an LLM for lyrics if Minimax
+    # We might need an LLM for lyrics if Minimax or ACE-Step
     # Using lazy import to avoid circular dependency or heavy init if unused
     llm_for_lyrics = None
     try:
@@ -597,8 +560,8 @@ def generate_music_tool(prompt: str) -> str:
         # Determine likely model based on prompt content (simple heuristic)
         # The agent.py logic already does this in _handle_replicate_generation
         # So we just pass the prompt.
-        # We default to 'minimax/music-01' as the "high quality" default if not specified
-        return _generate_music_audio_internal(prompt, model_name="minimax/music-01")
+        # We default to 'minimax/music-1.5' as the primary generator
+        return _generate_music_audio_internal(prompt, model_name="minimax/music-1.5")
     except Exception as e:
         return f"Error generation music: {e}"
 

@@ -33,6 +33,7 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py`.
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only`.
 - **Environment**: `.env` handles secrets. `LANGCHAIN_HUB_HANDLE` is required for Prompt Hub.
+- **LangGraph Development Server**: To start the local dev server on Windows, you MUST use the `--allow-blocking` flag to prevent file operation errors: `python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking`.
 
 ### 4. Known Issues / Learnings
 - **Prompt Hub**: If `pull_prompt` fails, fallback to local constants.
@@ -124,6 +125,14 @@ I am the source of truth for the **Infrastructure**.
 **Rule:** After any code creation or significant modification, I **MUST** run validation tools to ensure robustness.
 - **Tools:** Run `pylint` and validation checks (like Pylance).
 - **Compliance:** All identified issues must be fixed immediately. The goal is a score of 10/10 or zero critical errors.
+
+### E. File Safety Protocol (Mandatory)
+**Rule:** When overwriting existing files with complex changes, I MUST NOT rely on unsafe deletion loops.
+**Protocol:**
+1. Write content to a new temporary file (e.g., `filename_temp.ext`).
+2. Verify the contents of the new file are correct.
+3. Delete the old file only after verification.
+4. Rename the temporary file to the original filename.
 
 ## Learned Technical Specifications
 

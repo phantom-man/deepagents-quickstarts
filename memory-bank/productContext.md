@@ -2,28 +2,15 @@
 
 ## Project Description
 
-Multi-Agent System for content creation, research, and deep retrieval.
-Now configured to strictly use **Claude 3 Haiku** due to access constraints.
-
-Commercial-grade multi-agent studio for autonomous audio-visual production.
-
-DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
-Originally focused on commercials, the studio has expanded to support Music Production, Narrative Video, and Synthetic Personas.
-Current Brain: Anthropic Claude 3 Haiku.
-Infrastructure: Modernized LangGraph implementation.
-
-DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
-Originally focused on commercials, the studio has expanded to support Music Production, Narrative Video, and Synthetic Personas.
-Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
-
 DeepAgents ("Atlas") is a commercial-grade, multi-agent automated production studio. It allows users to input high-level creative concepts and receive fully realized audiovisual assets.
 Originally focused on commercials, the studio has expanded to support:
 
-- **Music Production**: Complete songs with lyrics and instrumentals.
+- **Music Production**: Complete songs with lyrics and instrumentals (via Minimax 1.5 "High Density" strategy).
 - **Narrative Video**: Short films, YouTube content, and storytelling.
 - **Synthetic Personas**: High-fidelity, believable artificial personalities for content creation.
 
 The system is designed for "Zero Touch" operation, handling research, creative direction, asset generation, and quality assurance autonomously.
+Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
 
 ## Core Features
 
@@ -53,22 +40,13 @@ The system is designed for "Zero Touch" operation, handling research, creative d
 
 - **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
 - **Vision/Media**: **Replicate** (Flux for Image, Zeroscope for Video, XTTS for Voice).
-- **Comms/Music**: Replicate (Minimax Music).
+- **Comms/Music**: Replicate (Minimax Music-1.5 default).
 
 ## Deployment
 
-- **Local**: `streamlit run DeepAgents/gui/app.py`.
+- **Local (Windows)**: `python -m langgraph_cli dev --allow-blocking`.
 - **Environment**: Python 3.10+ VENV.
 - **Secrets**: Managed via `.env` and `st.secrets` (implied).
-
-Hub-and-Spoke Orchestra (LangGraph). Postgres (OLTP) for state, LanceDB for knowledge. Streamlit (Sync) with Asyncio Bridge for UI.
-
-The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core.
-
-- **Agent Factory**: Standardized on `langgraph.prebuilt.create_react_agent` for all modern models (Claude/Gemini). Retained `agent_factory_legacy.py` for Dumb Models (Replicate).
-- **Backend Orchestration**: LangGraph (Async) managing stateful agent threads.
-- **Data Layer**: LanceDB (Vector) + Postgres (OLTP).
-- **Observability**: OpenTelemetry (OTLP) exporting traces to LangSmith.
 
 The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core.
 
@@ -78,15 +56,6 @@ The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator
   - **OLTP**: `psycopg` (v3) connection pool.
   - **Vector**: LanceDB for semantic search.
 - **Observability**: OpenTelemetry (OTLP) exporting traces to LangSmith.
-
-The system follows a **Hub-and-Spoke** architecture managed by the `orchestrator.py` core (formerly `DeepAgents.py`).
-
-- **Frontend**: Streamlit (Sync) with an `asyncio` bridge (`agent_runner.py`) to the backend.
-- **Backend Orchestration**: LangGraph (Async) managing stateful agent threads.
-- **Data Layer**:
-  - **OLTP**: `psycopg` (v3) connection pool managing LangGraph checkpoints.
-  - **Vector**: LanceDB for semantic search.
-- **Observability**: OpenTelemetry (OTLP) exporting traces to LangSmith/Jaeger.
 
 ## Technical Stack
 
