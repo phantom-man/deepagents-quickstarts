@@ -12,6 +12,10 @@
 
 ## Recent Changes
 
+- **Configuration Refactor (2026-01-13)**:
+  - **Dynamic System**: Removed hardcoded GUI model selectors. Implemented `SystemConfiguration` to hydrate agent capabilities from LangSmith Hub (`deepagents-system-config`).
+  - **Asset Consolidation**: Moved all data/assets to `Artifacts/`. Updated `AssetManager` to use global paths defined in the system config.
+  - **Overloaded Capabilities**: Composer Agent now selects its music engine dynamically based on highest priority in the config matrix.
 - **Audio Quality Decision (2026-01-13)**:
   - **Decision**: ACE-Step quality was inconsistent. Minimax 1.5 is "Radio Quality" but has strict limits.
   - **Strategy**: Instead of fighting the limit, we optimized the prompt to "maximize density" (Short lines, compressed imagery) to fit a full song into 600 chars.

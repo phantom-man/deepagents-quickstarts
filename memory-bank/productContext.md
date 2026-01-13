@@ -31,16 +31,17 @@ Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
 ## Core Components
 
 - **Framework**: LangGraph (Orchestration), Streamlit (UI).
+- **Configuration**: LangSmith Hub (`deepagents-system-config`).
 - **Communication (AgentComms)**: PostgreSQL based message passing.
 - **Memory (AgentMemory)**: PostgreSQL based short-term memory (checkpoints).
 - **Knowledge (KnowledgeStore)**: LanceDB (Vector Store) for long-term recall.
-- **Hub**: LangChain Hub (Prompt versioning). **Status**: Fixed & Stable (v2 Auth).
+- **Assets**: Consolidated `Artifacts/` directory.
 
-## Models & Providers
+## Models & Providers (Managed via LangSmith)
 
 - **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
-- **Vision/Media**: **Replicate** (Flux for Image, Zeroscope for Video, XTTS for Voice).
-- **Comms/Music**: Replicate (Minimax Music-1.5 default).
+- **Vision/Media**: **Replicate** (Flux/Imagen/Zeroscope/Minimax).
+- **Priorities**: Defined dynamically in the configuration matrix (e.g. Minimax 1.5 > ACE-Step).
 
 ## Deployment
 
