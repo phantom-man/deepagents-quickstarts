@@ -1,0 +1,11 @@
+{
+  "prompt": "\"A wide cinematic shot of a plain white background. Suddenly, the text 'Hello World' appears in the center of the frame in a clean, bold font. The letters then violently explode, shattering into a flurry of colorful geometric shapes and shards. These fragments dance and morph across the frame, twisting and reforming in a dynamic, chaotic display of light and motion. The camera remains steady, capturing the entire sequence in a single continuous take.\"",
+  "timestamp": 1768194195,
+  "asset_type": "image",
+  "filename": "1768194195_86971410.png",
+  "metadata": {
+    "model": "imagen-4.0-fast-generate-001",
+    "provider": "Google"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768194195_86971410.png"
+}

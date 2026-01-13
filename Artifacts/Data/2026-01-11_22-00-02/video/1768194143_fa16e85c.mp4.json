@@ -1,0 +1,11 @@
+{
+  "prompt": "[\n  {\n    \"description\": \"Establishing shot of a futuristic city skyline at night, with skyscrapers and hovercrafts. The camera pans down to reveal a lone figure walking on a sidewalk.\",\n    \"duration\": 5,\n    \"camera\": {\n      \"type\": \"cinematic\",\n      \"angle\": \"overhead\",\n      \"movement\": \"pan_down\"\n    },\n    \"lighting\": {\n      \"time_of_day\": \"night\",\n      \"style\": \"neon\"\n    }\n  },\n  {\n    \"description\": \"Close-up shot of the figure's face as they look up at the sky, their expression hopeful. The camera slowly zooms in on their eyes.\",\n    \"duration\": 5,\n    \"camera\": {\n      \"type\": \"close-up\",\n      \"angle\": \"eye-level\",\n      \"movement\": \"zoom_in\"\n    },\n    \"lighting\": {\n      \"style\": \"dramatic\"\n    }\n  },\n  {\n    \"description\": \"Wide shot of the figure walking down the sidewalk, with the futuristic city in the background. The camera follows the figure, keeping them in the center of the frame.\",\n    \"duration\": 10,\n    \"camera\": {\n      \"type\": \"cinematic\",\n      \"angle\": \"eye-level\",\n      \"movement\": \"tracking\"\n    },\n    \"lighting\": {\n      \"time_of_day\": \"night\",\n      \"style\": \"neon\"\n    }\n  },\n  {\n    \"description\": \"Close-up shot of the figure's hand as they reach out and touch a holographic display, which lights up and reacts to their touch.\",\n    \"duration\": 10,\n    \"camera\": {\n      \"type\": \"close-up\",\n      \"angle\": \"low\",\n      \"movement\": \"static\"\n    },\n    \"lighting\": {\n      \"style\": \"futuristic\"\n    }\n  }\n]",
+  "timestamp": 1768194143,
+  "asset_type": "video",
+  "filename": "1768194143_fa16e85c.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768194143_fa16e85c.mp4"
+}

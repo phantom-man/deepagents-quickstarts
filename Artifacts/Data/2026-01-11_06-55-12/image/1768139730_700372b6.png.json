@@ -1,0 +1,15 @@
+{
+  "prompt": "\n\nHere are the refined shot descriptions:\n\n## Shot 3: The Menu\n*   **Vision:** The man examines a menu.\n*   **Primary Prompt:** \"Medium shot. The man's hands hold a vinyl menu under warm, soft lighting. His eyes scan the menu with a mix of curiosity and exhaustion. The camera remains steady, capturing the man's gentle movements.\"\n\n## Shot 4: The Waitress\n*   **Vision:** A waitress approaches the b",
+  "timestamp": 1768139730,
+  "asset_type": "image",
+  "filename": "1768139730_700372b6.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768139730_700372b6.png"
+}

@@ -1,0 +1,11 @@
+{
+  "prompt": "\n\nHere is the refined prompt:\n\n\"Cinematic, 4k. Medium shot. A man in a wet trench coat pushes open a retro diner door. Light rain drizzles outside. Neon sign reflection (a 1950s-style diner logo) glows on the wet pavement. Soft, warm lighting with a slight blue undertone (3000K) and moderate contrast. Camera pans slowly right following him, with a subtle dolly forward to emphasize his movement.\"",
+  "timestamp": 1768140014,
+  "asset_type": "video",
+  "filename": "1768140014_827f5112.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768140014_827f5112.mp4"
+}

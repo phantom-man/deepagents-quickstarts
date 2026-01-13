@@ -181,3 +181,11 @@ data/assets/
 *.wav
 *.mp3
 *.txn
+
+# DeepAgents Artifacts
+Artifacts/**/*.png
+Artifacts/**/*.mp4
+Artifacts/**/*.wav
+Artifacts/**/*.mp3
+Artifacts/**/*.jpg
+Artifacts/**/*.jpeg

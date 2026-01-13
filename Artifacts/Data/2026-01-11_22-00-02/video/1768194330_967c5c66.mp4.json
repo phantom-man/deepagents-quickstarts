@@ -1,0 +1,11 @@
+{
+  "prompt": "\"A high-angle, cinematic shot looking down on a reflective, mirrored surface. Subtle concentric circles of light emanate outward from the center, creating a mesmerizing, hypnotic effect. The circles of light gradually form the words 'Hello World' as they pulse and radiate outward, creating a visually captivating and dynamic display.\"",
+  "timestamp": 1768194330,
+  "asset_type": "video",
+  "filename": "1768194330_967c5c66.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768194330_967c5c66.mp4"
+}

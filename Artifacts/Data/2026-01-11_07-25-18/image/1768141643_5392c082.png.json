@@ -1,0 +1,15 @@
+{
+  "prompt": "\n\nHere is the refined prompt:\n\n**Shot 3: The Mystery Unfolds (0:10-0:15)**\n*   **Vision:** The man looks around the diner, noticing something peculiar.\n*   **Input Strategy:** Use [Reference Image: Diner Interior].\n*   **Primary Prompt:** \"Medium shot of the man looking at an old-fashioned jukebox in the corner of the diner, with a focus on his reaction as he notices the jukebox. The camera remain",
+  "timestamp": 1768141643,
+  "asset_type": "image",
+  "filename": "1768141643_5392c082.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768141643_5392c082.png"
+}

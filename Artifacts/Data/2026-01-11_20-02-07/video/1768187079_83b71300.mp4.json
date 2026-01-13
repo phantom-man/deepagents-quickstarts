@@ -1,0 +1,11 @@
+{
+  "prompt": "A cinematic, 4K close-up shot of a young girl, 6-8 years old, sitting in the backseat of a moving minivan. Soft, warm lighting filters through the tinted windows, casting a gentle glow on her face. The camera slowly dollies in, capturing her expression as she looks out the window and waves at the camera, her smile wide and genuine.",
+  "timestamp": 1768187079,
+  "asset_type": "video",
+  "filename": "1768187079_83b71300.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768187079_83b71300.mp4"
+}

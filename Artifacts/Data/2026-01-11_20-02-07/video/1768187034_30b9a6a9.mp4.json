@@ -1,0 +1,11 @@
+{
+  "prompt": "Cinematic, 4K, wide establishing shot of a small town street at golden hour. Warm, diffuse lighting casts long shadows as people walk along the sidewalks, cars slowly drive by, and local businesses are open with activity. The camera pans slowly to the right, following the natural flow of movement and capturing the vibrant yet peaceful atmosphere of the town.",
+  "timestamp": 1768187034,
+  "asset_type": "video",
+  "filename": "1768187034_30b9a6a9.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768187034_30b9a6a9.mp4"
+}

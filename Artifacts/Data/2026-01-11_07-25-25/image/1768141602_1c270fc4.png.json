@@ -1,0 +1,15 @@
+{
+  "prompt": "\n\nThank you for the feedback! Based on your suggestions, I'll refine the prompts to ensure they're safe, physically grounded, and render-ready. Here are the rewritten prompts:\n\n**Shot 1: The Hook (0:00-0:05)**\n\n* A close-up shot of a character's face as they look up at a neon sign outside a rainy, dimly lit city street, with rain-soaked pavement and wet streets. Camera angle: medium to close-up. L",
+  "timestamp": 1768141602,
+  "asset_type": "image",
+  "filename": "1768141602_1c270fc4.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768141602_1c270fc4.png"
+}

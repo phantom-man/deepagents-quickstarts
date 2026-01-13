@@ -1,0 +1,15 @@
+{
+  "prompt": "\n\nHere is the rewritten prompt for the Hook shot:\n\n**Hook Shot 1:**\n\nSubject: A lone figure, a young woman with short, dark hair and piercing green eyes, standing in the center of a dimly lit alleyway.\n\nEnvironment: The alleyway is lined with trash and debris, with a single, warm-toned streetlamp casting a soft glow. The walls are covered in graffiti, and the air is thick with the smell of decay.\n",
+  "timestamp": 1768139582,
+  "asset_type": "image",
+  "filename": "1768139582_e1264530.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768139582_e1264530.png"
+}

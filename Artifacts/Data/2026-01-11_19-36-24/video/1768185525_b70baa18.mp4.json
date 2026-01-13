@@ -1,0 +1,11 @@
+{
+  "prompt": "Shot 1: Close-up of hands typing \"Hello World\" on a vintage computer. The lighting is warm and saturated, creating a cozy, nostalgic atmosphere. The camera slowly pans up to reveal the person's face, which is well-lit and expressive.\n\nShot 2: Medium shot of the person standing up from the computer and starting to dance energetically around a colorful, retro-inspired room. The camera movements are ",
+  "timestamp": 1768185525,
+  "asset_type": "video",
+  "filename": "1768185525_b70baa18.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768185525_b70baa18.mp4"
+}

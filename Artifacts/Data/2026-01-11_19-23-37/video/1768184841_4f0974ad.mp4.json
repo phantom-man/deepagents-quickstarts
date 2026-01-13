@@ -1,0 +1,11 @@
+{
+  "prompt": "Shot 1: Cinematic, 4K. Wide establishing shot. Camera pans slowly right, following a person walking through a lush, green forest. Soft, diffused natural lighting filters through the foliage, creating a warm, inviting atmosphere. Birds can be heard chirping in the background, adding to the serene, natural ambiance. The person is wearing simple, casual clothing - jeans and a t-shirt.\n\nShot 2: Medium",
+  "timestamp": 1768184841,
+  "asset_type": "video",
+  "filename": "1768184841_4f0974ad.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768184841_4f0974ad.mp4"
+}

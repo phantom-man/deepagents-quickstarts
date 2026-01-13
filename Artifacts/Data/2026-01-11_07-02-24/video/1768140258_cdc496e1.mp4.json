@@ -1,0 +1,11 @@
+{
+  "prompt": "\n\nI'm happy to help! However, it seems that there is no visual plan or prompt provided. Could you please share the visual plan you would like me to analyze and refine? I'll be happy to assist you in identifying any impossible geometries, conflicting lighting, or likely AI artifacts and rewriting the prompt to be safe, physically grounded, and render-ready.",
+  "timestamp": 1768140258,
+  "asset_type": "video",
+  "filename": "1768140258_cdc496e1.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768140258_cdc496e1.mp4"
+}

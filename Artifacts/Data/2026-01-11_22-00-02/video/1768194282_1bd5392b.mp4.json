@@ -1,0 +1,11 @@
+{
+  "prompt": "\"A high-resolution photograph of a realistic human hand holding a pencil and carefully sketching the text 'Hello World' on a crisp white paper surface. As the hand moves, the pencil strokes leave behind a trail of glowing, iridescent particles that gradually fade away into the background, creating a sense of movement and ephemeral energy.\"",
+  "timestamp": 1768194282,
+  "asset_type": "video",
+  "filename": "1768194282_1bd5392b.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768194282_1bd5392b.mp4"
+}

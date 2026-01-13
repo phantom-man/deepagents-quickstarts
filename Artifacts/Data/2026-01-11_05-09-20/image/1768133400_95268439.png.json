@@ -1,0 +1,15 @@
+{
+  "prompt": "[{'type': 'text', 'text': '**Shot 1:** Medium close-up, 35mm black and white film stock simulation. A stoic male singer wearing a heavy hooded parka and round dark sunglasses stands against a textured whitewashed brick wall. High-contrast lighting creates deep shadows and highlights, overlaid with heavy film grain. The subject looks slightly upward with a neutral expression. The camera performs a ",
+  "timestamp": 1768133400,
+  "asset_type": "image",
+  "filename": "1768133400_95268439.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768133400_95268439.png"
+}

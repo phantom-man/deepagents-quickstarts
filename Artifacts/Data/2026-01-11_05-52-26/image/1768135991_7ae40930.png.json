@@ -1,0 +1,15 @@
+{
+  "prompt": "[{'type': 'text', 'text': '**Shot 1**\\n**Subject:** Macro close-up of a vintage 1980s CRT monitor screen surface.\\n**Visuals:** The screen displays the text \"HELLO WORLD\" in glowing green phosphor, with visible RGB pixel triads, shadow mask texture, and scanline gaps. A solid block cursor sits at the end of the line.\\n**Environment:** The monitor sits on a desk scattered with specific retro items:",
+  "timestamp": 1768135991,
+  "asset_type": "image",
+  "filename": "1768135991_7ae40930.png",
+  "metadata": {
+    "model": "black-forest-labs/flux-schnell",
+    "provider": "Replicate",
+    "params": {
+      "aspect_ratio": "16:9",
+      "steps": 4
+    }
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768135991_7ae40930.png"
+}

@@ -1,0 +1,12 @@
+{
+  "prompt": "A test image for infrastructure verification",
+  "timestamp": 1768325485,
+  "date": "2026-01-13 10:31:26",
+  "asset_type": "image",
+  "subtype": "test",
+  "filename": "image_test_1768325485_3306e22c.png",
+  "local_path": "c:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_test_1768325485_3306e22c.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_test_1768325485_3306e22c.png",
+  "session_id": "test_session",
+  "metadata": {}
+}

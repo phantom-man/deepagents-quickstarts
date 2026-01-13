@@ -1,0 +1,11 @@
+{
+  "prompt": "A close-up shot of a person's face, with soft, natural lighting illuminating their features. The person's lips slowly move, forming the words \"Hello World\" in a clear, crisp font that appears to be floating in front of them. The camera slowly pulls back, revealing the person's upper body as they continue speaking the words. The background gradually transitions to a simple, minimalist backdrop, allowing the text to be the focal point.",
+  "timestamp": 1768194377,
+  "asset_type": "video",
+  "filename": "1768194377_1ad57bd7.mp4",
+  "metadata": {
+    "model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351",
+    "provider": "Replicate"
+  },
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/1768194377_1ad57bd7.mp4"
+}
