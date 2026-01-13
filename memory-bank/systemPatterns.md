@@ -57,7 +57,18 @@ Rules:
 - **Discovery**: Agents possess a `discover_agents` tool. If they encounter a task outside their domain, they query the registry to find a peer who can handle it.
 - **Dynamic Handoff**: This allows for emergent behavior (e.g., Cinematographer realizing they need music and calling Composer directly).
 
-### 7. Configuration-Driven Interface (The Matrix)
+### 7. Human-in-the-Loop (HITL) Gate
+
+- **Blocking Signal**: Agents generating expensive/creative assets (Image/Music) yield a specific string `HITL_REVIEW_REQUIRED: {id}`.
+- **Persistence**: A simple JSON store (`approval_manager.py`) tracks approved IDs.
+- **Resume**: The Agent is re-invoked. It checks the DB. If approved, it returns the asset path. If rejected, it triggers a retry loop.
+
+### 8. Cloud-Primary Asset Identification
+
+- **Identity**: Assets are identified by their **Cloud URL** (GCS) whenever possible, rather than local paths.
+- **Rationale**: Local paths break in distributed traces (LangSmith). Cloud URLs are universally resolvable.
+
+### 9. Configuration-Driven Interface (The Matrix)
 
 - **Source of Truth**: LangSmith Hub (`deepagents-system-config`) is the single source of truth for:
   - **Agent Models**: Which LLM to use.

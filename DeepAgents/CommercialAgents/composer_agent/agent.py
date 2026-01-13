@@ -732,17 +732,25 @@ def run_composer_task(request_description: str) -> str:
         # Simple heuristic: Look for valid paths or http links
         import re
         # Regex for paths (simplified)
-        paths = re.findall(r"([a-zA-Z]:\\[^ \n\r\t]+|\/Users\/[^ \n\r\t]+|http[s]?://[^ \n\r\t]+)", final_response)
+        matches = re.findall(r"([a-zA-Z]:\\[^ \n\r\t]+|\/Users\/[^ \n\r\t]+|http[s]?://[^ \n\r\t]+)", final_response)
         
-        for p in paths:
+        candidates = []
+        for p in matches:
             # Clean punctuation
-            p = p.rstrip(".,\"'")
+            p = p.rstrip(".,\"'()")
             # Ignore tools/scripts, look for extensions
             if any(ext in p.lower() for ext in [".mp3", ".wav", ".mp4", ".png", ".jpg"]):
-                 if is_asset_rejected(p):
-                     return f"HITL_REJECTED: User rejected asset {p}. Retry."
-                 if not is_asset_approved(p):
-                     return f"HITL_REVIEW_REQUIRED: {p}"
+                 candidates.append(p)
+
+        # Prioritize Cloud URLs (http) over local paths for LangSmith compatibility
+        # Sort so http comes first
+        candidates.sort(key=lambda x: 0 if x.startswith("http") else 1)
+        
+        for p in candidates:
+             if is_asset_rejected(p):
+                 return f"HITL_REJECTED: User rejected asset {p}. Retry."
+             if not is_asset_approved(p):
+                 return f"HITL_REVIEW_REQUIRED: {p}"
         
         return str(final_response)
 

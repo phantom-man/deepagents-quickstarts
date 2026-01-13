@@ -357,9 +357,21 @@ def create_cinematographer_agent(
                         messages.append(ToolMessage(content=str(tool_result), tool_call_id=tool_id))
                         
                         # HITL INTERRUPT: Stream Asset paths if detected
-                        if "http" in str(tool_result) or "c:\\" in str(tool_result).lower() or "/users/" in str(tool_result).lower() or "Saved:" in str(tool_result):
-                             yield ("output", f"**Asset Pending Review**: {tool_result}")
-                             yield ("review_required", tool_result)
+                        tr_str = str(tool_result)
+                        if "http" in tr_str or "c:\\" in tr_str.lower() or "/users/" in tr_str.lower() or "Saved:" in tr_str:
+                             # Extract Best Identifier (Prioritize Cloud URL for LangSmith/Remote compatibility)
+                             import re
+                             url_match = re.search(r'(https?://[^\s\)]+)', tr_str)
+                             path_match = re.search(r'([A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+)', tr_str)
+                             
+                             review_target = tr_str # Default fallback
+                             if url_match:
+                                 review_target = url_match.group(1).rstrip('.,)')
+                             elif path_match:
+                                 review_target = path_match.group(1).rstrip('.,)')
+
+                             yield ("output", f"**Asset Pending Review**: {review_target}")
+                             yield ("review_required", review_target)
                              yield ("state_dump", messages) # Export state for Resume
                              return # HALT EXECUTION FOR APPROVAL
 

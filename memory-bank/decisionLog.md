@@ -2,6 +2,8 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-01-14 | Prioritize Cloud URLs for HITL Asset Identification. | Local file paths (`C:\Users...`) are inaccessible in remote observability tools like LangSmith. To ensure the Human-in-the-Loop review process is executable from the Cloud dashboard, agents must yield the GCS URL (`https://...`) as the unique identifier for assets requiring approval. |
+| 2026-01-14 | Implement Blocking 'Approval Gate' for Media Generation. | Autonomous asset generation risks quota waste and quality drift. We implemented a mandatory `HITL_REVIEW_REQUIRED` signal that halts execution until the specific asset ID is present in `approved_assets.json`, giving the user final cut authority. |
 | 2026-01-13 | Reverted to Minimax Music-1.5 from ACE-Step. | While ACE-Step offers control, Minimax 1.5 provides superior "Radio Quality" audio consistency. The character limit (600) is a known constraint we will mitigate via "High Density" prompting rather than technical hacks. |
 | 2026-01-13 | Adopted "High Density/Compressed Imagery" Prompt Strategy. | To solve the Minimax 600-char limit, we shifted from "Truncation" (cutting off lyrics) to "Compression" (writing fewer, punchier lines) to ensure a full song arc fits within the API budget. |
 | 2026-01-11 | Adopted XTTS-v2 (via Replicate) as the primary Voice Engine. | The previously used Minimax API was unavailable/unreliable, and Bark was too slow for real-time interaction. XTTS-v2 offers a good balance of quality and latency, supported by local reference audio injection. |

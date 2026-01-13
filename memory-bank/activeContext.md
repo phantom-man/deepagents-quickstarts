@@ -2,17 +2,19 @@
 
 ### Current Focus
 
-- **Component**: Governance & Human-in-the-Loop (HITL).
-- **Task**: Implement true Manual Approval gates for asset generation that pauses execution until user consent.
+- **Component**: Operations & Deployment
+- **Task**: Finalize Human-in-the-Loop implementation and consolidate project state.
 - **Recent Success**:
-  - **Approval Manager**: Created `DeepAgents/approval_manager.py` as a lightweight JSON persistence layer for approved/rejected assets.
-  - **Blocking Logic**: Updated `run_cinematographer_task` and `run_composer_task` (Director's tools) to check `approval_manager`. If an asset isn't approved, they return `HITL_REVIEW_REQUIRED` and halt the Director.
-  - **GUI Controls**: Updated `DeepAgents/gui/app.py` to intercept HITL signals and render "Approve/Reject" buttons for both Cinematographer and Composer tabs.
-  - **Feedback Loop**: Rejection triggers a retry with user critique injected into the prompt.
-  - **Visual Comms**: Implemented Tab 6 "Agent Comms" to visualize inter-agent messaging via Postgres.
+  - **HITL Verification**: Confirmed effective "Pause/Resume" logic in Agent Runners.
+  - **Cloud Compatibility**: Prioritized GCS URLs in approval signals to ensure LangSmith usage.
+  - **Dependency Lock**: Updated `requirements.txt` to match the exact Development Environment.
 
 ## Recent Changes
 
+- **Human-in-the-Loop (2026-01-14)**:
+  - **Architecture**: Implemented blocking "Approval Gate" in `DeepAgents/approval_manager.py`.
+  - **LangSmith Fix**: Modified Agents to yield `https://` URLs for approval requests instead of `C:\` paths, enabling remote management.
+  - **GUI Integration**: Added "Approve/Reject" controls to the Streamlit interface that intercept these signals.
 - **Logic Hardening (2026-01-14)**:
   - **Confidence Agent**: Updated prompt to act as "The Editor" with a precise JSON scoring contract. Passing score is > 0.8.
   - **Researcher Agent**: Added mandatory `submit_finding_for_review` tool. Automatically logs failures to LanceDB ("Negative Reinforcement") and successes to Memory ("Positive Reinforcement").
