@@ -2,17 +2,19 @@
 
 ### Current Focus
 
-- **Component**: Agent Orchestration & Discovery.
-- **Task**: Refining the "Mesh Topology" to ensure all agents can dynamically discover and collaborate with each other.
+- **Component**: Full Pipeline Integration (Director -> Editor).
+- **Task**: Verifying the "Zero-Touch" workflow where the Director autonomously commissions assets and then edits them together.
 - **Recent Success**:
-  - Implemented **Meta-Discovery**: Created `agency_registry.py` and the `discover_agents` tool.
-  - **Director Upgrade**: Apollo can now use `discover_agents` to find the right expert (e.g., "Who can make music?") without hardcoded instructions.
-  - **Cinematographer Upgrade**: Lumiere is now a **Generator-based ReAct Agent** that can autonomously plan shots and call the Composer for music.
-  - **Observability Fix**: Suppressed noisy OpenTelemetry warnings in agent logs.
-- **Next Step**: Configure the Director/Editor to merge these assets into a final video file in a Zero-Touch pipeline.
+  - **Codebase Health**: Achieved **Zero Pylance Errors** across all core agents (`Cinematographer`, `Composer`, `Director`, `Research`).
+  - **Bug Fix**: Resolved critical "Silent Failure" in Composer where Replicate's list output (`['url']`) was mishandled, causing hallucinations.
+  - **Discovery**: Implemented "Mesh Topology" where agents dynamically find each other via `agency_registry.py`.
+- **Next Step**: Configure the Director to use the `editor_tools` to assemble the final video.
 
 ## Recent Changes
 
+- **Reliability Engineering**:
+  - **Replicate URL Normalization**: Implemented `_extract_replicate_url` in Composer Agent to handle inconsistent return types (Lists vs Strings) from Minimax/MusicGen.
+  - **Static Analysis**: Conducted a comprehensive Pylance sweep, fixing type hint errors (e.g., `ChatAnthropic` signature mismatches) and suppressing noisy OpenTelemetry (`opentelemetry.attributes`) logs.
 - **Meta-Discovery System**:
   - **Concept**: Agents are no longer isolated silos. They can query the `AgencyRegistry` to find peers based on skills.
   - **Implementation**: Added `discover_agents` tool to Director and Cinematographer.
@@ -21,45 +23,22 @@
   - **Autonomy**: The Cinematographer now decides *order of operations* (e.g., "Get music first to understand the mood").
 - **Schema Enforcement (Composer)**:
   - **Dynamic Prompting**: Hardcoded the Minimax Music-1.5 schema (Verse/Chorus/Bridge/Outro) and strict character budgets directly into the `_generate_lyrics_and_style` prompt.
-
   - **Anti-Hallucination**: Modified `generate_music_tool` return values to include `**(Verified Lyrics Used)**`, effectively forcing the Agent to report reality rather than invention.
-- **GUI Restoration**: Fixed `NameError` (undefined `model` variable) in `DeepAgents/gui/app.py`. The Streamlit app now launches successfully and model selection logic is robust.
-- **GUI Restoration**: Fixed multiple `IndentationError` and `SyntaxError` issues in `DeepAgents/gui/app.py`.
-- **Composer Fixes**:
-  - Corrected `voice_dir` pathing logic in `DeepAgents/CommercialAgents/composer_agent.py` to correctly locate assets in `data/voices`.
-  - Added `.mp3` support to voice discovery logic.
-  - Fixed Replicate payload schema for `minimax/music-01` (Changed `refer_voice` to `voice_file`).
-  - Implemented robust fallback logic: If Minimax fails (E004/E006), the system now seamlessly degrades to `MusicGen` to ensure the user always gets an audio result.
 - **Identity Shift**: Renamed the Director Agent's identity to **[APOLLO]**. Updated `director-system-prompt` on LangSmith Hub.
 - **Hub Hygiene**: Created `cleanup_prompts.py` to remove legacy `*-main` repositories. Updated `push_prompts.py` to strictly use the `*-system-prompt` naming convention.
 - **Hub Authentication Fix**: Refactored `DeepAgents/hub_manager.py` to instantiate `langsmith.Client` with dynamic arguments (`api_key`, `workspace_id`) derived from the `.env` file. This bypasses the flaky `os.environ` behavior in the complex application runtime.
-- **Verification**: Confirmed successful prompt pulls (`director-system-prompt`, `researcher-system-prompt`) via the fixed manager.
-- **Infrastructure Migration**: Shifted primary intelligence and vision to Google Vertex AI (`Gemini 2.0 Flash`, `Imagen 4 Fast`) to optimize for speed/quota.
-- **Middleware Adjustment**: Disabled `deepagents-v0.3.1` middleware in `agent_factory.py` to resolve Pydantic validation crashes; reverted to native `LangGraph`.
-- **Implementation Update**: Replaced legacy `ChatVertexAI` with modern `ChatGoogleGenerativeAI` across all major agents (`Apollo`, `Cinematographer`, `Researcher`).
-- **Optimization**: Verified "Winning Stack" quotas via `probe_quotas.py`, identifying safe high-throughput models.
-- **Observability (OTLP)**: Installed `langsmith[otel]` and configured `agent_runner.py` to emit OpenTelemetry traces.
-- **Persistence (OLTP)**: Updated `agent_runner.py` to use `DeepAgents/persistence.py` (AsyncPostgresSaver) for robust state management.
-- **Dependency Resolution**: Installed `psycopg-binary` and `arxiv` to resolve `ImportError` crashes. Verified `requirements.txt` reflects the migration to `psycopg` (v3) for Async Postgres support.
-- **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable audio generation.
-- **Best Practices Implementation**:
-  - **Retries**: Implemented `tenacity` with exponential backoff in `run_director_eval.py` to handle API rate limits robustly.
-  - **Configuration**: Updated `.env.example` to explicitly include `OTEL_EXPORTER_OTLP_ENDPOINT`, making observability setup transparent.
-  - **Linting**: Created `.pylintrc` to suppress noisy `import-error` warnings, improving the developer experience.
 - **Composer Upgrade**: Switched the primary music generation engine from `minimax/music-01` to `minimax/music-1.5`.
-  - **Reason**: `music-01` required `mp3` inputs for voice/instrumental references, causing failures with Lyria-generated `wav` files in environments lacking `ffmpeg`.
-  - **Benefit**: `music-1.5` generates full capability audio from text/lyrics alone, removing the complex two-step pipeline and file format dependency.
+- **Composer Stability**: Fixed a critical recursion bug where the Composer Agent called its own factory. Implemented `generate_music_tool` for direct, non-recursive API access, ensuring reliable audio generation.
 
 ## Active Questions
 
-- Does the new `generate_music_tool` correctly handle all Minimax/MusicGen API edge cases in production?
+- Does the new `generate_music_tool` correctly handle all Minimax/MusicGen API edge cases in production? (Fix applied, validating now).
 - Does the new Google-based Apollo Agent correctly bind tools and execute the full commercial pipeline?
 - Does the Replicate fallback logic in `Cinematographer` successfully catch any Google Imagen errors?
 - Are traces appearing correctly in LangSmith?
 
 ## Next Steps
 
-1. **Verify Composer**: Confirm generation quality in the GUI.
-2. **Verify Apollo**: Issue a complex task via the GUI to test the new Gemini 2.0 Flash brain.
-3. **Verify Cinematographer**: Request a storyboard to test Imagen 4 Fast integration.
-4. **Monitor**: Check LangSmith for clean traces and cost tracking.
+1. **Start Server**: Launch `langgraph_cli dev` to verify the new stable state.
+2. **Pipeline Test**: Issue a full "Make a movie about X" command to the Director via LangGraph Studio.
+3. **Monitor**: Watch logs for the specific "Audio Generated" success message from Composer.
