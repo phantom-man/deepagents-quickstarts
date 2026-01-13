@@ -298,20 +298,33 @@ def create_cinematographer_agent(
         input_text: str,
         mode: str = "storyboard",
         max_shots: int = 1,      
-        duration_sec: int = 5,   
+        duration_sec: int = 5,
+        resume_history: List[BaseMessage] = None,
+        user_feedback: str = None
     ):
         """
         Generator that yields status updates while running the ReAct loop.
+        Supports HITL (Human-in-the-Loop) via resume_history.
         """
-        yield ("thinking", "🎥 Cinematographer initializing...")
+        # yield ("thinking", "🎥 Cinematographer initializing...")
         
-        # Initial System Prompt
-        sys_msg = SystemMessage(content=f"{ontology}\n\nCurrent Mode context: {mode}. You have tools to generate assets. USE THEM.")
-        messages = [sys_msg, HumanMessage(content=input_text)]
+        # Initial System Prompt or Resume
+        if resume_history:
+            messages = resume_history
+            yield ("thinking", "🔄 Resuming session with user feedback...")
+            if user_feedback:
+                if user_feedback == "APPROVED":
+                    messages.append(HumanMessage(content="✅ User APPROVED the asset. You may proceed."))
+                else:
+                    messages.append(HumanMessage(content=f"❌ User REJECTED the asset. Feedback: {user_feedback}. Please refactor your approach and try again."))
+        else:
+            yield ("thinking", "🎥 Cinematographer initializing...")
+            sys_msg = SystemMessage(content=f"{ontology}\n\nCurrent Mode context: {mode}. You have tools to generate assets. USE THEM.")
+            messages = [sys_msg, HumanMessage(content=input_text)]
         
         final_report = []
-        MAX_STEPS = 10
-        step_count = 0
+        MAX_STEPS = 15 # Increased for retry loops
+        step_count = len(messages) // 2 # Rough estimate of consumed steps
 
         while step_count < MAX_STEPS:
             step_count += 1
@@ -343,13 +356,12 @@ def create_cinematographer_agent(
                         # Add Result to History
                         messages.append(ToolMessage(content=str(tool_result), tool_call_id=tool_id))
                         
-                        # Stream Asset paths if detected
-                        if "http" in str(tool_result) or "c:\\" in str(tool_result).lower() or "/users/" in str(tool_result).lower():
-                             yield ("output", f"**Asset Generated**: {tool_result}")
-                             final_report.append(f"Asset: {tool_result}")
-                        else:
-                             # Just info
-                             pass
+                        # HITL INTERRUPT: Stream Asset paths if detected
+                        if "http" in str(tool_result) or "c:\\" in str(tool_result).lower() or "/users/" in str(tool_result).lower() or "Saved:" in str(tool_result):
+                             yield ("output", f"**Asset Pending Review**: {tool_result}")
+                             yield ("review_required", tool_result)
+                             yield ("state_dump", messages) # Export state for Resume
+                             return # HALT EXECUTION FOR APPROVAL
 
                 else:
                     # NO TOOL CALLS -> FINAL ANSWER
@@ -369,18 +381,39 @@ def create_cinematographer_agent(
 def run_cinematographer_task(request_description: str) -> str:
     """
     Synchronous entry point for external agents (Director).
+    Handles HITL via ApprovalManager.
     """
     logger.info("🎬 Cinematographer Consulted: %s", request_description)
     try:
+        from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
+        
         agent_gen = create_cinematographer_agent()
         
-        # Run generator to completion and collect output
         final_output = ""
+        pending_assets = []
+        
+        # Run generator
         for status, content in agent_gen(request_description):
             if status == "done":
                 final_output = content
+            elif status == "review_required":
+                # Check DB
+                if is_asset_approved(content):
+                    logger.info("HITL: Auto-approving previously verified asset.")
+                elif is_asset_rejected(content):
+                    return f"HITL_REJECTED: The user rejected asset {content}. Please generate a new one."
+                else:
+                    pending_assets.append(content)
             elif status == "output":
                 pass
+        
+        # Post-Run HITL Check
+        if pending_assets:
+            # If any asset remains unapproved, we must halt the Director
+            # We return the FIRST pending asset to avoid flooding
+            asset = pending_assets[0]
+            if not is_asset_approved(asset):
+                 return f"HITL_REVIEW_REQUIRED: {asset}"
         
         return str(final_output)
 

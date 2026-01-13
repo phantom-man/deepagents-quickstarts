@@ -2,16 +2,30 @@
 
 ### Current Focus
 
-- **Component**: Configuration & Deployment.
-- **Task**: Centralize all Provider Strategies in LangSmith to ensure "Zero Touch" versatility.
+- **Component**: Governance & Logic Hardening.
+- **Task**: Enforce heavy epistemological verification via Confidence Agent.
 - **Recent Success**:
-  - **Hub Configuration V2**: Updated `deepagents-system-config` to v1.1.0, adding a `provider_settings` object.
-  - **Strategy Definition**: Defined explicit strategies for Google, Anthropic, OpenAI, and Replicate inside the Hub config (Native vs Middle).
-  - **SystemConfig API**: Updated `SystemConfiguration.get_provider_strategy()` to expose these details to agents.
-  - **Asset Storage**: GCS Integration fully deployed for one-click history.
+  - **Audit Loop**: Integrated `submit_finding_for_review` tool into Research Agent, forcing it to pass findings to Confidence Agent for scoring.
+  - **Scoring Rubric**: Implemented a strict 0.0-1.0 scoring system in Confidence Agent (Provenance, Cross-Validation, Logic, Safety).
+  - **Composer Fix**: Removed incompatible "rhyming" constraint and markdown output formatting.
 
 ## Recent Changes
 
+- **Logic Hardening (2026-01-14)**:
+  - **Confidence Agent**: Updated prompt to act as "The Editor" with a precise JSON scoring contract. Passing score is > 0.8.
+  - **Researcher Agent**: Added mandatory `submit_finding_for_review` tool. Directed agent to "Research Again" if score is low.
+  - **Copilot Instructions**: Added mandate to "Evaluate need for research" as the FIRST action after receiving a prompt.
+- **Ontology Consolidation (2026-01-14)**:
+  - **Action**: Deprecated `Director_Ontology.md`, `Cinematographer_Ontology.md`, and `Composer_Ontology.md`. They now point to `MASTER_ONTOLOGY.md`.
+  - **Logic**: All prompt engineering is now "Zero Touch" and lives in LangSmith Hub (`*-system-prompt` repos).
+  - **Prompt Updates**: Updated Python `DEFAULT_` strings to forbid Google Veo and mandate full prompt reading, ensuring even fallbacks are compliant.
+- **Legacy Artifact Migration (2026-01-14)**:
+  - **Backfill**: Implemented `migrate_artifacts.py` to scan local `Artifacts/` and upload legacy files to Google Cloud Storage.
+  - **Sync Logic**: Added `sync_local_to_cloud()` to `AssetManager` to ensure metadata consistency (injecting `cloud_url`).
+  - **Git Hygiene**: Updated `.gitignore` to exclude heavy media binary blobs while preserving lightweight JSON metadata.
+- **Zero Touch GUI AUDIT (2026-01-14)**:
+  - **Refactor**: Cleaned `DeepAgents/gui/app.py` to remove all legacy hardcoded model selectors.
+  - **Lockdown**: Interface is now fully driven by `SystemConfiguration` loaded from LangSmith.
 - **Provider Strategy Centralization (2026-01-14)**:
   - **Action**: Moved the definition of *how* to connect to providers (e.g., "Use `ChatGoogleGenerativeAI`") into the LangSmith Hub configuration.
   - **Benefit**: Changing underlying SDKs or implementation classes can now be signaled via configuration, effectively decoupling logic from hardcoded choices.

@@ -706,26 +706,45 @@ def create_composer_agent(
 def run_composer_task(request_description: str) -> str:
     """
     Synchronous entry point for the Director to consult the Composer.
-    Creates an ephemeral agent, runs the task, and returns the result string.
+    Handles HITL via ApprovalManager.
     """
     logger.info(f"🎻 Composer Consulted: {request_description}")
     try:
+        from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
+        
         # Create a fresh agent instance
         agent = create_composer_agent()
         
-        # Format input (Standard LangGraph)
+        # Format input
         inputs = {"messages": [HumanMessage(content=request_description)]}
         
         # Run
         result = agent.invoke(inputs)
         
-        # Parse Result
+        final_response = ""
         if isinstance(result, dict) and "messages" in result:
-             # Get the AI's final response
              final_response = result["messages"][-1].content
-             return str(final_response)
+        else:
+             final_response = str(result)
+
+        # HITL Check Logic
+        # We need to extract the asset path from the response string to check approval
+        # Simple heuristic: Look for valid paths or http links
+        import re
+        # Regex for paths (simplified)
+        paths = re.findall(r"([a-zA-Z]:\\[^ \n\r\t]+|\/Users\/[^ \n\r\t]+|http[s]?://[^ \n\r\t]+)", final_response)
         
-        return str(result)
+        for p in paths:
+            # Clean punctuation
+            p = p.rstrip(".,\"'")
+            # Ignore tools/scripts, look for extensions
+            if any(ext in p.lower() for ext in [".mp3", ".wav", ".mp4", ".png", ".jpg"]):
+                 if is_asset_rejected(p):
+                     return f"HITL_REJECTED: User rejected asset {p}. Retry."
+                 if not is_asset_approved(p):
+                     return f"HITL_REVIEW_REQUIRED: {p}"
+        
+        return str(final_response)
 
     except Exception as e:
         logger.error(f"Composer Task Failed: {e}")

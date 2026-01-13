@@ -164,16 +164,35 @@ def run_research_task(topic: str,
     
     # 1. BRAIN CHECK: Have we researched this before?
     print("🧠 Checking Memory...")
+    context_injection = ""
     try:
-        past_research = memory.recall(topic, limit=1)
+        # A. Recall Facts
+        past_research = memory.recall(topic, limit=2)
         if past_research:
             print("💡 Found existing knowledge!")
-            # Show snippet
+            context_injection += "\n\nEXISTING KNOWLEDGE (Do not repeat, but build upon):\n"
             for res in past_research:
-                if hasattr(res, "text"):
-                    print(f"   Context: {res.text[:200]}...")
-                elif isinstance(res, dict):
-                    print(f"   Context: {res.get('text', '')[:200]}...")
+                txt = res.text if hasattr(res, "text") else res.get('text', '')
+                print(f"   Context: {txt[:200]}...")
+                context_injection += f"- {txt}\n"
+
+        # B. Negative Reinforcement (Learn from Mistakes)
+        # Search for rejected findings related to this topic
+        mistakes = memory.recall(f"Mistake regarding {topic}", limit=2) # Naive search, but effective if embeddings aligned
+        # Filter for tags or scan text content heuristic for now since recall is generic
+        # Ideally, we query by tag="rejected_finding", but generic recall is purely semantic.
+        # We rely on the fact that we prefixed rejected items with "[REJECTED MISTAKE]"
+        header_added = False
+        if mistakes:
+            for m in mistakes:
+                mtxt = m.text if hasattr(m, "text") else m.get('text', '')
+                if "REJECTED" in mtxt or "Assumption" in mtxt or "Critique" in mtxt: # Heuristic
+                    if not header_added:
+                        context_injection += "\n\n⚠️ PREVIOUS MISTAKES (AVOID THESE):\n"
+                        header_added = True
+                    context_injection += f"- {mtxt[:300]}...\n"
+                    print(f"   ⚠️ Warning Recall: {mtxt[:100]}...")
+
     except Exception as e:
         logger.warning("Memory Warning: %s", e)
 
@@ -191,12 +210,15 @@ def run_research_task(topic: str,
     # We need to iterate the stream to drive execution
     try:
         print("   (Agent thinking... output suppressed to keep terminal clean)")
-        # stream() yields events.
-        # The input schema for LangGraph agent (created by create_deep_agent)
-        # expects a dictionary with "messages".
+        
+        # Inject memory into the user prompt
+        user_prompt = f"Research this topic and provide a comprehensive summary: {topic}"
+        if context_injection:
+            user_prompt += context_injection
+            
         inputs = {
             "messages": [
-                ("user", f"Research this topic and provide a comprehensive summary: {topic}")
+                ("user", user_prompt)
             ]
         }
 

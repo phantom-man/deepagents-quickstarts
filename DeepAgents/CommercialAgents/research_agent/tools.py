@@ -1,9 +1,14 @@
 import os
+import json
+import logging
 import urllib.request
 import urllib.error
 from langchain_core.tools import tool
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_community.tools.arxiv.tool import ArxivQueryRun
+from DeepAgents.agent_brain import AgentMemory
+
+logger = logging.getLogger(__name__)
 
 # Initialize Tavily Search or Mock
 try:
@@ -81,8 +86,50 @@ def submit_finding_for_review(finding_text: str) -> str:
         
         result = auditor.invoke({"messages": [HumanMessage(content=prompt)]})
         
-        # Parse the JSON response just to log it (return full string to Research Agent)
+        # Parse the JSON response
         result_content = result["messages"][-1].content
+        
+        # --- FEEDBACK LOOP LEARNING ---
+        try:
+            # Clean possible markdown block ```json ... ```
+            cleaned_json = result_content.replace("```json", "").replace("```", "").strip()
+            data = json.loads(cleaned_json)
+            
+            score = float(data.get("score", 0.0))
+            
+            # 1. Negative Reinforcement (Score < 0.7)
+            if score < 0.7:
+                # Store in LanceDB as a "Lesson Learned"
+                mem = AgentMemory()
+                mem.memorize(
+                    f"[REJECTED MISTAKE] Finding: {finding_text}\nCritique: {data.get('critique', 'N/A')}",
+                    "ResearchAgent",
+                    tags=["rejected_finding", "mistake"]
+                )
+                logger.info("❌ Finding Rejected and Logged to Memory (LanceDB).")
+                
+                # Check for legacy file and warn
+                bad_ex_path = os.path.join(os.path.dirname(__file__), "bad_examples.md")
+                if os.path.exists(bad_ex_path):
+                     logger.warning("Legacy 'bad_examples.md' exists but system now uses Vector Memory.")
+
+            # 2. Positive Reinforcement (Score >= 0.8)
+            elif score >= 0.8:
+                # Save to LanceDB
+                mem = AgentMemory()
+                mem.memorize(
+                    f"VERIFIED FACT ({score}): {finding_text}",
+                    "ResearchAgent",
+                    tags=["verified_fact", "research_finding"]
+                )
+                logger.info("✅ Finding Approved and Memorized.")
+                
+        except json.JSONDecodeError:
+            logger.warning("Could not parse Confidence Agent JSON for feedback loop.")
+        except Exception as e:
+            logger.error(f"Feedback Loop Error: {e}")
+        # -----------------------------
+
         return str(result_content)
 
     except Exception as e:

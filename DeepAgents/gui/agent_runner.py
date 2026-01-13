@@ -353,9 +353,9 @@ class AgentRunner:
             return None
 
     def run_cinematographer(
-        self, director_output, mode="both", max_shots=None, duration_sec=None
+        self, director_output, mode="both", max_shots=None, duration_sec=None, resume_history=None, user_feedback=None
     ):
-        if not director_output:
+        if not director_output and not resume_history:
             yield ("Cinematographer", "error", "No context to visualize.")
             return
 
@@ -371,7 +371,51 @@ class AgentRunner:
             f"Translating textual vision into visual prompts and assets ({max_shots} shots)...",
         )
 
-        # ASYNC WRAPPER FOR CINEMATOGRAPHER
+        try:
+            # Create Generator directly (Sync wrapper)
+            # Ensure we pass the session_id correcty
+            agent_gen_func = create_cinematographer_agent(
+                 model_config=conf,
+                 brain=self.brain,
+                 session_id=self.session.session_id
+            )
+            
+            # Execute Generator
+            # Note: run_agent signature updated to accept resume_history/user_feedback
+            gen = agent_gen_func(
+                director_output, 
+                mode=mode, 
+                max_shots=max_shots, 
+                duration_sec=duration_sec,
+                resume_history=resume_history,
+                user_feedback=user_feedback
+            )
+            
+            for event_type, payload in gen:
+                # payload might be tuple or string
+                # Map to Runner format: (AgentName, Type, Content)
+                
+                if event_type == "review_required":
+                    # Payload is the asset path/string
+                    yield ("Cinematographer", "review_required", payload)
+                elif event_type == "state_dump":
+                     # Payload is the messages list
+                     yield ("Cinematographer", "state_dump", payload)
+                elif event_type == "output":
+                     self.session.log_event("Cinematographer", "output", payload)
+                     yield ("Cinematographer", "output", payload)
+                elif event_type == "thinking":
+                     yield ("Cinematographer", "thinking", payload)
+                elif event_type == "error":
+                     self.session.log_event("Cinematographer", "error", payload)
+                     yield ("Cinematographer", "error", payload)
+                else:
+                     # 'done' etc
+                     yield ("Cinematographer", event_type, payload)
+
+        except Exception as e:
+            self.session.log_event("Cinematographer", "error", str(e))
+            yield ("Cinematographer", "error", str(e))
         # Similar to Director, Cinematographer likely uses async calls or heavy I/O (Replicate polling).
         import queue
         import threading

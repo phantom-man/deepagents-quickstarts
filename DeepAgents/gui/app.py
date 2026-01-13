@@ -13,7 +13,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")
 from DeepAgents.gui.diagnostics_service import run_diagnostics
 from DeepAgents.gui.history_manager import SessionManager, list_sessions
 from DeepAgents.gui.agent_runner import AgentRunner
-from DeepAgents.agent_brain import AgentConfig
+from DeepAgents.agent_brain import AgentConfig, AgentComms
 from DeepAgents.asset_manager import AssetManager
 from DeepAgents.cost_calculator import estimate_cost
 
@@ -491,15 +491,62 @@ with tab_cinematographer:
 
     cine_container = st.container()
 
-    if run_cine and vis_req:
+    # --- HITL State Management ---
+    if "cine_pending_asset" not in st.session_state: st.session_state.cine_pending_asset = None
+    if "cine_resume_state" not in st.session_state: st.session_state.cine_resume_state = None
+    if "cine_feedback" not in st.session_state: st.session_state.cine_feedback = None
+
+    # Handle Approval UI (Pause State)
+    if st.session_state.cine_pending_asset:
         with cine_container:
+            st.warning("⚠️ Approval Required: The Agent has generated an asset.")
+            st.markdown(f"**Asset:** {st.session_state.cine_pending_asset}")
+            
+            c_a, c_b = st.columns(2)
+            with c_a:
+                if st.button("✅ Approve Asset", key="cine_approve"):
+                    st.session_state.cine_feedback = "APPROVED"
+                    st.session_state.cine_pending_asset = None # Clear lock
+                    st.rerun()
+            with c_b:
+                if st.button("❌ Reject (Retry)", key="cine_reject"):
+                     st.session_state.cine_feedback = "REJECTED"
+                     st.session_state.cine_pending_asset = None
+                     st.rerun()
+        # Halting here implicitly until button press
+
+    # Logic to Run (Either Fresh or Resumed)
+    if run_cine:
+        st.session_state.cine_resume_state = None
+        st.session_state.cine_feedback = None
+        st.session_state.cine_pending_asset = None
+
+    should_run = run_cine or (st.session_state.cine_resume_state and not st.session_state.cine_pending_asset)
+    
+    if should_run and vis_req and not st.session_state.cine_pending_asset:
+        with cine_container:
+            
+            # Setup inputs
+            resume_data = None
+            feedback_data = None
+            
+            if st.session_state.cine_resume_state:
+                resume_data = st.session_state.cine_resume_state
+                feedback_data = st.session_state.cine_feedback
+                st.info(f"🔄 Resuming with Feedback: {feedback_data}")
+            
             # Use runner
-            for agent, type_, content in runner.run_cinematographer(
+            gen = runner.run_cinematographer(
                     vis_req, 
                     mode=man_mode, 
                     max_shots=man_shots, 
-                    duration_sec=man_dur
-                ): 
+                    duration_sec=man_dur,
+                    resume_history=resume_data,
+                    user_feedback=feedback_data
+                )
+            
+            finished_naturally = True
+            for agent, type_, content in gen: 
                     if type_ == "thinking":
                         with st.expander(f"💭 {agent} Thinking...", expanded=False):
                              st.markdown(content)
@@ -508,20 +555,32 @@ with tab_cinematographer:
                          st.markdown(content)
                     elif type_ == "error":
                          st.error(content)
+                    elif type_ == "review_required":
+                         # HITL INTERRUPT
+                         st.session_state.cine_pending_asset = content
+                         finished_naturally = False
+                    elif type_ == "state_dump":
+                         # Save state
+                         st.session_state.cine_resume_state = content
+                         st.rerun() # Stop and render approval UI
+            
+            if finished_naturally:
+                st.session_state.cine_resume_state = None
+                st.session_state.cine_feedback = None
 
     
     if session_id or st.session_state.current_session_id:
         logs = manager.load_history()
         found_cinema = False
         for log in logs:
-            if log['agent'] == "Cinematographer" and not run_cine:
+            if log['agent'] == "Cinematographer" and not should_run and not st.session_state.cine_pending_asset:
                 found_cinema = True
                 with cine_container:
                     if log['type'] == 'output':
                         st.markdown(f"### 🎥 Visual Treatment ({log['timestamp']})")
                         st.markdown(log['content'])
         
-        if not found_cinema and not run_cine:
+        if not found_cinema and not run_cine and not st.session_state.cine_pending_asset:
             st.write("Waiting for Director's instructions...")
 
 if "composer_input" not in st.session_state: st.session_state.composer_input = ""
@@ -560,18 +619,60 @@ with tab_composer:
     # Output
     comp_container = st.container()
 
-    if compose_btn and comp_req:
+    # --- HITL State Management (Composer) ---
+    if "comp_pending_asset" not in st.session_state: st.session_state.comp_pending_asset = None
+    if "comp_feedback" not in st.session_state: st.session_state.comp_feedback = ""
+
+    # Approval UI
+    if st.session_state.comp_pending_asset:
         with comp_container:
-            for agent, type_, content in runner.run_composer(comp_req):
+            st.warning("🎵 Approval Required: Composition Generated")
+            st.markdown(st.session_state.comp_pending_asset)
+            
+            cc1, cc2 = st.columns(2)
+            with cc1:
+                if st.button("✅ Approve Music", key="comp_approve"):
+                     st.session_state.comp_pending_asset = None
+                     st.session_state.comp_feedback = ""
+                     st.toast("Music Approved!")
+                     st.rerun()
+            with cc2:
+                if st.button("❌ Reject (Retry)", key="comp_reject"):
+                     # Trigger Re-run with feedback
+                     st.session_state.comp_feedback = "Previous attempt rejected. Please try a different melody/style."
+                     st.session_state.comp_pending_asset = None
+                     st.session_state.composer_retry_trigger = True # Logic flag
+                     st.rerun()
+
+    # Logic to Run
+    # Check manual button OR retry trigger
+    should_run_comp = compose_btn or st.session_state.get("composer_retry_trigger", False)
+    
+    if should_run_comp and comp_req and not st.session_state.comp_pending_asset:
+        # Reset retry trigger if active
+        if st.session_state.get("composer_retry_trigger"):
+             st.session_state.composer_retry_trigger = False
+             
+        # Inject feedback if exists
+        final_req = comp_req
+        if st.session_state.comp_feedback:
+             final_req += f"\n\n[USER FEEDBACK]: {st.session_state.comp_feedback}"
+             st.info("Retrying with feedback...")
+
+        with comp_container:
+            for agent, type_, content in runner.run_composer(final_req):
                 if type_ == "thinking":
                     st.caption(f"💭 {content}")
                 elif type_ == "output":
                      st.markdown(f"### 🎻 Composition")
                      st.markdown(content)
+                     # HITL INTERRUPT (Post-Run)
+                     st.session_state.comp_pending_asset = content
+                     st.rerun()
                 elif type_ == "error":
                     st.error(content)
 
-    if session_id or st.session_state.current_session_id and not compose_btn:
+    if session_id or st.session_state.current_session_id and not compose_btn and not st.session_state.comp_pending_asset:
         logs = manager.load_history()
         found_composer = False
         for log in logs:
@@ -584,6 +685,51 @@ with tab_composer:
         
         if not found_composer and not director_context:
             st.write("Waiting for Director's cue or manual input...")
+
+# --- TAB: AGENT COMMS ---
+with tab_comms:
+    st.header("📡 Neural Fabric (Agent Communications)")
+    st.info("Real-time monitoring of inter-agent messaging.")
+    
+    col_comm1, col_comm2 = st.columns([4, 1])
+    
+    with col_comm2:
+        if st.button("🔄 Refresh Comms", type="primary"):
+            st.rerun()
+
+    # --- Comms Table ---
+    try:
+        # We instantiate a temporary comms object to fetch data
+        # Note: relying on env vars loaded by app.py
+        comms_mon = AgentComms()
+        if comms_mon.connect():
+             messages = comms_mon.get_all_recent_messages(limit=50)
+             if messages:
+                 for msg in messages:
+                     # Distinguish styling based on sender
+                     is_system = msg['sender'] in ["System", "User"]
+                     
+                     with st.container():
+                         c1, c2 = st.columns([1, 5])
+                         with c1:
+                             st.caption(f"**{msg['sender']}**\n\nTo: {msg['recipient']}")
+                             # Handle timestamp safely
+                             ts_str = str(msg['timestamp'])
+                             if hasattr(msg['timestamp'], 'strftime'):
+                                 ts_str = msg['timestamp'].strftime('%H:%M:%S')
+                             st.caption(ts_str)
+                         with c2:
+                             # Status badge
+                             status_color = "green" if msg['status'] == 'read' else "orange"
+                             st.markdown(f":{status_color}[{msg['status']}]")
+                             st.info(msg['content'])
+                         st.divider()
+             else:
+                 st.caption("No recent messages found in the Neural Fabric.")
+        else:
+            st.error("Could not connect to the Neural Fabric (Postgres).")
+    except Exception as e:
+        st.error(f"Error reading comms: {e}")
 
 # --- TAB: ASSET GALLERY ---
 with tab_properties: 

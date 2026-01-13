@@ -287,6 +287,37 @@ class AgentComms:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to send message: %s", e)
 
+    def get_all_recent_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Dashboard: Get latest messages from everyone."""
+        if not self.conn:
+            return []
+
+        messages = []
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id, sender, recipient, content, status, timestamp "
+                    "FROM agent_messages ORDER BY timestamp DESC LIMIT %s",
+                    (limit,),
+                )
+                rows = cur.fetchall()
+
+                for row in rows:
+                    messages.append(
+                        {
+                            "id": row[0],
+                            "sender": row[1],
+                            "recipient": row[2],
+                            "content": row[3],
+                            "status": row[4],
+                            "timestamp": row[5],
+                        }
+                    )
+            return messages
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.error("Failed to fetch recent messages: %s", e)
+            return []
+
     def receive_messages(
         self, recipient: str, mark_read: bool = True
     ) -> List[Dict[str, Any]]:
