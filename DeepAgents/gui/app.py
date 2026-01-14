@@ -185,34 +185,20 @@ with tab_director:
     output_container = st.container()
 
     if run_btn and directive:
-        # Create new session if needed
-        if not session_id or session_id == "New Session":
-             if manager:
-                session_id = manager.create_session("New Director Run")
-                st.session_state.current_session_id = session_id
-                st.rerun()
-             else:
-                session_id = str(int(time.time()))
-
-    # Session State Persistence for Results
-    if "director_result" not in st.session_state:
-        st.session_state.director_result = ""
-    if "final_asset_path" not in st.session_state:
-        st.session_state.final_asset_path = None
-    if "agent_logs" not in st.session_state:
-        st.session_state.agent_logs = []
-
-    if run_btn and directive:
         # Clear previous logs
         st.session_state.agent_logs = []
         st.session_state.director_result = ""
         st.session_state.final_asset_path = None
         
-        # Create new session if needed
-        st.session_state.current_session_id = SessionManager().session_id
-        manager = SessionManager(st.session_state.current_session_id)
-        # Re-init runner with manager
-        runner = AgentRunner(manager)
+        # Ensure we have a valid session before starting
+        if not st.session_state.current_session_id:
+             if manager:
+                # Create explicit new session
+                new_sess_id = manager.create_session("New Director Run")
+                st.session_state.current_session_id = new_sess_id
+                # Re-bind manager to new ID
+                manager = SessionManager(new_sess_id) 
+                runner = AgentRunner(manager)
         
         with output_container:
             st.info(f"Session started: {manager.session_id}")
@@ -235,16 +221,52 @@ with tab_director:
             
             st.session_state.director_result = director_result
 
-            # --- PHASE 2: CINEMATOGRAPHY (AUTO-HANDOFF) ---
+            # --- PHASE 2: RESEARCH & CONFIDENCE (Zero Touch Chain) ---
+            research_result = ""
+            confidence_result = ""
             if director_result:
                 st.divider()
-                st.info("🎬 Director > 🎥 Handoff to Cinematographer...")
+                st.info("🎬 Director > 🔎 Handoff to Researcher...")
+                # Run Research on the Director's output
+                for agent, type_, content in runner.run_research_direct(director_result):
+                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
+                    if type_ == "thinking":
+                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                             st.markdown(content)
+                    elif type_ == "output":
+                         st.markdown(f"### 🔎 Research Output")
+                         st.markdown(content)
+                         research_result = content
+                    elif type_ == "error":
+                         st.error(content)
+
+                st.divider()
+                st.info("🔎 Research > ⚖️ Handoff to Confidence Audit...")
+                # Audit the Combined Context
+                audit_ctx = f"DIRECTOR PLAN: {director_result}\n\nRESEARCH DATA: {research_result}"
+                for agent, type_, content in runner.run_confidence_task(audit_ctx):
+                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
+                    if type_ == "thinking":
+                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
+                             st.markdown(content)
+                    elif type_ == "output":
+                         st.markdown(f"### ⚖️ Confidence Report")
+                         st.markdown(content)
+                         confidence_result = content
+                    elif type_ == "error":
+                         st.error(content)
+
+            # --- PHASE 3: CINEMATOGRAPHY (AUTO-HANDOFF) ---
+            if director_result:
+                st.divider()
+                st.info("⚖️ Confidence > 🎥 Handoff to Cinematographer...")
                 # Autonomous mode: Agent decides shots/duration based on prompt or defaults
                 # We pass defaults to ensure safety, but Agent is autonomous
+                # FIXED: Mode set to 'both' to generate VIDEO and IMAGES
                 for agent, type_, content in runner.run_cinematographer(
                     director_result, 
-                    mode="storyboard",  # Default mode
-                    max_shots=1,        # Logic moved to agent, but runner needs valid int
+                    mode="both",        # FIXED: Was 'storyboard'
+                    max_shots=3,        # Increased from 1
                     duration_sec=4
                 ): 
                     st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
@@ -751,7 +773,10 @@ with tab_properties:
             with cols[idx % 4]:
                 st.caption(f"{asset['timestamp']} | {asset['metadata'].get('model', 'Unknown')}")
                 if asset['asset_type'] == 'image' or asset['asset_type'] == 'storyboard':
-                    st.image(asset['path'], use_container_width=True)
+                    try:
+                        st.image(asset['path'], use_container_width=True)
+                    except Exception as e:
+                        st.error(f"Error loading image: {asset['path']}\n{e}")
                 elif asset['asset_type'] == 'video':
                     st.video(asset['path'])
                 elif asset['asset_type'] == 'audio':

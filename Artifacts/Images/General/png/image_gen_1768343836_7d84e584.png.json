@@ -1,0 +1,15 @@
+{
+  "prompt": "Rapid cuts between a busy social media feed with flashing notifications, scrolling comments, and trending hashtags. Transition to a wide shot of the band members in a dimly lit rehearsal space, playing their instruments.",
+  "timestamp": 1768343836,
+  "date": "2026-01-13 15:37:18",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768343836_7d84e584.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768343836_7d84e584.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768343836_7d84e584.png",
+  "session_id": "2026-01-13_15-34-51",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

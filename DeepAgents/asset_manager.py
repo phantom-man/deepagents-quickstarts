@@ -207,6 +207,45 @@ class AssetManager:
             logger.error("Error saving asset: %s", e)
             return None
 
+    def save_text_document(
+        self,
+        text: str,
+        title: str,
+        session_id: str,
+        subdir: str = "Reports"
+    ) -> Dict[str, str]:
+        """
+        Saves a text document (Markdown) and uploads to Cloud.
+        Returns dict with keys: 'local_path', 'cloud_url'.
+        """
+        # 1. Prepare Paths
+        # Structure: Artifacts/Documents/{subdir}/
+        rel_path = os.path.join("Documents", subdir)
+        full_dir = os.path.join(self.base_dir, rel_path)
+        os.makedirs(full_dir, exist_ok=True)
+        
+        # 2. Filename
+        clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip().replace(' ', '_')
+        timestamp = int(time.time())
+        filename = f"{clean_title}_{timestamp}.md"
+        file_path = os.path.join(full_dir, filename)
+        
+        # 3. Write Local
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(text)
+                
+            # 4. Upload Cloud
+            cloud_url = self._upload_to_gcs(file_path, filename)
+            
+            return {
+                "local_path": file_path,
+                "cloud_url": cloud_url or "Local Only (GCS Not Configured)"
+            }
+        except Exception as e:
+            logger.error(f"Failed to save document: {e}")
+            return {"local_path": "", "cloud_url": ""}
+
     def list_assets(
         self,
         session_id: Optional[str] = None,

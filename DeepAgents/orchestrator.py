@@ -11,11 +11,9 @@ import argparse
 import logging
 from dotenv import load_dotenv
 
-# Setup OTLP Tracing
-os.environ["LANGSMITH_OTEL_ENABLED"] = "true"
-os.environ["LANGSMITH_TRACING"] = "true"
-if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
-    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+# Setup LangSmith Tracing
+# Using Standard HTTP Tracing (No local OTLP collector required)
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))

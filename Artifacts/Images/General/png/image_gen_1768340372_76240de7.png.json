@@ -1,0 +1,15 @@
+{
+  "prompt": "A group of friends sitting around a table, gossiping and looking at their phones. The scene has a vibrant, colorful style reminiscent of No Doubt's music videos.",
+  "timestamp": 1768340372,
+  "date": "2026-01-13 14:39:33",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768340372_76240de7.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768340372_76240de7.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768340372_76240de7.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "prompt": "Tight close-up on a smartphone screen, with a rapid succession of social media notifications and alerts popping up. Cut to a medium shot of the band members (Subject Reference A) sitting around a table, engaged in a heated discussion. Gwen Stefani looks visibly upset, gesturing emphatically.",
+  "timestamp": 1768346128,
+  "date": "2026-01-13 16:15:29",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768346128_836b5ac4.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768346128_836b5ac4.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768346128_836b5ac4.png",
+  "session_id": "2026-01-13_16-13-09",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

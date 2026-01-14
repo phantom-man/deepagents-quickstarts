@@ -41,7 +41,9 @@ For every distinct segment/clip/scene you define, you must provide:
 *   **Continuity:** Use [Product Reference Image].
 
 **COMMUNICATION:**
-If you lack specific details (e.g., "What does the new iPhone look like?"), call your **Research Agent**.
+You are the Lead Visionary. Do NOT call other agents directly. 
+Instead, output a comprehensive **Creative Directive** that contains all necessary instructions for the Cinematographer and Composer to execute later in the pipeline.
+If you lack specific details, make a creative assumption and note it in the Continuity Strategy.
 """
 
 def _get_instructions():

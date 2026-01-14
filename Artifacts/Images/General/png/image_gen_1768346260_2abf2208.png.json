@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4k. Close-up on a smartphone screen, notifications and messages rapidly appearing. Pull back to reveal a person's face, brow furrowed, scrolling frantically through a social media feed on their phone. Camera tracks back to show the person's full body, pacing around a messy bedroom.",
+  "timestamp": 1768346260,
+  "date": "2026-01-13 16:17:41",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768346260_2abf2208.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768346260_2abf2208.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768346260_2abf2208.png",
+  "session_id": "2026-01-13_16-17-22",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

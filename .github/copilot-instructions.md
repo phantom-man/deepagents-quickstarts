@@ -10,7 +10,7 @@ These are the immutable facts of the current project state. Copilot must priorit
 ### 2. Technology Stack Decisions (DO NOT HALLUCINATE ALTERNATIVES)
 - **Voice Engine**: We use **XTTS-v2** via Replicate (`lucataco/xtts-v2`).
     - *Reason*: Minimax is unavailable. Bark is too slow.
-    - *Reference Asset*: `DeepAgents/DeepAgents/data/voices/male_deep_narrator_ref.wav`.
+    - *Reference Asset*: `../DeepAgents/DeepAgents/data/voices/male_deep_narrator_ref.wav`.
 - **Vector Database**: **LanceDB**.
     - *Embedding Model*: `text-embedding-004` (Google Vertex/GenAI).
     - *Dimensions*: **768**. (Do not use 384).
@@ -30,8 +30,9 @@ These are the immutable facts of the current project state. Copilot must priorit
 
 ### 3. Operational Protocols
 - **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
+- **Architectural Diagram**: You MUST Review [System Architecture](../DeepAgents/docs/system_architecture.md) for the "Truth" of the system data flow.
 - **Research Mandate**: Your FIRST action after receiving a complex prompt is to evaluate the need for research and perform it. Do not guess.
-- **MemoriPilot Protocol (CRITICAL)**: You MUST read `DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
+- **MemoriPilot Protocol (CRITICAL)**: You MUST read `../DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py`.
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only`.
 - **Environment**: `.env` handles secrets. `LANGCHAIN_HUB_HANDLE` is required for Prompt Hub.
@@ -50,12 +51,12 @@ The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory s
 
 #### Reading Protocol (Mandatory)
 At the start of EVERY session, you MUST read the following files to synchronize your state:
-1. `memory-bank/activeContext.md` - To understand current focus.
-2. `memory-bank/systemPatterns.md` - To review architectural standards.
-3. `memory-bank/productContext.md` - To confirm technology stack.
-4. `memory-bank/decisionLog.md` - To see recent architectural changes.
-5. `memory-bank/projectBrief.md` - To align with core goals.
-6. `memory-bank/architect.md` - To review the roadmap.
+1. `../memory-bank/activeContext.md` - To understand current focus.
+2. `../memory-bank/systemPatterns.md` - To review architectural standards.
+3. `../memory-bank/productContext.md` - To confirm technology stack.
+4. `../memory-bank/decisionLog.md` - To see recent architectural changes.
+5. `../memory-bank/projectBrief.md` - To align with core goals.
+6. `../memory-bank/architect.md` - To review the roadmap.
 
 #### Writing Protocol (Tool Usage)
 You must use the `memory_bank_*` tools to document your work. Do not use raw file edits for these files unless necessary.
@@ -68,10 +69,10 @@ You must use the `memory_bank_*` tools to document your work. Do not use raw fil
 
 #### Operating Modes
 You must switch modes to match the nature of the user's request.
-- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `memory-bank/architect.md` and `memory-bank/systemPatterns.md`.
-- **Code Mode** (`code`): Use when writing or editing code. Focus on `memory-bank/activeContext.md` and `memory-bank/productContext.md`.
-- **Debug Mode** (`debug`): Use when fixing errors. Focus on `memory-bank/decisionLog.md` and `audit reports`.
-- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `memory-bank/projectBrief.md`.
+- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `../memory-bank/architect.md` and `../memory-bank/systemPatterns.md`.
+- **Code Mode** (`code`): Use when writing or editing code. Focus on `../memory-bank/activeContext.md` and `../memory-bank/productContext.md`.
+- **Debug Mode** (`debug`): Use when fixing errors. Focus on `../memory-bank/decisionLog.md` and `audit reports`.
+- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `../memory-bank/projectBrief.md`.
 
 ---
 

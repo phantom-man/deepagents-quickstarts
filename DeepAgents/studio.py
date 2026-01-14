@@ -13,13 +13,9 @@ from langsmith import Client
 from langchain_core.tracers.context import collect_runs  # For capturing Run ID
 from langgraph.checkpoint.memory import MemorySaver  # For State Persistence
 
-# Setup OTLP Tracing (AI Toolkit Best Practice)
-# Must be set BEFORE other imports might trigger tracing checks
-os.environ["LANGSMITH_OTEL_ENABLED"] = "true"
-os.environ["LANGSMITH_TRACING"] = "true" 
-# Use localhost OTLP endpoint (compatible with AI Toolkit tracer)
-if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
-    os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+# Setup LangSmith Tracing
+# Using Standard HTTP Tracing (No local OTLP collector required)
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
 
 # Load environment variables IMMEDIATELY
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))

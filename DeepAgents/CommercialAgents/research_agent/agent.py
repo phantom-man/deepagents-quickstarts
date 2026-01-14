@@ -238,6 +238,24 @@ def run_research_task(topic: str,
         print("\n📝 --- FINAL REPORT ---")
         print(final_answer)
         print("-----------------------")
+        
+        # SAVE TO CLOUD (AssetManager)
+        try:
+            from DeepAgents.asset_manager import AssetManager
+            assets = AssetManager()
+            saved_doc = assets.save_text_document(
+                text=final_answer,
+                title=f"Research_{topic[:30]}",
+                session_id="research_autonomous"
+            )
+            cloud_url = saved_doc.get("cloud_url")
+            if cloud_url and "http" in cloud_url:
+                print(f"✅ Uploaded to Cloud: {cloud_url}")
+                # Append link to final answer so downstream agents see it
+                final_answer += f"\n\nSOURCE_DOCUMENT_URL: {cloud_url}"
+        except Exception as e:
+            print(f"⚠️ Failed to upload report: {e}")
+
         print(f"\n🧠 Memorizing Findings ({len(final_answer)} chars)...")
         memory.memorize(
             f"Research on '{topic}': {final_answer}",

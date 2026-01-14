@@ -1,0 +1,15 @@
+{
+  "prompt": "Music video for \"internet drama\" in the style of No Doubt, 4k, high quality, photorealistic",
+  "timestamp": 1768346035,
+  "date": "2026-01-13 16:13:57",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768346035_6c749c25.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768346035_6c749c25.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768346035_6c749c25.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

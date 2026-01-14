@@ -18,6 +18,21 @@ class SessionManager:
         
         self.log_file = os.path.join(self.session_dir, "full_log.jsonl")
 
+    def create_session(self, description=None):
+        """Creates a new session directory and returns the ID."""
+        new_id = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        new_dir = os.path.join(HISTORY_DIR, new_id)
+        os.makedirs(new_dir, exist_ok=True)
+        
+        if description:
+            try:
+                with open(os.path.join(new_dir, "meta.json"), "w", encoding='utf-8') as f:
+                    json.dump({"description": description, "created": new_id}, f)
+            except Exception:
+                pass
+                
+        return new_id
+
     def log_event(self, agent_name, event_type, content, tool_calls=None):
         entry = {
             "timestamp": datetime.datetime.now().isoformat(),

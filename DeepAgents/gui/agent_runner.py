@@ -24,7 +24,7 @@ from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_age
 from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
     create_cinematographer_agent,
 )
-from DeepAgents.agent_brain import AgentConfig, AgentMemory
+from DeepAgents.agent_brain import AgentConfig, AgentMemory, AgentComms
 from DeepAgents.persistence import get_postgres_checkpointer
 
 
@@ -33,11 +33,13 @@ class AgentRunner:
         self.session = session_manager
         self.config = AgentConfig()  # Load config
         self.brain = AgentMemory()  # Load memory for Composer
+        
+        # Init Neural Fabric Comms
+        self.comms = AgentComms()
+        self.comms.connect()
 
-        # Enable OTLP Tracing for GUI process if configured
-        if os.environ.get("LANGSMITH_OTEL_ENABLED") == "true":
-            if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
-                os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://localhost:4318"
+        # OTLP Configuration removed to favor standard LangChain Tracing (HTTP)
+        # This prevents ConnectionRefusedError if no local OTLP collector is running.
 
     async def _run_agent_async(self, agent_factory, inputs, config):
         """Helper to run agents async with persistence."""
@@ -215,13 +217,21 @@ class AgentRunner:
                 if item is None:
                     break
 
+                agent_name, evt_type, content = item
+
+                # Broadcast to Neural Fabric (Comms Tab)
+                if evt_type == "output":
+                     self.comms.send_message(agent_name, "All", f"Global Update: {content[:100]}...")
+                elif evt_type == "thinking" and "Calling Tool" in content:
+                     self.comms.send_message(agent_name, "System", f"Action: {content}")
+
                 # Log and Yield
-                if item[1] == "output":
-                    self.session.log_event("Director", "output", item[2])
-                elif item[1] == "thinking":
-                    self.session.log_event("Director", "thinking", item[2])
-                elif item[1] == "error":
-                    self.session.log_event("Director", "error", item[2])
+                if evt_type == "output":
+                    self.session.log_event("Director", "output", content)
+                elif evt_type == "thinking":
+                    self.session.log_event("Director", "thinking", content)
+                elif evt_type == "error":
+                    self.session.log_event("Director", "error", content)
 
                 yield item
 
@@ -270,6 +280,30 @@ class AgentRunner:
         self.session.log_event("Researcher", "output", str(res))
         yield ("Researcher", "output", str(res))
 
+    def run_confidence_task(self, content):
+        """Runs the confidence audit agent."""
+        from DeepAgents.CommercialAgents.confidence_agent.agent import run_confidence_audit
+        
+        conf = self.config.get_agent_config("Confidence")
+        self.session.log_event("Confidence", "info", "Starting Audit...")
+        yield ("Confidence", "thinking", "Auditing content for accuracy and safety...")
+        
+        # Capture Stdout again? 
+        # Confidence agent prints a lot, but returns final string.
+        # We can just run it.
+        try:
+             # Just run synchronously for now as it's a simple chain usually,
+             # though it calls research internally.
+             # Ideally we run in thread if it blocks for long.
+             res = run_confidence_audit(content)
+             if res:
+                 self.session.log_event("Confidence", "output", res)
+                 yield ("Confidence", "output", res)
+             else:
+                 yield ("Confidence", "error", "No report generated.")
+        except Exception as e:
+            yield ("Confidence", "error", str(e))
+
     def run_composer(self, director_output):
         """Runs the composer agent."""
         if not director_output:
@@ -307,6 +341,9 @@ class AgentRunner:
                 # Standard function
                 result = agent_func(director_output)
 
+            # Comms Update
+            self.comms.send_message("Composer", "Director", "Soundtrack Complete.")
+            
             self.session.log_event("Composer", "output", result)
             yield ("Composer", "output", result)
 
@@ -380,6 +417,9 @@ class AgentRunner:
                  session_id=self.session.session_id
             )
             
+            # Comms Check-in
+            self.comms.send_message("Cinematographer", "Director", "Received script. Beginning visualization.")
+
             # Execute Generator
             # Note: run_agent signature updated to accept resume_history/user_feedback
             gen = agent_gen_func(

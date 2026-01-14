@@ -177,6 +177,7 @@ def run_confidence_audit(content_to_audit: str):
         print("-----------------------")
 
         # --- ARGUS UPGRADE: Fact-Checking Dashboard ---
+        dashboard = ""
         try:
             print("\n📊 Generating Argus Fact Dashboard...")
             dash_llm = ChatGoogleGenerativeAI(
@@ -195,6 +196,29 @@ def run_confidence_audit(content_to_audit: str):
         except Exception as e:
             logger.warning("Dashboard generation failed: %s", e)
         # ----------------------------------------------
+        
+        # SAVE TO CLOUD (AssetManager)
+        try:
+            from DeepAgents.asset_manager import AssetManager
+            assets = AssetManager()
+            
+            # Prefer dashboard if available
+            save_content = dashboard if dashboard else final_report
+            
+            saved_doc = assets.save_text_document(
+                text=save_content,
+                title=f"Audit_{uuid.uuid4().hex[:8]}",
+                session_id="confidence_audit",
+                subdir="Audits"
+            )
+            cloud_url = saved_doc.get("cloud_url")
+            if cloud_url and "http" in cloud_url:
+                print(f"✅ Audit Uploaded: {cloud_url}")
+                final_report += f"\n\n[CLOUD AUDIT]: {cloud_url}"
+                if dashboard:
+                     final_report += f"\n\n{dashboard}"
+        except Exception as e:
+            print(f"⚠️ Failed to upload audit: {e}")
 
         print("\n🧠 Memorizing Audit Decision...")
         memory.memorize(

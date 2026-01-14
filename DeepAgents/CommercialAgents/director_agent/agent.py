@@ -25,18 +25,11 @@ from DeepAgents.hub_manager import get_or_push_prompt
 # PYTHONPATH should be set to repo root
 try:
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-    from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
-    from DeepAgents.CommercialAgents.cinematographer_agent.agent import run_cinematographer_task
-    from DeepAgents.editor_tools import merge_video_audio
-    from DeepAgents.inter_agent_comms import discover_agents
+    from DeepAgents.editor_tools import merge_video_audio_logic
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-    from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
-    from DeepAgents.CommercialAgents.cinematographer_agent.agent import run_cinematographer_task
-    from DeepAgents.editor_tools import merge_video_audio
+    from DeepAgents.editor_tools import merge_video_audio_logic
 
     # Note: If these fail in fallback, the script will crash, but environment should be consistent now.
 
@@ -90,65 +83,7 @@ def validate_scene_logic(scene_description: str) -> str:
         return f"Validation Error: {e}"
 
 
-@tool
-def consult_research_agent(topic: str) -> str:
-    """
-    Consults the Research Agent to gather detailed information, facts,
-    and context about a specific topic, product, or concept.
-    Use this when you lack sufficient knowledge to direct a scene accurately.
-    Returns a comprehensive report.
-    """
-    logger.info("🎬 Director > 📞 Calling Research Agent about: %s", topic)
-    # We call the main entry point of the Research Agent
-    # This will trigger the memory check, research, and memorization loop.
-    # Pass context for LangSmith
-    extra_config = {
-        "tags": ["sub-agent-call", "agent:researcher"],
-        "metadata": {"parent_agent": "Director", "trigger": "tool_call"},
-    }
-    result = run_research_task(topic, extra_config=extra_config)
-    if result:
-        return result
-    return "Research Agent could not find significant information."
-
-
-@tool
-def consult_composer_agent(request: str) -> str:
-    """
-    Consults the Composer Agent (Orpheus) to generate music, lyrics, or a style guide.
-    Use this when the scene requires a soundtrack, score, or specific song.
-    
-    Args:
-        request: A detailed description of the music needed (e.g., "A sad violin solo in D Minor", "An EDM track with lyrics about robots").
-    
-    Returns:
-        Verification string or path to the generated asset (if applicable), or the lyrics/text.
-    """
-    logger.info("🎬 Director > 🎻 Calling Composer Agent about: %s", request)
-    # Call the synchronous wrapper we created in the Composer Agent
-    result = run_composer_task(request)
-    if result:
-        return result
-    return "Composer Agent failed to generate content."
-
-
-@tool
-def consult_cinematographer_agent(request: str) -> str:
-    """
-    Consults the Cinematographer Agent to generate Storyboards (Images) or Video clips.
-    Use this to visualize a scene described in the script.
-    
-    Args:
-        request: A detailed visual description (e.g., "Storyboard for Scene 1: A man walking in rain, cinematic lighting").
-    
-    Returns:
-        Path to the generated image/video files or status report.
-    """
-    logger.info("🎬 Director > 🎥 Calling Cinematographer Agent about: %s", request)
-    result = run_cinematographer_task(request)
-    if result:
-        return result
-    return "Cinematographer Agent failed to generate content."
+# Sub-Agent Tools Removed (Linear Pipeline Enforcement)
 
 
 @tool
@@ -166,7 +101,7 @@ def assemble_final_cut(video_paths: List[str], audio_path: str, output_name: str
         Path to the final assembled video file.
     """
     logger.info("🎬 Director > ✂️ Assembling Final Cut: %s + %s", video_paths, audio_path)
-    return merge_video_audio(video_paths, audio_path, output_name)
+    return merge_video_audio_logic(video_paths, audio_path, output_name)
 
 
 def create_director_agent(
@@ -249,12 +184,12 @@ def create_director_agent(
     agent = create_deep_agent(
         model=cast(BaseChatModel, model),
         tools=[
-            consult_research_agent,
             validate_scene_logic,
-            consult_composer_agent,
-            consult_cinematographer_agent,
+            # consult_research_agent,        # Removed per User Request (Simplify)
+            # consult_composer_agent,        # Removed per User Request (Simplify)
+            # consult_cinematographer_agent, # Removed per User Request (Simplify)
             assemble_final_cut,
-            discover_agents, # NEW: Meta-Discovery Tool
+            # discover_agents,               # Removed per User Request (Simplify)
         ],
         system_prompt=hub_prompt,
         checkpointer=checkpointer

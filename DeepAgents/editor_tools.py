@@ -28,22 +28,52 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EditorTools")
 
 
-@tool
-def merge_video_audio(
+
+def download_if_url(path_or_url: str) -> str:
+    """Downloads a file if it is a URL, otherwise returns the path."""
+    if not path_or_url.startswith("http"):
+        return path_or_url
+        
+    import requests
+    temp_dir = os.path.join(os.path.dirname(__file__), "../Artifacts/Temp")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    filename = os.path.basename(path_or_url.split("?")[0]) # Handle query params
+    # Ensure extension
+    if "." not in filename:
+        filename += ".tmp"
+        
+    local_path = os.path.join(temp_dir, filename)
+    
+    # Check if already downloaded
+    if os.path.exists(local_path):
+        return local_path
+        
+    logger.info(f"⬇️ Downloading: {path_or_url}")
+    try:
+        response = requests.get(path_or_url, stream=True)
+        response.raise_for_status()
+        with open(local_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192): 
+                f.write(chunk)
+        return local_path
+    except Exception as e:
+        logger.error(f"Download failed: {e}")
+        return path_or_url # Return original if fail, logic will catch non-existence later
+
+def merge_video_audio_logic(
     video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4"
 ) -> str:
     """
-    Merges multiple video clips and an audio track into a single video file.
-    Args:
-        video_paths: List of absolute paths to video files.
-        audio_path: Absolute path to the audio file.
-        output_name: Name of the output file.
-    Returns:
-        Absolute path to the final video.
+    Logic for merging video and audio.
     """
     logger.info(
         "✂️ Editor > Merging %d clips with audio %s...", len(video_paths), audio_path
     )
+
+    # 0. Download Assets if URLs
+    video_paths = [download_if_url(p) for p in video_paths]
+    audio_path = download_if_url(audio_path)
 
     # 1. Validation (Simulated for safety if files are text mocks)
     real_files = True
@@ -119,29 +149,31 @@ def merge_video_audio(
         )
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-
-        final_path = os.path.join(output_dir, f"{uuid.uuid4()}_{output_name}")
-
-        final_video.write_videofile(
-            final_path, codec="libx264", audio_codec="aac", fps=24, logger=None
-        )
-        logger.info("✅ Render Complete: %s", final_path)
+            
+        final_path = os.path.join(output_dir, output_name)
+        final_video.write_videofile(final_path, codec="libx264", audio_codec="aac")
+        
         return final_path
-
+        
     except Exception as e:
-        logger.error(
-            "Merge failed with MoviePy: %s. Falling back to Simulation Merge.", e
-        )
-        # Fallback to Simulation Merge
-        assets = AssetManager()
-        content = f"[FINAL VIDEO SIMULATION - FALLBACK]\nReason: MoviePy Failure ({e})\nVideo Sources: {video_paths}\nAudio Source: {audio_path}\n"
-        path = assets.save_asset(
-            content, "video", "final_cut_fallback", "Merged Video (Fallback)"
-        )
-        if path is None:
-            return "Error: Failed to save fallback asset."
-        logger.info("✅ Fallback Simulation Merge Complete: %s", path)
-        return path
+        logger.error("Merge Failed: %s", e)
+        return f"Error during merge: {e}"
+
+
+@tool
+def merge_video_audio(
+    video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4"
+) -> str:
+    """
+    Merges multiple video clips and an audio track into a single video file.
+    Args:
+        video_paths: List of absolute paths to video files.
+        audio_path: Absolute path to the audio file.
+        output_name: Name of the output file.
+    Returns:
+        Absolute path to the final video.
+    """
+    return merge_video_audio_logic(video_paths, audio_path, output_name)
 
 
 @tool
