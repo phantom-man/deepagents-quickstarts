@@ -8,21 +8,20 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Atlas**: The Python Application (`DeepAgents/`) we are building. It is an AI Agent with persistent memory (LanceDB) and voice capabilities.
 
 ### 2. Technology Stack Decisions (DO NOT HALLUCINATE ALTERNATIVES)
-- **Voice Engine**: We use **XTTS-v2** via Replicate (`lucataco/xtts-v2`).
-    - *Reason*: Minimax is unavailable. Bark is too slow.
-    - *Reference Asset*: `../DeepAgents/DeepAgents/data/voices/male_deep_narrator_ref.wav`.
+- **Voice Engine**: We use **Minimax** (`minimax/music-1.5` or `speech-01`) or **XTTS-v2** (`lucataco/xtts-v2`) via Replicate.
+    - *Reason*: Minimax offers higher fidelity. XTTS is the robust fallback.
+    - *Reference Asset*: `Artifacts/Audio/Voices/male_deep_narrator_ref.wav`.
 - **Vector Database**: **LanceDB**.
     - *Embedding Model*: `text-embedding-004` (Google Vertex/GenAI).
     - *Dimensions*: **768**. (Do not use 384).
 - **Relational Database**: **PostgreSQL**.
     - *Role*: LangGraph Checkpointing & State Persistence.
     - *Drivers*: `psycopg` (v3 Async) and `psycopg2` (Sync).
-- **LLM Provider**: **Google Gemini** (Primary).
-    - *Model*: `gemini-2.0-flash-001` or `gemini-1.5-flash` (Fallback).
-    - *Quota Management*: The free tier is aggressive. Handle 429s gracefully.
-- **Observability**: **OpenTelemetry (OTLP)**.
-    - *Endpoint*: `http://localhost:4318`.
-    - *Platform*: LangSmith.
+- **LLM Provider**: **Anthropic** (Primary).
+    - *Model*: `claude-3-haiku-20240307`.
+    - *Reason*: Haiku acts as the "Cognitive Engine" defined in the Master Ontology.
+- **Observability**: **LangChain Tracing**.
+    - *Status*: Connected directly (Cloud). `LANGCHAIN_TRACING_V2=true` is enabled. Do NOT use OTLP/localhost:4318.
 - **Package Structure**:
     - The `deepagents` library (v0.3.1) is installed.
     - The local folder `DeepAgents/` contains the *source* of the application but imports `deepagents` middleware.
@@ -30,16 +29,24 @@ These are the immutable facts of the current project state. Copilot must priorit
 
 ### 3. Operational Protocols
 - **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
-- **Architectural Diagram**: You MUST Review [System Architecture](../DeepAgents/docs/system_architecture.md) for the "Truth" of the system data flow.
-- **Research Mandate**: Your FIRST action after receiving a complex prompt is to evaluate the need for research and perform it. Do not guess.
-- **MemoriPilot Protocol (CRITICAL)**: You MUST read `../DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
-- **Script Execution**: Always use `python DeepAgents/ignite_atlas.py`.
-- **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only`.
+- **Architectural Diagram**: You MUST Review the "System Architecture" file at `DeepAgents/docs/system_architecture.md` for the "Truth" of the system data flow.
+- **Master Ontology**: You MUST align all agent logic with `DeepAgents/Canon/MASTER_ONTOLOGY.md`.
+- **MemoriPilot Protocol (CRITICAL)**: You MUST read `DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
+- **Script Execution**: Always use `python DeepAgents/ignite_atlas.py` (Run from Repo Root).
+- **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only` (Run from Repo Root).
 - **Environment**: `.env` handles secrets. `LANGCHAIN_HUB_HANDLE` is required for Prompt Hub.
-- **LangGraph Development Server**: To start the local dev server on Windows, you MUST use the `--allow-blocking` flag to prevent file operation errors: `python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking`.
+- **LangGraph Development Server**: You MUST change directory to `DeepAgents/` first to ensure config resolution. Use: `cd DeepAgents; python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking`.
 
-### 4. Known Issues / Learnings
-- **Prompt Hub**: If `pull_prompt` fails, fallback to local constants.
+### 4. Media & Asset Storage Standards
+- **Golden Rule**: Google Cloud Storage (GCS) is the "Gold Standard" for all generated media.
+- **Local Artifacts**: Local storage is for caching, recovery, or debugging ONLY.
+  - **Audio Source**: `Artifacts/Audio/Voices/` (Strictly for reference voice files).
+  - **Audio Output**: `Artifacts/Audio/Recovered/` (For temporary or recovered clips).
+  - **Databases**: `DeepAgents/data/lancedb/` (Vector) and `DeepAgents/data/checkpoints/` (Graph State).
+  - **Forbidden**: DO NOT store `.wav`, `.mp3`, or `.png` files in the Project Root or `DeepAgents/data/` folders.
+
+### 5. Known Issues / Learnings
+- **Prompt Hub**: If `pull_prompt` fails, Do Not fallback to local constants.
 - **Console Input**: Uses `prompt_toolkit` to handle background log scrolling.
 
 ### 5. MemoriPilot Documentation & Protocols
@@ -51,12 +58,12 @@ The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory s
 
 #### Reading Protocol (Mandatory)
 At the start of EVERY session, you MUST read the following files to synchronize your state:
-1. `../memory-bank/activeContext.md` - To understand current focus.
-2. `../memory-bank/systemPatterns.md` - To review architectural standards.
-3. `../memory-bank/productContext.md` - To confirm technology stack.
-4. `../memory-bank/decisionLog.md` - To see recent architectural changes.
-5. `../memory-bank/projectBrief.md` - To align with core goals.
-6. `../memory-bank/architect.md` - To review the roadmap.
+1. `memory-bank/activeContext.md` - To understand current focus.
+2. `memory-bank/systemPatterns.md` - To review architectural standards.
+3. `memory-bank/productContext.md` - To confirm technology stack.
+4. `memory-bank/decisionLog.md` - To see recent architectural changes.
+5. `memory-bank/projectBrief.md` - To align with core goals.
+6. `memory-bank/architect.md` - To review the roadmap.
 
 #### Writing Protocol (Tool Usage)
 You must use the `memory_bank_*` tools to document your work. Do not use raw file edits for these files unless necessary.
@@ -69,10 +76,10 @@ You must use the `memory_bank_*` tools to document your work. Do not use raw fil
 
 #### Operating Modes
 You must switch modes to match the nature of the user's request.
-- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `../memory-bank/architect.md` and `../memory-bank/systemPatterns.md`.
-- **Code Mode** (`code`): Use when writing or editing code. Focus on `../memory-bank/activeContext.md` and `../memory-bank/productContext.md`.
-- **Debug Mode** (`debug`): Use when fixing errors. Focus on `../memory-bank/decisionLog.md` and `audit reports`.
-- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `../memory-bank/projectBrief.md`.
+- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `memory-bank/architect.md` and `memory-bank/systemPatterns.md`.
+- **Code Mode** (`code`): Use when writing or editing code. Focus on `memory-bank/activeContext.md` and `memory-bank/productContext.md`.
+- **Debug Mode** (`debug`): Use when fixing errors. Focus on `memory-bank/decisionLog.md` and `audit reports`.
+- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `memory-bank/projectBrief.md`.
 
 ---
 
@@ -114,11 +121,7 @@ I am the source of truth for the **Infrastructure**.
 - I determine *how* agents communicate (e.g., passing Prompts via function arguments).
 - I determine *where* output is stored (`Artifacts/`).
 
-### B. Ontology Injection
-**Rule:** Every time an agent is initialized, it **MUST** digest its respective Ontology file (`Director_Ontology.md` or `Cinematographer_Ontology.md`).
-- This ensures that agents "remember" their constraints and philosophy.
-
-### C. Persistent Memory & Learning
+### B. Persistent Memory & Learning
 **Rule:** The Copilot (Engineer) **MUST** utilize the persistent memory system to recall past technical decisions and log new insights.
 - **Recall:** When facing a technical problem, consult memory via the tool: `python DeepAgents/Copilot.py --solve "problem description"`
 - **Learn:** When a solution is confirmed, log it immediately: `python DeepAgents/Copilot.py --learn "solution description"`
@@ -140,17 +143,19 @@ I am the source of truth for the **Infrastructure**.
 ## Learned Technical Specifications
 
 ### A. Model Mandates (Strict)
-1. **Primary Model:** All agents MUST use **Gemini 3 Pro Preview** (referenced in code as `gemini-3-pro-preview`).
-2. **Primary Location:** The location for this model MUST be set to `global`.
-3. **Fallback Model:** If the primary model fails, fallback to `gemini-1.5-pro` or similar in the standard location (`us-central1`).
-4. **Error Protocol:**
+1. **Primary Model (LLM):** All agents MUST use **Anthropic Claude 3 Haiku** (referenced as `claude-3-haiku-20240307`).
+2. **Primary Model (Video):** MUST use **Zeroscope** or comparable Replicate model. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
+3. **Primary Model (Audio):** Replicate (ACE-Step, Minimax, or MusicGen).
+4. **Fallback Model:** If the primary Anthropic model fails, fallback to `gemini-1.5-flash` or similar in the standard location (`us-central1`).
+5. **Deprecated/Forbidden:** `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
+6. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.
     - Do NOT guess solutions.
     - **Consult the User** immediately if simple fixes fail.
     - **Research:** If the user insists on a fix, I MUST read the API/SDK documentation and use research tools types. I must NOT rely solely on internal training.
 
 ### B. LangChain/LangSmith Best Practices
-1. **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are for fallback only.
+1. **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are Not to be used.
 2. **Tracing:** `LANGCHAIN_TRACING_V2=true` must be enabled. All interactions must be traced.
 3. **Safety & Integrity (Directive):**
     - I am **NEVER** to do anything that will break the LangChain/LangSmith DeepAgents system or communication factors.

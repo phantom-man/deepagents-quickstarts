@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K. Wide establishing shot of a lively, neon-lit public plaza in the city center. People are walking through the plaza, passing by the shops and restaurants. Camera slowly pans across the scene, eventually settling on a group of friends gathered together, dressed in colorful, casual outfits reminiscent of the No Doubt aesthetic.",
+  "timestamp": 1768378473,
+  "date": "2026-01-14 01:14:34",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768378473_145f269f.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768378473_145f269f.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768378473_145f269f.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

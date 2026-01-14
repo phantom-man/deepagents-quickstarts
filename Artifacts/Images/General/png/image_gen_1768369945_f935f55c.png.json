@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K. Handheld camerawork, dynamic movement. Wide shots and close-ups of a diverse group of people dancing joyfully on a lively city street at night. Neon signs and streetlights provide colorful, vibrant lighting. Camera dances and flows through the crowd.",
+  "timestamp": 1768369945,
+  "date": "2026-01-13 22:52:26",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768369945_f935f55c.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768369945_f935f55c.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768369945_f935f55c.png",
+  "session_id": "2026-01-13_22-50-13",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

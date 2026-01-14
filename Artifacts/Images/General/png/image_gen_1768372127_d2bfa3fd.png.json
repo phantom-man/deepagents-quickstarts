@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K, wide establishing shot of a vibrant city street at night. Neon signs and storefronts illuminate the scene. A diverse crowd of people are dancing and moving to the music, their bodies a blur of motion.",
+  "timestamp": 1768372127,
+  "date": "2026-01-13 23:28:48",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768372127_d2bfa3fd.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768372127_d2bfa3fd.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768372127_d2bfa3fd.png",
+  "session_id": "2026-01-13_23-26-47",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

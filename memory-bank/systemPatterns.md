@@ -77,6 +77,16 @@ Rules:
 - **Zero-Touch Logic**: Agents query the Matrix to determine implementation details (e.g., "Use `langchain_google_genai` for Gemini").
 - **Priorities**: Agents overload capabilities based on priorities defined in the Matrix.
 
+### 10. Zero-Touch Prompt Management (Hub-First)
+
+- **Pattern**: "Self-Healing Hub Integration".
+- **Problem**: Hardcoded prompts in Python files drift from remote versions and are hard to edit.
+- **Solution**:
+  - `prompts.py` files act as the interface layer.
+  - Logic: Try `CLIENT.pull_prompt(repo)`.
+  - Fallback: If 404/Missing, `CLIENT.push_prompt(repo, local_default)`.
+- **Benfit**: The code always works (default fallback), but the "Truth" lives in the Hub, editable by non-coders.
+
 ### 5. Negative Feedback Loop
 
 The system learns from failure via explicit rejection logs:
@@ -97,6 +107,12 @@ The system learns from failure via explicit rejection logs:
 
 - **Rule**: Code must be linted and type-checked immediately after creation.
 - **Philosophy**: "Mediocrity is a bug."
+
+### The "Cardinal Context" Rule (Workflow)
+
+- **Rule**: When opening any code file for editing, I MUST read the entire file first to gain full context before applying changes.
+- **Why**: Blind edits based on assumptions or partial reads lead to regression, import errors, and logic disconnects.
+- **Protocol**: `read_file(path, 1, 1000)` -> Analyze -> Plan -> Edit.
 
 ## Common Idioms
 

@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K. Establishing wide shot of a bustling city plaza at night. Neon signs and lights illuminate the scene. A small stage is set up in the center, with a live band playing an upbeat, ska-influenced song. A group of friends are dancing enthusiastically in the plaza, their energy and joy drawing in more people to join them.",
+  "timestamp": 1768379478,
+  "date": "2026-01-14 01:31:19",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768379478_b3b88df1.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768379478_b3b88df1.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768379478_b3b88df1.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}
