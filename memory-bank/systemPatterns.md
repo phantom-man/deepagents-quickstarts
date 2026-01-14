@@ -94,6 +94,12 @@ The system learns from failure via explicit rejection logs:
 - `bad_examples.md` stores failed outputs (e.g., hallucinated research).
 - Agents MUST read this file during initialization to avoid repeating mistakes.
 
+### 11. Director Agent (Strict Planner Pattern)
+- **Role**: Pure generation of textual plans (Creative Directives).
+- **Constraints**:
+    - **No Tools**: The Director MUST NOT have access to tools (`validate_scene_logic`, `assemble_final_cut`). This prevents `GraphRecursionError` caused by infinite validation loops or hallucinated tool calls.
+    - **Prompt Engineering**: The prompt must explicitly forbid "reviewing" or "summarizing" the plan. It must output the plan directly.
+
 ## Design Patterns
 
 ### Zero-Touch Initialization (GUI)

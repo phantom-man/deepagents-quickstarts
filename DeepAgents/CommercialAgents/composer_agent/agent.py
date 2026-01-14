@@ -170,24 +170,24 @@ def check_service_status() -> Dict[str, bool]:
     return status_map
 
 
-@tool
-def composer_consult_research(topic: str) -> str:
-    """
-    Consults the Research Agent to understand musical styles, historical context,
-    or specific instruments.
-    """
-    # Lazy import to avoid circular dependencies
-    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-    
-    logger.info("🎻 Composer > 📞 Calling Research Agent about: %s", topic)
-    extra_config = {
-        "tags": ["sub-agent-call", "agent:researcher", "source:composer"],
-        "metadata": {"parent_agent": "Composer", "trigger": "tool_call"},
-    }
-    result = run_research_task(topic, extra_config=extra_config)
-    if result:
-        return result
-    return "Research Agent could not find significant information."
+# @tool
+# def composer_consult_research(topic: str) -> str:
+#    """
+#    Consults the Research Agent to understand musical styles, historical context,
+#    or specific instruments.
+#    """
+#    # Lazy import to avoid circular dependencies
+#    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
+#    
+#    logger.info("🎻 Composer > 📞 Calling Research Agent about: %s", topic)
+#    extra_config = {
+#        "tags": ["sub-agent-call", "agent:researcher", "source:composer"],
+#        "metadata": {"parent_agent": "Composer", "trigger": "tool_call"},
+#    }
+#    result = run_research_task(topic, extra_config=extra_config)
+#    if result:
+#        return result
+#    return "Research Agent could not find significant information."
 
 
 def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "minimax") -> Dict[str, str]:
@@ -694,7 +694,13 @@ def run_composer_task(request_description: str) -> str:
         
         final_response = ""
         if isinstance(result, dict) and "messages" in result:
-             final_response = result["messages"][-1].content
+             msg = result["messages"][-1]
+             if isinstance(msg.content, list):
+                 # Flatten list of blocks to string
+                 texts = [block.get("text", "") if isinstance(block, dict) else str(block) for block in msg.content]
+                 final_response = "\n".join(texts)
+             else:
+                 final_response = str(msg.content)
         else:
              final_response = str(result)
 

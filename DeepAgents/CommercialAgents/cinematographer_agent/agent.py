@@ -41,12 +41,12 @@ from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
 from DeepAgents.inter_agent_comms import discover_agents
 from DeepAgents.system_config import SystemConfiguration
 
-# Cross-Agent Imports
-try:
-    from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
-except ImportError:
-    logging.warning("Could not import Composer Agent directly. Cross-agent calls may fail.")
-    def run_composer_task(request_description: str) -> str: return "Error: Composer Interface Unavailable."
+# Cross-Agent Imports (REMOVED per strict isolation policy)
+# try:
+#     from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
+# except ImportError:
+#     logging.warning("Could not import Composer Agent directly. Cross-agent calls may fail.")
+#     def run_composer_task(request_description: str) -> str: return "Error: Composer Interface Unavailable."
 
 # Load Env
 ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
@@ -232,7 +232,7 @@ def create_cinematographer_agent(
         Returns local file path (and cloud link).
         """
         logger.info(f"🎥 Generating Video: {prompt[:40]}...")
-        if vid_provider != "Replicate":
+        if vid_provider.lower() != "replicate":
              return "Error: Only Replicate supported for video currently."
              
         try:
@@ -256,15 +256,6 @@ def create_cinematographer_agent(
             return f"Error Generating Video: {e}"
         return "Error: Video Generation returned no data."
 
-    def _consult_composer(request: str) -> str:
-        """
-        Consults the Composer Agent (Orpheus) for music/audio.
-        Use this if the director asks for a music video or specific audio sync.
-        Returns path to audio file or description.
-        """
-        logger.info(f"🎻 Consulting Composer: {request}")
-        return run_composer_task(request)
-
     # Wrap as LangChain Tools
     tools = [
         StructuredTool.from_function(
@@ -276,13 +267,7 @@ def create_cinematographer_agent(
             func=_generate_video,
             name="generate_video",
             description="Generates a VIDEO clip. This is the PRIMARY tool for the final output. Use this unless explicitly asked for a still."
-        ),
-        StructuredTool.from_function(
-            func=_consult_composer,
-            name="consult_composer",
-            description="Call Composer Agent for music/audio. Input: Description of music needed."
-        ),
-        discover_agents # NEW: Meta-Discovery capability
+        )
     ]
 
     # Bind Tools to LLM
@@ -377,8 +362,21 @@ def create_cinematographer_agent(
 
                 else:
                     # NO TOOL CALLS -> FINAL ANSWER
-                    yield ("done", response.content)
-                    return response.content
+                    final_content = response.content
+                    if isinstance(final_content, list):
+                        # Flatten Anthropic content blocks
+                        flat_text = []
+                        for block in final_content:
+                            if isinstance(block, dict) and "text" in block:
+                                flat_text.append(block["text"])
+                            elif isinstance(block, str):
+                                flat_text.append(block)
+                            else:
+                                flat_text.append(str(block))
+                        final_content = "\n".join(flat_text)
+                    
+                    yield ("done", final_content)
+                    return final_content
 
             except Exception as e:
                 logger.error(f"ReAct Loop Error: {e}")
@@ -424,6 +422,12 @@ def run_cinematographer_task(request_description: str) -> str:
             # If any asset remains unapproved, we must halt the Director
             # We return the FIRST pending asset to avoid flooding
             asset = pending_assets[0]
+            
+            # FIX: If we have an asset but no final text output (early exit), use the asset message.
+            if not final_output:
+                logger.info("Auto-resolving output for generated asset: %s", asset)
+                final_output = f"Visual Asset Created: {asset}"
+                
             # HITL DISABLED: Always proceed
             # if not is_asset_approved(asset):
             #      return f"HITL_REVIEW_REQUIRED: {asset}"

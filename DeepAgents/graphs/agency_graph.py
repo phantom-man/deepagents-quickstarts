@@ -487,7 +487,7 @@ workflow = StateGraph(AgentState)
 
 # Nodes
 workflow.add_node("director", director_node)
-workflow.add_node("researcher", researcher_node)
+# workflow.add_node("researcher", researcher_node) # SKIPPING RESEARCHER
 # workflow.add_node("validator", validator_node) # SKIPPING VALIDATOR
 workflow.add_node("cinematographer", cinematographer_node)
 workflow.add_node("composer", composer_node)
@@ -495,12 +495,12 @@ workflow.add_node("editor", editor_node)
 
 # Edges
 workflow.set_entry_point("director")
-workflow.add_edge("director", "researcher")
+# workflow.add_edge("director", "researcher") # SKIPPING RESEARCHER
 # workflow.add_edge("researcher", "validator") # SKIPPING VALIDATOR
 
 # Conditional Edge (Router)
 workflow.add_conditional_edges(
-    "researcher", # Converted from validator to researcher
+    "director", # Direct to Validation Router (which skips to Production)
     validation_router,
     # path_map dictionary used to map return values to node names
     {

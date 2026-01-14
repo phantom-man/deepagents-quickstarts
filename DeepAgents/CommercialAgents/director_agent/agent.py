@@ -182,13 +182,10 @@ def create_director_agent(
     # Let's try to filter tools to ensure they are clean Pydantic tools
     # Using 'tool' decorator makes them StructuredTool.
     
+    # STRICT MODE: Director only Plans. Tools removed to prevent GraphRecursionError.
     agent = create_deep_agent(
         model=cast(BaseChatModel, model),
-        tools=[
-            validate_scene_logic,
-            # consult_agent_tools_removed,   # STRICT MODE: Director only Plans.
-            assemble_final_cut,              # Kept strictly for self-correction awareness, but Prompt forbids early use.
-        ],
+        tools=[],  # Empty tools enables pure Chat/Generation mode (No looping)
         system_prompt=hub_prompt,
         checkpointer=checkpointer
     )
