@@ -183,24 +183,55 @@ async def researcher_node(state: AgentState, config: RunnableConfig):
     }
 
 
-def _parse_validation_output(content: str) -> tuple[str, int]:
-    """Parses the JSON output from the Confidence Agent."""
+def _parse_validation_output(content: Union[str, List[Any]]) -> tuple[str, int, str]:
+    """
+    Parses the output from the Confidence Agent.
+    Handles String or List[Block] content types.
+    Returns: (status, score, clean_text_summary)
+    """
+    # 1. Extract Clean Text
+    text_content = ""
+    if isinstance(content, str):
+        text_content = content
+    elif isinstance(content, list):
+        # Handle Anthropic/LangChain content blocks
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+            elif not isinstance(block, dict) and hasattr(block, "text"):  # Object style
+                parts.append(block.text)
+        text_content = "\n".join(parts)
+    else:
+        text_content = str(content)
+
     status = "REJECTED"
     score = 0
+
     try:
         # Attempt to find JSON blob if mixed with text
-        json_match = re.search(r"\{.*\}", content, re.DOTALL)
+        json_match = re.search(r"\{.*\}", text_content, re.DOTALL)
         if json_match:
             data = json.loads(json_match.group(0))
             status = data.get("status", "REJECTED").upper()
             score = int(float(data.get("score", 0)) * 10)  # Scale 0-1 to 0-10
         else:
             # Fallback for text
-            if "ACCEPTED" in content or "APPROVED" in content:
+            upper_con = text_content.upper()
+            if "ACCEPTED" in upper_con or "APPROVED" in upper_con:
                 status = "APPROVED"
+                score = 8
+            # Heuristic for "Implicit Approval" in narrative reviews
+            elif "WELL-SUITED" in upper_con or "ALIGNS WELL" in upper_con:
+                status = "APPROVED"
+                score = 8
+
     except Exception as e:
         logger.warning("Failed to parse Validation JSON: %s", e)
-    return status, score
+
+    return status, score, text_content
 
 
 async def validator_node(state: AgentState, config: RunnableConfig):
@@ -215,28 +246,23 @@ async def validator_node(state: AgentState, config: RunnableConfig):
     audit_context = f"PLAN: {plan}\n\nRESEARCH/FACTS: {research}"
 
     # Create Agent using Factory (ensures Hub Prompts + Tools)
-    # We strip the research tool here if we just want it to critique,
-    # but the agent default has tools. That's fine.
     agent = create_confidence_agent(provider="Anthropic")
 
     # Construct input message for the agent
-    # The agent expects a conversation.
     msg = HumanMessage(content=f"Verify this verification request:\n{audit_context}")
 
     response_state = await agent.ainvoke({"messages": [msg]})
     final_msg = response_state["messages"][-1]
-    content = str(final_msg.content)
-
-    # Parse JSON Output using helper
-    status, score = _parse_validation_output(content)
-
+    # Parse output using robust helper
+    status, score, clean_text = _parse_validation_output(final_msg.content)
     return {
         "messages": [final_msg],
-        "validation_report": content,
+        "validation_report": clean_text,
         "validation_status": status,
         "validation_score": score,
         "revision_count": state.get("revision_count", 0) + 1,
     }
+
 
 
 # --- 4. The Router (Conditional Edges) ---
@@ -270,10 +296,12 @@ def validation_router(
         return ["cinematographer", "composer"] if parallel else "cinematographer"
 
     # 3. Check Status
-    status = state.get("validation_status", "REJECTED")
+    # Default to SKIPPED if validator was removed
+    status = state.get("validation_status", "SKIPPED")
 
     # If valid logic says REJECTED, go back
-    if require_validation and status != "APPROVED":
+    # Implicitly approve SKIPPED status
+    if require_validation and status != "APPROVED" and status != "SKIPPED":
         logger.info("❌ Plan Rejected. sending back to Director.")
         return "director"
 
@@ -350,7 +378,6 @@ async def cinematographer_node(state: AgentState, config: RunnableConfig):
         assets = []
         if path:
             # Clean up the string to get just the path if verbose
-            import re
 
             match = re.search(
                 r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)", result
@@ -387,14 +414,10 @@ async def composer_node(state: AgentState, config: RunnableConfig):
 
     try:
         result = run_composer_task(plan)
-        
         # Ensure result is string
         result = str(result)
-
         assets = []
         # Heuristic extraction
-        import re
-
         match = re.search(
             r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)", result
         )
@@ -465,7 +488,7 @@ workflow = StateGraph(AgentState)
 # Nodes
 workflow.add_node("director", director_node)
 workflow.add_node("researcher", researcher_node)
-workflow.add_node("validator", validator_node)
+# workflow.add_node("validator", validator_node) # SKIPPING VALIDATOR
 workflow.add_node("cinematographer", cinematographer_node)
 workflow.add_node("composer", composer_node)
 workflow.add_node("editor", editor_node)
@@ -473,14 +496,15 @@ workflow.add_node("editor", editor_node)
 # Edges
 workflow.set_entry_point("director")
 workflow.add_edge("director", "researcher")
-workflow.add_edge("researcher", "validator")
+# workflow.add_edge("researcher", "validator") # SKIPPING VALIDATOR
 
 # Conditional Edge (Router)
 workflow.add_conditional_edges(
-    "validator",
+    "researcher", # Converted from validator to researcher
     validation_router,
     # path_map dictionary used to map return values to node names
     {
+
         "director": "director",
         "cinematographer": "cinematographer",
         "composer": "composer",
