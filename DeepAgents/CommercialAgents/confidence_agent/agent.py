@@ -90,13 +90,12 @@ def create_confidence_agent(model_name="claude-3-haiku-20240307", provider="Anth
         )
 
     # Create the Deep Agent
-    # 🔗 HUB INTEGRATION: Pull System Prompt
-    hub_prompt = get_or_push_prompt("confidence-system-prompt", CONFIDENCE_INSTRUCTIONS)
-
+    # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
+    
     agent = create_deep_agent(
         model=model,
         tools=[consult_research_agent],
-        system_prompt=hub_prompt,
+        system_prompt=CONFIDENCE_INSTRUCTIONS,
     )
 
     return agent

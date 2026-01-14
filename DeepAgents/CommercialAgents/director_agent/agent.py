@@ -24,14 +24,17 @@ from DeepAgents.hub_manager import get_or_push_prompt
 # Local imports
 # PYTHONPATH should be set to repo root
 try:
-    from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
+    from DeepAgents.CommercialAgents.director_agent.prompts import (
+        DIRECTOR_INSTRUCTIONS,
+        SCENE_VALIDATION_PROMPT
+    )
     from DeepAgents.editor_tools import merge_video_audio_logic
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
     from DeepAgents.editor_tools import merge_video_audio_logic
-
     # Note: If these fail in fallback, the script will crash, but environment should be consistent now.
+    SCENE_VALIDATION_PROMPT = "CRITIQUE THIS SCENE: {scene_description}"
 
 
 # Load environment variables
@@ -65,16 +68,7 @@ def validate_scene_logic(scene_description: str) -> str:
         logger.error("Validator LLM Init Failed: %s", e)
         return "Validation System Offline (Check Replicate Token)"
 
-    prompt = f"""
-    CRITIQUE THIS SCENE for internal logic, continuity errors, and plot holes.
-    
-    SCENE:
-    {scene_description}
-    
-    Is this physically and narratively sound?
-    If YES, respond only with: PASS
-    If NO, list the specific logical errors.
-    """
+    prompt = SCENE_VALIDATION_PROMPT.format(scene_description=scene_description)
 
     try:
         response = validator_llm.invoke(prompt)
@@ -89,19 +83,26 @@ def validate_scene_logic(scene_description: str) -> str:
 @tool
 def assemble_final_cut(video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4") -> str:
     """
-    Assembles the final video by merging video clips and an audio track.
-    Use this when you have collected all necessary assets (video and audio).
-    
-    Args:
-        video_paths: List of file paths to the video clips.
-        audio_path: File path to the audio track (music/voice).
-        output_name: Desired filename for the output.
-        
-    Returns:
-        Path to the final assembled video file.
+    Simulates the assembly of the final video.
+    NOTE: DO NOT CALL THIS unless you have ACTUAL FILE PATHS from the other agents.
+    If you do not have paths, just output the PLAN.
     """
-    logger.info("🎬 Director > ✂️ Assembling Final Cut: %s + %s", video_paths, audio_path)
-    return merge_video_audio_logic(video_paths, audio_path, output_name)
+    logger.info("🎬 Director > ✂️ Assembling Final Cut (Simulation)...")
+    # We deliberately return a placeholder to prevent the Director from crashing if it calls this early
+    # But ideally, it shouldn't call this at all in Phase 1.
+    return "ASSEMBLY_QUEUED" # Prevent actual merge logic which throws errors on fake paths
+
+
+# --- SUB-AGENT DELEGATION TOOLS REMOVED ---
+# The Director is a Pure Planner. The execution pipeline (App/Graph) handles the hand-offs
+# based on the Director's structured textual output.
+
+# @tool
+# def consult_research_agent... (REMOVED)
+# @tool
+# def consult_composer_agent... (REMOVED)
+# @tool
+# def consult_cinematographer_agent... (REMOVED)
 
 
 def create_director_agent(
@@ -185,11 +186,8 @@ def create_director_agent(
         model=cast(BaseChatModel, model),
         tools=[
             validate_scene_logic,
-            # consult_research_agent,        # Removed per User Request (Simplify)
-            # consult_composer_agent,        # Removed per User Request (Simplify)
-            # consult_cinematographer_agent, # Removed per User Request (Simplify)
-            assemble_final_cut,
-            # discover_agents,               # Removed per User Request (Simplify)
+            # consult_agent_tools_removed,   # STRICT MODE: Director only Plans.
+            assemble_final_cut,              # Kept strictly for self-correction awareness, but Prompt forbids early use.
         ],
         system_prompt=hub_prompt,
         checkpointer=checkpointer

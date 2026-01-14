@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AssetGenerator")
 
 # Target Directory
-VOICE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data/voices"))
+VOICE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../Artifacts/Audio/Voices"))
 os.makedirs(VOICE_DIR, exist_ok=True)
 
 # Generate 5 Distinct "Vocal" References

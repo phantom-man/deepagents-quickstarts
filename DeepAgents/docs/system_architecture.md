@@ -12,18 +12,18 @@ graph TD
     Runner[Agent Runner]:::tool
     
     subgraph "Pipeline Execution (Zero Touch)"
-        Director[Director Agent <br/> (Concept)]:::agent
-        Research[Research Agent <br/> (Fact Check)]:::agent
-        Confidence[Confidence Agent <br/> (Audit)]:::agent
-        Cinema[Cinematographer Agent <br/> (Visuals)]:::agent
-        Composer[Composer Agent <br/> (Audio)]:::agent
-        Editor[Editor Logic <br/> (Merge)]:::tool
+        Director["Director Agent <br/> (Concept)"]:::agent
+        Research["Research Agent <br/> (Fact Check)"]:::agent
+        Confidence["Confidence Agent <br/> (Audit)"]:::agent
+        Cinema["Cinematographer Agent <br/> (Visuals)"]:::agent
+        Composer["Composer Agent <br/> (Audio)"]:::agent
+        Editor["Editor Logic <br/> (Merge)"]:::tool
     end
     
     subgraph "Data & Memory"
-        LanceDB[LanceDB <br/> (Semantic Memory)]:::storage
-        Postgres[Postgres <br/> (Checkpoints & Comms)]:::storage
-        GCS[Google Cloud Storage <br/> (Asset Artifacts)]:::storage
+        LanceDB["LanceDB <br/> (Semantic Memory)"]:::storage
+        Postgres["Postgres <br/> (Checkpoints & Comms)"]:::storage
+        GCS["Google Cloud Storage <br/> (Asset Artifacts)"]:::storage
     end
 
     User -->|Click Action| App

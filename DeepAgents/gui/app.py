@@ -4,6 +4,9 @@ import os
 import sys
 from dotenv import load_dotenv
 
+# Ensure set_page_config is the VERY FIRST command
+st.set_page_config(page_title="DeepAgents HQ", layout="wide", page_icon="🎬")
+
 # Load environment variables
 load_dotenv()
 
@@ -20,16 +23,25 @@ from DeepAgents.cost_calculator import estimate_cost
 # Initialize Config
 @st.cache_resource
 def get_config_manager():
-    return AgentConfig()
+    try:
+        return AgentConfig()
+    except Exception as e:
+        st.error(f"Critical Config Error: {e}")
+        raise e
 
 @st.cache_resource
 def get_asset_manager():
     return AssetManager()
 
-config_manager = get_config_manager()
-asset_manager = get_asset_manager()
+try:
+    config_manager = get_config_manager()
+    asset_manager = get_asset_manager()
+except Exception as e:
+    st.error(f"Initialization Failed: {e}")
+    st.stop()
 
-st.set_page_config(page_title="DeepAgents HQ", layout="wide", page_icon="🎬")
+
+# st.set_page_config(page_title="DeepAgents HQ", layout="wide", page_icon="🎬")
 
 # --- CSS / STYLING ---
 st.markdown("""
@@ -201,110 +213,56 @@ with tab_director:
                 runner = AgentRunner(manager)
         
         with output_container:
-            st.info(f"Session started: {manager.session_id}")
+            st.info(f"Session started: {manager.session_id} (Running Studio Graph)")
             
-            # --- PHASE 1: DIRECTION ---
+            # --- FULL STUDIO GRAPH EXECUTION ---
+            # We replace the manual phase logic with the single graph runner.
+            
             director_result = ""
-            for agent, type_, content in runner.stream_director(directive): 
+            current_agent = None
+            
+            for agent, type_, content in runner.stream_agency_graph(directive): 
                 # Log to state
                 st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
+                
+                # Visual Dividers for Agent Switches
+                if agent != current_agent:
+                    st.divider()
+                    st.caption(f"🔄 Switching Context to: **{agent}**")
+                    current_agent = agent
                 
                 if type_ == "thinking":
                     with st.expander(f"💭 {agent} Thinking...", expanded=False):
                         st.markdown(content)
                 elif type_ == "output":
-                     st.markdown(f"### 🎬 {agent} Output")
+                     st.markdown(f"### {agent} Output")
                      st.markdown(content)
-                     director_result += content
+                     
+                     # Capture special final outputs
+                     if "**FINAL MERGE**" in content:
+                         import re
+                         path_match = re.search(r':\s*(.*)', content)
+                         if path_match:
+                             path = path_match.group(1).strip()
+                             st.session_state.final_asset_path = path
+                             st.success(f"🎬 FINAL CUT COMPLETE!")
+                             st.video(path)
+                             st.markdown(f"**Path**: `{path}`")
+
                 elif type_ == "error":
                     st.error(content)
+ 
+            # but we need to ensure the merge function actually SEES them.
             
-            st.session_state.director_result = director_result
-
-            # --- PHASE 2: RESEARCH & CONFIDENCE (Zero Touch Chain) ---
-            research_result = ""
-            confidence_result = ""
-            if director_result:
-                st.divider()
-                st.info("🎬 Director > 🔎 Handoff to Researcher...")
-                # Run Research on the Director's output
-                for agent, type_, content in runner.run_research_direct(director_result):
-                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
-                    if type_ == "thinking":
-                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
-                             st.markdown(content)
-                    elif type_ == "output":
-                         st.markdown(f"### 🔎 Research Output")
-                         st.markdown(content)
-                         research_result = content
-                    elif type_ == "error":
-                         st.error(content)
-
-                st.divider()
-                st.info("🔎 Research > ⚖️ Handoff to Confidence Audit...")
-                # Audit the Combined Context
-                audit_ctx = f"DIRECTOR PLAN: {director_result}\n\nRESEARCH DATA: {research_result}"
-                for agent, type_, content in runner.run_confidence_task(audit_ctx):
-                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
-                    if type_ == "thinking":
-                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
-                             st.markdown(content)
-                    elif type_ == "output":
-                         st.markdown(f"### ⚖️ Confidence Report")
-                         st.markdown(content)
-                         confidence_result = content
-                    elif type_ == "error":
-                         st.error(content)
-
-            # --- PHASE 3: CINEMATOGRAPHY (AUTO-HANDOFF) ---
-            if director_result:
-                st.divider()
-                st.info("⚖️ Confidence > 🎥 Handoff to Cinematographer...")
-                # Autonomous mode: Agent decides shots/duration based on prompt or defaults
-                # We pass defaults to ensure safety, but Agent is autonomous
-                # FIXED: Mode set to 'both' to generate VIDEO and IMAGES
-                for agent, type_, content in runner.run_cinematographer(
-                    director_result, 
-                    mode="both",        # FIXED: Was 'storyboard'
-                    max_shots=3,        # Increased from 1
-                    duration_sec=4
-                ): 
-                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
-                    if type_ == "thinking":
-                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
-                             st.markdown(content)
-                    elif type_ == "output":
-                         st.markdown(f"### 🎥 Visual Output")
-                         st.markdown(content)
-                    elif type_ == "error":
-                         st.error(content)
-
-                # --- PHASE 3: COMPOSER (AUTO-HANDOFF) ---
-                st.divider()
-                st.info("🎬 Director > 🎻 Handoff to Composer...")
-                for agent, type_, content in runner.run_composer(director_result): 
-                    st.session_state.agent_logs.append({"agent": agent, "type": type_, "content": content})
-                    if type_ == "thinking":
-                        with st.expander(f"💭 {agent} Thinking...", expanded=False):
-                             st.markdown(content)
-                    elif type_ == "output":
-                         st.markdown(f"### 🎻 Audio Output")
-                         st.markdown(content)
-                    elif type_ == "error":
-                         st.error(content)
-
-                # --- PHASE 4: EDITING (MERGE) ---
-                st.divider()
-                st.info("✂️ Bringing it all together (Merging)...")
-                # Automatically attempt merge
-                merge_result = runner.run_editor_merge(manager.session_id)
-                if merge_result:
-                     st.success(f"🎬 FINAL CUT COMPLETE!")
-                     st.video(merge_result)
-                     st.markdown(f"**Path**: `{merge_result}`")
-                     st.session_state.final_asset_path = merge_result
-                else:
-                     st.warning("Could not merge assets (Missing video or audio?)")
+            # Automatically attempt merge with explicitly captured audio if available
+            # merge_result = runner.run_editor_merge(manager.session_id, audio_override=composer_audio_path)
+            # if merge_result:
+            #          st.success(f"🎬 FINAL CUT COMPLETE!")
+            #          st.video(merge_result)
+            #          st.markdown(f"**Path**: `{merge_result}`")
+            #          st.session_state.final_asset_path = merge_result
+            # else:
+            #          st.warning("Could not merge assets (Missing video or audio?)")
     
     # RENDER PERSISTED RESULTS (If not running now, but have results)
     elif st.session_state.get("agent_logs") and mode == "Live Operation":

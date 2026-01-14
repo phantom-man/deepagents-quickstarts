@@ -43,11 +43,25 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "music_generation",
                     "models": [
                         { 
+                            "id": "lucataco/ace-step", 
+                            "priority": 110, 
+                            "description": "State-of-the-art text-to-music with lyric alignment.",
+                            "supports_lyrics": True,
+                            "max_duration_seconds": 240
+                        },
+                        { 
                             "id": "minimax/music-1.5", 
                             "priority": 100, 
                             "description": "High fidelity instrumental and lyrical music generation.",
                             "supports_lyrics": True,
                             "max_duration_seconds": 240
+                        },
+                        { 
+                            "id": "google/lyria-2", 
+                            "priority": 90, 
+                            "description": "Google DeepMind MusicLM v2.",
+                            "supports_lyrics": False,
+                            "max_duration_seconds": 60
                         },
                         { 
                             "id": "meta/musicgen", 
@@ -62,12 +76,12 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "voice_generation",
                     "models": [
                         {
-                            "id": "elevenlabs/multilingual-v2",
+                            "id": "lucataco/xtts-v2",
                             "priority": 100
                         },
                          {
-                            "id": "lucataco/xtts-v2",
-                            "priority": 80
+                            "id": "minimax/speech-01",
+                            "priority": 90
                         }
                     ],
                     "asset_paths": {
@@ -75,6 +89,14 @@ DEFAULT_SYSTEM_CONFIG = {
                     }
                 }
             ]
+        },
+        "Researcher": {
+            "intelligence_model": "anthropic/claude-3-haiku-20240307",
+            "provider": "Anthropic"
+        },
+        "Confidence": {
+            "intelligence_model": "anthropic/claude-3-haiku-20240307",
+            "provider": "Anthropic"
         },
         "Cinematographer": {
              "intelligence_model": "anthropic/claude-3-haiku-20240307",

@@ -87,13 +87,12 @@ def create_research_agent(model_name="claude-3-haiku-20240307", provider="Anthro
             )
 
     # Create the Deep Agent
-    # 🔗 HUB INTEGRATION: Pull System Prompt
-    hub_prompt = get_or_push_prompt("researcher-system-prompt", RESEARCHER_INSTRUCTIONS)
-
+    # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
+    
     agent = create_deep_agent(
         model=model,
         tools=[tavily_search, scrape_webpage, arxiv_search, submit_finding_for_review],
-        system_prompt=hub_prompt,
+        system_prompt=RESEARCHER_INSTRUCTIONS,
     )
 
     return agent
@@ -170,11 +169,19 @@ def run_research_task(topic: str,
         past_research = memory.recall(topic, limit=2)
         if past_research:
             print("💡 Found existing knowledge!")
-            context_injection += "\n\nEXISTING KNOWLEDGE (Do not repeat, but build upon):\n"
+            # CACHE HIT LOGIC: If we found a substantial previous report, return it immediately to save time/cost.
             for res in past_research:
                 txt = res.text if hasattr(res, "text") else res.get('text', '')
+                # If it looks like a full report (heuristic: length > 1000 chars or has header)
+                if len(txt) > 1000 or "<h1>" in txt or "# Final Report" in txt:
+                    print("⚡ CACHE HIT: Returning existing research report.")
+                    return f"<!-- RECOVERED FROM MEMORY -->\n{txt}"
+                
                 print(f"   Context: {txt[:200]}...")
                 context_injection += f"- {txt}\n"
+            
+            if context_injection:
+                context_injection = "\n\nEXISTING KNOWLEDGE (Do not repeat, but build upon):\n" + context_injection
 
         # B. Negative Reinforcement (Learn from Mistakes)
         # Search for rejected findings related to this topic
@@ -212,7 +219,7 @@ def run_research_task(topic: str,
         print("   (Agent thinking... output suppressed to keep terminal clean)")
         
         # Inject memory into the user prompt
-        user_prompt = f"Research this topic and provide a comprehensive summary: {topic}"
+        user_prompt = f"Research this topic and provide a comprehensive summary: {topic}\n\nOUTPUT FORMAT: HTML. Use <h1>, <h2>, <p>, <ul> tags. Do NOT use Markdown (```html)."
         if context_injection:
             user_prompt += context_injection
             
@@ -243,10 +250,27 @@ def run_research_task(topic: str,
         try:
             from DeepAgents.asset_manager import AssetManager
             assets = AssetManager()
+            
+            # Formatting as HTML
+            html_content = f"""
+            <html>
+            <head><title>Research: {topic[:30]}</title></head>
+            <body>
+            <h1>Research Report</h1>
+            <h3>Topic: {topic}</h3>
+            <hr>
+            <div style='white-space: pre-wrap;'>
+            {final_answer}
+            </div>
+            </body>
+            </html>
+            """
+            
             saved_doc = assets.save_text_document(
-                text=final_answer,
+                text=html_content,
                 title=f"Research_{topic[:30]}",
-                session_id="research_autonomous"
+                session_id="research_autonomous",
+                extension="html"
             )
             cloud_url = saved_doc.get("cloud_url")
             if cloud_url and "http" in cloud_url:

@@ -34,9 +34,29 @@
 - **Problem**: `HTTP 400 No Owner`/`403 Forbidden` errors when pulling prompts from LangSmith Hub, despite valid keys in `.env`.
 - **Root Cause**: Organization-Scoped Keys require an explicit `workspace_id` context. The previous implementation relied on `os.environ`, which was unreliable in the complex `ignite_atlas` runtime (likely due to import ordering or caching).
 - **Resolution**: Refactored `DeepAgents/hub_manager.py` to:
-  1.  Dynamically load `.env`.
-  2.  Extract `LANGSMITH_WORKSPACE_ID`.
-  3.  Inject it directly into the `Client(api_key=..., workspace_id=...)` constructor.
+  1. Dynamically load `.env`.
+  2. Extract `LANGSMITH_WORKSPACE_ID`.
+  3. Inject it directly into the `Client(api_key=..., workspace_id=...)` constructor.
 - **Outcome**: Prompt sync restored. "Strict Mode" (crash on missing prompt) is now safe to enable.
 
 **Status**: Ready for Ignition.
+
+### 6. Anthropic & Observability Shift (January 12, 2026)
+
+- **Change Directive**: User mandated immediate switch from Google Gemini to **Anthropic Claude 3 Haiku** as the primary cognitive engine.
+- **Reasoning**: Stability and Ontology alignment ("Cognitive Engine" definition).
+- **Observability**: Removed `OTLP` (OpenTelemetry) local collector requirement. Switched to direct **LangChain Tracing** (Cloud).
+- **Instruction Sync**: `copilot-instructions.md` updated to reflect absolute paths (`../DeepAgents/...`) and the new tech stack to prevent hallucination of legacy configs.
+- **Outcome**: System Instructions now align with the `system_config.py` reality.
+
+**Status**: Instructions Synced. Codebase Logic Aligned.
+
+### 7. LangGraph Server Protocol Optimization (January 13, 2026)
+
+- **Problem**: Repeated failures when starting `langgraph_cli` from Project Root (`Invalid value for '--config'`).
+- **Diagnosis**: `langgraph.json` contains relative paths (`./graph_app.py`) that fail unless the shell's active directory is `DeepAgents/`.
+- **Learning**: The server MUST be launched from the subdirectory context.
+- **Action**: Updated `copilot-instructions.md` with the compulsory command pattern: `cd DeepAgents; python -m langgraph_cli dev ...`.
+- **Outcome**: Zero-shot server startup reliability established.
+
+**Status**: Operational Protocols Hardened.

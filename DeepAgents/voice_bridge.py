@@ -80,9 +80,8 @@ async def speak_text(text: str):
             logger.info("🗣️ Replicate Speaking: %s", text[:50])
             
             # Locate local voice file
-            # Path: DeepAgents/DeepAgents/data/voices/male_deep_narrator_ref.wav relative to root
-            # voice_bridge.py is in DeepAgents/
-            voice_path = os.path.join(os.path.dirname(__file__), "DeepAgents", "data", "voices", "male_deep_narrator_ref.wav")
+            # Path: Artifacts/Audio/Voices/male_deep_narrator_ref.wav relative to root
+            voice_path = os.path.join(os.path.dirname(__file__), "..", "Artifacts", "Audio", "Voices", "male_deep_narrator_ref.wav")
             
             if os.path.exists(voice_path):
                 speaker_input = open(voice_path, "rb")

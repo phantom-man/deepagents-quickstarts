@@ -23,12 +23,12 @@ except Exception as e:
 try:
     print("\nTesting Minimax Music-01 with Voice File...")
     model = "minimax/music-01"
-    voice_path = r"DeepAgents\DeepAgents\data\voices\male_deep_narrator_ref.wav" # Using path from context or similar
+    voice_path = r"Artifacts\Audio\Voices\male_deep_narrator_ref.wav" # Using path from context or similar
     # Adjust path if needed
     if not os.path.exists(voice_path):
          # Search for a valid voice file
          import glob
-         voices = glob.glob("DeepAgents/data/voices/*.mp3")
+         voices = glob.glob("Artifacts/Audio/Voices/*.mp3")
          if voices:
              voice_path = voices[0]
          else:

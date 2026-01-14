@@ -5,7 +5,8 @@
     "director": "./graph_app.py:director_graph",
     "composer": "./graph_app.py:composer_graph",
     "confidence": "./graph_app.py:confidence_graph",
-    "cinematographer": "./graph_app.py:cinematographer_graph"
+    "cinematographer": "./graph_app.py:cinematographer_graph",
+    "agency": "./graphs/agency_graph.py:app"
   },
   "env": ".env"
 }

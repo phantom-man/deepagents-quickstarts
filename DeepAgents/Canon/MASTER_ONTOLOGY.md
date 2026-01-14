@@ -12,9 +12,9 @@ This ensures that changes to agent behavior (e.g., swapping a model, disabling a
 
 ## Global Directives (Applied to All Agents)
 
-1.  **Read Protocol:** You MUST read every new prompt from beginning to end before taking action or planning development.
-2.  **Cognitive Engine:** Default LLM is **Anthropic Claude 3 Haiku** (unless overridden by `deepagents-system-config`).
-3.  **Context Awareness:** Always check `SystemConfiguration` before assuming tool availability.
+1. **Read Protocol:** You MUST read every new prompt from beginning to end before taking action or planning development.
+2. **Cognitive Engine:** Default LLM is **Anthropic Claude 3 Haiku** (unless overridden by `deepagents-system-config`).
+3. **Context Awareness:** Always check `SystemConfiguration` before assuming tool availability.
 
 ## Agent Definitions (Hub Repositories)
 

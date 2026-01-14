@@ -132,9 +132,9 @@ def generate_voice_library():
         logger.error("❌ Replicate SDK is not installed. Run: pip install replicate")
         return
 
-    # Define Output Directory: DeepAgents/data/voices
+    # Define Output Directory: Artifacts/Audio/Voices
     script_dir = Path(__file__).resolve().parent
-    output_dir = script_dir / "data" / "voices"
+    output_dir = script_dir.parent / "Artifacts" / "Audio" / "Voices"
 
     # Ensure directory exists
     try:

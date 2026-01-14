@@ -24,6 +24,9 @@ from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_age
 from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
     create_cinematographer_agent,
 )
+# NEW: Import The Studio Graph
+from DeepAgents.graphs.agency_graph import app as studio_graph
+
 from DeepAgents.agent_brain import AgentConfig, AgentMemory, AgentComms
 from DeepAgents.persistence import get_postgres_checkpointer
 
@@ -40,6 +43,119 @@ class AgentRunner:
 
         # OTLP Configuration removed to favor standard LangChain Tracing (HTTP)
         # This prevents ConnectionRefusedError if no local OTLP collector is running.
+        
+    def stream_agency_graph(self, directive: str):
+        """
+        Runs the full LangGraph Studio Pipeline (Director->Research->Validation->Prod).
+        Yields standard GUI events: (AgentName, Type, Content).
+        """
+        self.session.log_event("System", "info", f"Starting Studio Graph for: {directive}")
+        
+        import queue
+        import threading
+        
+        event_queue = queue.Queue()
+        
+        async def run_loop():
+            try:
+                # Use Persistence
+                async with get_postgres_checkpointer() as checkpointer:
+                    # Note: Our studio_graph is pre-compiled. To use checkpointer, 
+                    # we should have compiled it with checkpointer. 
+                    # Re-compiling or using the global one if configured for Postgres.
+                    # Current `agency_graph.py` uses MemorySaver or None by default.
+                    
+                    # For now, we run it as is, or pass checkpointer if refactored.
+                    # We will use the standard invoke for simplicity in this version,
+                    # mapping graph events to UI events.
+                    
+                    config = {
+                        "configurable": {
+                            "thread_id": f"studio_{self.session.session_id}",
+                            "require_validation": True,
+                            "merge_output": True
+                        },
+                        "tags": ["deep-agents-studio", "gui-triggered"],
+                    }
+
+                    # We use astream to get node outputs as they complete
+                    async for event in studio_graph.astream(
+                        {"messages": [("user", directive)]},
+                        config=config,
+                    ):
+                        # Event Format: {'node_name': {'key': val, ...}}
+                        for node_name, state_update in event.items():
+                            
+                            # Map Node -> GUI Agent Name
+                            agent_map = {
+                                "director": "Director",
+                                "researcher": "Researcher",
+                                "validator": "Confidence",
+                                "cinematographer": "Cinematographer",
+                                "composer": "Composer",
+                                "editor": "Editor"
+                            }
+                            gui_name = agent_map.get(node_name, node_name.capitalize())
+                            
+                            # Extract Content
+                            # Our graph nodes return 'messages', 'director_plan', etc.
+                            
+                            # 1. Look for AI Messages (Chat Output)
+                            if "messages" in state_update:
+                                msgs = state_update["messages"]
+                                if msgs:
+                                    last_msg = msgs[-1]
+                                    if hasattr(last_msg, "content") and last_msg.content:
+                                        content = last_msg.content
+                                        event_queue.put((gui_name, "output", content))
+                            
+                            # 2. Look for specific structured updates (Thinking/Status)
+                            if "validation_status" in state_update:
+                                status = state_update["validation_status"]
+                                event_queue.put((gui_name, "output", f"**Validation Status**: {status}"))
+                                
+                            if "final_output" in state_update:
+                                path = state_update["final_output"]
+                                event_queue.put((gui_name, "output", f"**FINAL MERGE**: {path}"))
+
+            except Exception as e:
+                import traceback
+                event_queue.put(("System", "error", f"Graph Error: {str(e)}\n{traceback.format_exc()}"))
+            finally:
+                event_queue.put(None)
+
+        # Sync-to-Async Bridge
+        try:
+             # Win32 Policy fix
+            if sys.platform == "win32":
+                asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+            def start_loop():
+                try:
+                    asyncio.run(run_loop())
+                except Exception as ex:
+                    event_queue.put(("System", "error", f"Async Thread Error: {ex}"))
+                    event_queue.put(None)
+
+            thread = threading.Thread(target=start_loop)
+            thread.start()
+
+            # Consumer
+            while True:
+                item = event_queue.get()
+                if item is None:
+                    break
+
+                agent_name, evt_type, content = item
+                
+                # Log & Broadcast
+                self.session.log_event(agent_name, evt_type, content)
+                self.comms.send_message(agent_name, "All", f"{evt_type}: {content[:50]}...")
+                
+                yield item
+
+        except Exception as e:
+             yield ("System", "error", str(e))
 
     async def _run_agent_async(self, agent_factory, inputs, config):
         """Helper to run agents async with persistence."""
@@ -251,9 +367,9 @@ class AgentRunner:
         res_conf = self.config.get_agent_config("Researcher")
         # Research agent factory likely doesn't support provider yet, so we default to what keys allow
         # Ideally we update run_research_task to accept model too, but avoiding deep refactor of Researcher for now unless requested.
-        # But user asked for "Variable that tells the agent code that were using that brands llms"
-
-        model = res_conf["model"]
+        
+        # Defensive config loading
+        model = res_conf.get("model", "claude-3-haiku-20240307") 
         self.session.log_event(
             "Researcher", "info", f"Starting research on: {topic} (Model: {model})"
         )
@@ -273,12 +389,24 @@ class AgentRunner:
             res = run_research_task(topic, extra_config=extra_config, model_name=model)
 
         output = f.getvalue()
+        
+        # Deduplication Strategy:
+        # run_research_task often prints its final result to stdout AND returns it.
+        # This causes the 'double output' issue in the GUI.
+        # We check if the returned 'res' is effectively contained in the captured 'output'.
+        # If 'res' is just a string summary, we log it. 
+        # But if 'output' is the full report, we prefer that.
+
         if output:
+            # Clean ANSI codes if any (though StringIO usually clean)
             self.session.log_event("Researcher", "output", output)
             yield ("Researcher", "output", output)
-
-        self.session.log_event("Researcher", "output", str(res))
-        yield ("Researcher", "output", str(res))
+        
+        # Only yield 'res' if it's substantially different or output was empty
+        # and 'res' is not None/Empty
+        if res and str(res).strip() not in output:
+             self.session.log_event("Researcher", "output", str(res))
+             yield ("Researcher", "output", str(res))
 
     def run_confidence_task(self, content):
         """Runs the confidence audit agent."""
@@ -351,28 +479,40 @@ class AgentRunner:
             self.session.log_event("Composer", "error", str(e))
             yield ("Composer", "error", str(e))
 
-    def run_editor_merge(self, session_id):
+    def run_editor_merge(self, session_id, audio_override=None):
         """Merges all video and audio assets from the session."""
         from DeepAgents.asset_manager import AssetManager
         from DeepAgents.editor_tools import merge_video_audio
 
         am = AssetManager()
+        # Force refresh of assets might be needed if FS is slow?
+        # Usually list_assets hits the DB or FS directly.
         assets = am.list_assets(session_id)
 
         # Filter Assets
+        # Ensure we filter for THIS specific run's assets if possible, 
+        # or just ALL assets for this session ID.
         videos = [a["path"] for a in assets if a["asset_type"] == "video"]
-        audio = [a["path"] for a in assets if a["asset_type"] == "audio"]
+        audio_assets = [a["path"] for a in assets if a["asset_type"] == "audio"]
 
         if not videos:
+            print("Editor: No video clips found to merge.")
             return None
 
-        # Use first audio track if available, else empty string (Tool handles it?)
-        # merge_video_audio expects a path or logic to silence.
-        # Let's assume we need at least one video. Audio is optional.
-        best_audio = audio[0] if audio else "SILENT"
+        # Audio Selection Strategy
+        # 1. Use Override (Composer's latest output)
+        # 2. Use first audio asset found
+        # 3. Silent
+        best_audio = "SILENT"
+        if audio_override and os.path.exists(audio_override):
+             best_audio = audio_override
+        elif audio_assets:
+             best_audio = audio_assets[0]
 
-        # Sort videos by creation time (implicitly by list order usually, but let's be safe if possible)
-        # Assuming asset logs are chronological.
+        # Sort videos ensuring consistent order (e.g. by filename or DB timestamp)
+        videos.sort()
+        
+        print(f"Editor: Merging {len(videos)} clips with audio: {best_audio}")
 
         try:
             merged_path = merge_video_audio.invoke(
@@ -383,6 +523,7 @@ class AgentRunner:
                 }
             )
             if "Error" in merged_path:
+                print(f"Editor Error: {merged_path}")
                 return None
             return merged_path
         except Exception as e:

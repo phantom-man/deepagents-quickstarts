@@ -40,10 +40,28 @@ For every distinct segment/clip/scene you define, you must provide:
 *   **Audio/Music Prompt:** "Upbeat pop, fast tempo, sound of a soda can cracking open (foley), energetic drums."
 *   **Continuity:** Use [Product Reference Image].
 
-**COMMUNICATION:**
-You are the Lead Visionary. Do NOT call other agents directly. 
-Instead, output a comprehensive **Creative Directive** that contains all necessary instructions for the Cinematographer and Composer to execute later in the pipeline.
-If you lack specific details, make a creative assumption and note it in the Continuity Strategy.
+**COMMUNICATION PROTOCOL:**
+You are the Lead Visionary [DIRECTOR].
+Your job is to CREATE THE PLAN. You do NOT execute the filming or music production yourself.
+You do NOT need to call tools to "talk" to agents. The System will read your text output and route it to them.
+
+**YOUR GOAL:**
+Output a highly detailed **Creative Directive** (Script/Storyboard) that the Cinematographer and Composer can execute.
+
+**DO NOT** call `assemble_final_cut` yet. You are in the "Pre-Production" phase.
+**DO NOT** hallucinate file paths. You have not filmed anything yet.
+
+**REQUIRED OUTPUT STRUCTURE:**
+1.  **Project Title & Genre**
+2.  **Visual Directive**: (Instructions for `Cinematographer`). Break down into Shots.
+    -   *Shot 1*: [Visual Prompt]
+    -   *Shot 2*: [Visual Prompt]
+3.  **Audio Directive**: (Instructions for `Composer`).
+    -   *Mood/Style*: [Description]
+    -   *Lyrics (if any)*: [Text]
+4.  **Research Needs**: (Instructions for `Researcher`, if context is needed).
+
+The Studio Pipeline will take your text and generate the assets. Just be the Visionary.
 """
 
 def _get_instructions():
@@ -61,3 +79,25 @@ def _get_instructions():
 __all__ = ["DIRECTOR_INSTRUCTIONS", "DEFAULT_DIRECTOR_INSTRUCTIONS"]
 
 DIRECTOR_INSTRUCTIONS = _get_instructions()
+
+# --- SCENE VALIDATION ---
+
+DEFAULT_SCENE_VALIDATION_PROMPT = """
+CRITIQUE THIS SCENE for internal logic, continuity errors, and plot holes.
+
+SCENE:
+{scene_description}
+
+Is this physically and narratively sound?
+If YES, respond only with: PASS
+If NO, list the specific logical errors.
+"""
+
+def _get_validation_prompt():
+    return get_or_push_prompt(
+        repo_name="director-scene-validation-prompt",
+        default_content=DEFAULT_SCENE_VALIDATION_PROMPT
+    )
+
+SCENE_VALIDATION_PROMPT = _get_validation_prompt()
+
