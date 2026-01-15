@@ -58,9 +58,16 @@ DEFAULT_SYSTEM_CONFIG = {
                             "max_duration_seconds": 240
                         },
                         { 
+                            "id": "publishers/google/models/lyria-002", 
+                            "priority": 95, 
+                            "description": "Google Lyria Native (Vertex AI). REQ: Quota Approval.",
+                            "supports_lyrics": False,
+                            "max_duration_seconds": 60
+                        },
+                        { 
                             "id": "google/lyria-2", 
-                            "priority": 90, 
-                            "description": "Google DeepMind MusicLM v2.",
+                            "priority": 10, 
+                            "description": "Google DeepMind MusicLM v2 (Replicate - Deprecated/Missing).",
                             "supports_lyrics": False,
                             "max_duration_seconds": 60
                         },

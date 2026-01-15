@@ -17,6 +17,7 @@ import requests
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from DeepAgents.replicate_adapter import ChatReplicate
 from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
@@ -370,8 +371,38 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 duration_sec = min(val, 300)
             logger.info(f"   Duration parsed: {duration_sec}s")
         
+        # Case: Native Google Lyria (Prioritized if enabled via ID injection)
+        if "lyria-002" in target_model or ("lyria" in target_model and "google" in target_model and "002" in target_model): 
+            logger.info("🎵 Generating with Native Google Lyria-2 (Vertex AI)...")
+            from google import genai
+            from google.genai import types
+            
+            client = genai.Client(vertexai=True, location="us-central1")
+            
+            # Using the exact ID discovered: 'lyria-002' or publishers path
+            # The API call returns raw bytes, we need to save locally and return a path as 'url'
+            google_model_id = "lyria-002" # or "publishers/google/models/lyria-002"
+            
+            response = client.models.generate_content(
+                model=google_model_id,
+                contents=input_text,
+                config=types.GenerateContentConfig(response_modalities=["AUDIO"])
+            )
+            
+            if response.candidates and response.candidates[0].content.parts[0].inline_data:
+                part = response.candidates[0].content.parts[0]
+                ext = "wav" if "wav" in part.inline_data.mime_type else "mp3"
+                fname = _generate_descriptive_filename(input_text, session_id, ext=ext)
+                # Save locally immediately because we don't have a URL
+                temp_path = os.path.abspath(fname)
+                with open(temp_path, "wb") as f:
+                    f.write(part.inline_data.data)
+                final_url = temp_path # Logic below handles local paths
+            else:
+                 raise ValueError("Google Lyria returned no audio candidates.")
+
         # Case: ACE-Step (Primary Default)
-        if "ace-step" in target_model:
+        elif "ace-step" in target_model:
             logger.info("🎤 Generating with ACE-Step (Text-to-Music)...")
             
             # Map global duration to ACE specific logic (Cap 240s)
@@ -498,9 +529,11 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music
     # Using lazy import to avoid circular dependency or heavy init if unused
     llm_for_lyrics = None
     try:
-        # Switch to Anthropic default for lyrics too
-        llm_for_lyrics = ChatAnthropic(
-            model_name="claude-3-haiku-20240307",
+        # Switch to Google Native Gemini for lyrics first (consistent with stack)
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        llm_for_lyrics = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash-001",
+            vertexai=True,
             temperature=0.7
         )
     except Exception as e:
@@ -608,8 +641,9 @@ def create_composer_agent(
         # But we respect global "provider" if it matches a known LLM provider
         if provider in ["Google", "Anthropic"]:
              brain_provider = provider
-             # Map models? Or just use default per provider
-             if provider == "Google": brain_model = "gemini-1.5-flash"
+             # Use the passed model name if available
+             if provider == "Google": 
+                 brain_model = model_name if model_name else "gemini-2.0-flash-001"
         
         logger.info(f"🎻 Orpheus > Initializing Brain with {brain_provider}/{brain_model}...")
 
@@ -639,12 +673,13 @@ def create_composer_agent(
 
         if brain_provider == "Google":
             try:
-                target_model = "gemini-1.5-flash"
+                # Use brain_model which should be gemini-2.0-flash-001 now
                 llm = ChatGoogleGenerativeAI(
-                    model=target_model,
+                    model=brain_model,
+                    vertexai=True,
                     temperature=0.5,
-                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                    location="us-central1" # Flash is reliable here
+                    location="us-central1", # Vertex usually auto-detects
+                    max_retries=1
                 )
             except Exception:
                 pass
