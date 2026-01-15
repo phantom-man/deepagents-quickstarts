@@ -17,9 +17,11 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Relational Database**: **PostgreSQL**.
     - *Role*: LangGraph Checkpointing & State Persistence.
     - *Drivers*: `psycopg` (v3 Async) and `psycopg2` (Sync).
-- **LLM Provider**: **Anthropic** (Primary).
-    - *Model*: `claude-3-haiku-20240307`.
-    - *Reason*: Haiku acts as the "Cognitive Engine" defined in the Master Ontology.
+- **LLM Provider**: **Google Gemini** (Primary).
+    - *Model*: `gemini-2.0-flash-001`.
+    - *Reason*: High Quota (RPM/TPM) required for complexity vs Anthropic's rate limits.
+    - *Implementation*: Uses `langchain-google-genai` (GenAI SDK) with `vertexai=True`.
+    - *Note*: Anthropic (Claude) is retained as a BACKUP only. Do not enforce its usage.
 - **Observability**: **LangChain Tracing**.
     - *Status*: Connected directly (Cloud). `LANGCHAIN_TRACING_V2=true` is enabled. Do NOT use OTLP/localhost:4318.
 - **Package Structure**:
@@ -28,6 +30,8 @@ These are the immutable facts of the current project state. Copilot must priorit
     - `DeepAgents/orchestrator.py` is the package entry point (renamed from `DeepAgents.py` to avoid collisions).
 
 ### 3. Operational Protocols
+- **Data Query Protocol**: When querying large datasets or logs (Git, Search, etc.), you MUST pipe output to a file and read it. DO NOT echo massive text to the terminal to avoid scroll-lock freezing.
+- **Deprecation Policy**: Forbidden to use deprecated code. Always use the "latest and greatest" libraries (e.g., `langchain-google-genai` over `langchain-google-vertexai`).
 - **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
 - **Architectural Diagram**: You MUST Review the "System Architecture" file at `DeepAgents/docs/system_architecture.md` for the "Truth" of the system data flow.
 - **Master Ontology**: You MUST align all agent logic with `DeepAgents/Canon/MASTER_ONTOLOGY.md`.
@@ -143,11 +147,11 @@ I am the source of truth for the **Infrastructure**.
 ## Learned Technical Specifications
 
 ### A. Model Mandates (Strict)
-1. **Primary Model (LLM):** All agents MUST use **Anthropic Claude 3 Haiku** (referenced as `claude-3-haiku-20240307`).
+1. **Primary Model (LLM):** All agents MUST use **Google Gemini 2.0 Flash** (`gemini-2.0-flash-001`) via `langchain-google-genai`.
 2. **Primary Model (Video):** MUST use **Zeroscope** or comparable Replicate model. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
 3. **Primary Model (Audio):** Replicate (ACE-Step, Minimax, or MusicGen).
-4. **Fallback Model:** If the primary Anthropic model fails, fallback to `gemini-1.5-flash` or similar in the standard location (`us-central1`).
-5. **Deprecated/Forbidden:** `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
+4. **Fallback Model:** If Google Gemini fails, fallback to `claude-3-haiku` as a secondary option.
+5. **Deprecated/Forbidden:** `ChatVertexAI` class, `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
 6. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.
     - Do NOT guess solutions.

@@ -10,7 +10,7 @@ Originally focused on commercials, the studio has expanded to support:
 - **Synthetic Personas**: High-fidelity, believable artificial personalities for content creation.
 
 The system is designed for "Zero Touch" operation, handling research, creative direction, asset generation, and quality assurance autonomously.
-Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
+Current Brain: Google Gemini 2.0 Flash (High Quota/Performance optimized).
 
 ## Core Features
 
@@ -39,8 +39,9 @@ Current Brain: Anthropic Claude 3 Haiku (Cost/Availability optimized).
 
 ## Models & Providers (Managed via LangSmith)
 
-- **Intelligence**: **Anthropic** (Strict Constraint: **Haiku** `claude-3-haiku-20240307` only).
-- **Vision/Media**: **Google Vertex** (Imagen 3), **Replicate** (Flux/Zeroscope/Minimax).
+- **Intelligence**: **Google Gemini** (Strict Constraint: **Gemini 2.0 Flash 001** `gemini-2.0-flash-001`).
+    - *Fallback*: Anthropic Claude 3 Haiku (Secondary).
+- **Vision/Media**: **Replicate** (Flux/Zeroscope/Minimax).
 - **Priorities**: Defined dynamically in the configuration matrix (e.g. Minimax 1.5 > ACE-Step).
 
 ## Deployment

@@ -11,7 +11,7 @@ DEFAULT_SYSTEM_CONFIG = {
             "strategy": "native",
             "package": "langchain_google_genai",
             "class_name": "ChatGoogleGenerativeAI",
-            "description": "Uses Native Google GenAI SDK (Vertex Compatible). Avoid ChatVertexAI wrapper.",
+            "description": "Uses Google GenAI SDK with Vertex Adapter (High Performance).",
             "default_region": "us-central1"
         },
         "anthropic": {
@@ -33,11 +33,12 @@ DEFAULT_SYSTEM_CONFIG = {
     },
     "agents": {
         "Director": {
-            "intelligence_model": "anthropic/claude-3-haiku-20240307",
-            "provider": "Anthropic"
+            "intelligence_model": "google/gemini-2.0-flash-001",
+            "provider": "Google"
         },
         "Composer": {
-            "intelligence_model": "anthropic/claude-3-haiku-20240307",
+            "intelligence_model": "google/gemini-2.0-flash-001",
+            "provider": "Google",
             "capabilities": [
                 {
                     "type": "music_generation",
@@ -91,15 +92,16 @@ DEFAULT_SYSTEM_CONFIG = {
             ]
         },
         "Researcher": {
-            "intelligence_model": "anthropic/claude-3-haiku-20240307",
-            "provider": "Anthropic"
+            "intelligence_model": "google/gemini-2.0-flash-exp",
+            "provider": "Google"
         },
         "Confidence": {
-            "intelligence_model": "anthropic/claude-3-haiku-20240307",
-            "provider": "Anthropic"
+            "intelligence_model": "google/gemini-2.0-flash-exp",
+            "provider": "Google"
         },
         "Cinematographer": {
-             "intelligence_model": "anthropic/claude-3-haiku-20240307",
+             "intelligence_model": "google/gemini-2.0-flash-001",
+             "provider": "Google",
              "capabilities": [
                 {
                     "type": "video_generation",

@@ -11,6 +11,6 @@ The active ontology for the Cinematographer Agent is managed in **LangSmith Hub*
 - **Role:** Visual Engine [LUMIERE].
 - **Constraint:** Must read prompts fully.
 - **Tools:** Use SVD/Zeroscope. **Google Veo is FORBIDDEN**.
-- **Default Model:** Anthropic Claude 3 Haiku (Managed via Config).
+- **Default Model:** Google Gemini 2.0 Flash (Managed via Config).
 
 Refer to the Master Index or LangSmith for live edits.
