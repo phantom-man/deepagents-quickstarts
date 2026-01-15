@@ -238,13 +238,11 @@ class SystemConfiguration:
             self._config = json.loads(config_json)
             self.logger.info("Configuration loaded successfully.")
         except Exception as e:
-            self.logger.error(
-                f"Failed to load from Hub, using local default. Error: {e}"
-            )
-            self._config = DEFAULT_SYSTEM_CONFIG
+            self.logger.critical(f"FATAL: Failed to load configuration from Hub: {e}")
+            raise e  # FAIL FAST - Do not use local default
 
         if self._config is None:
-            return DEFAULT_SYSTEM_CONFIG
+            raise ValueError("Configuration failed to load (None).")
         return self._config
 
     def get_provider_strategy(self, provider_name: str) -> Dict[str, Any]:
@@ -258,14 +256,33 @@ class SystemConfiguration:
     def get_agent_intelligence(self, agent_name: str):
         """
         Retrieves the configured intelligence model (LLM) for a specific agent.
-        Defaults to Haiku if not found.
+        Defaults to Google Gemini if not found.
         """
         cfg = self.load_config()
         return (
             cfg.get("agents", {})
             .get(agent_name, {})
-            .get("intelligence_model", "anthropic/claude-3-haiku-20240307")
+            .get("intelligence_model", "google/gemini-2.0-flash-001")
         )
+
+    def get_agent_params(self, agent_name: str) -> tuple[str, str]:
+        """
+        Helper: Returns (provider, model_name) for a given agent.
+        Parses 'provider/model' format.
+        """
+        model_str = self.get_agent_intelligence(agent_name)
+        if "/" in model_str:
+            parts = model_str.split("/", 1)
+            # Capitalize provider (google -> Google) for compatibility
+            return parts[0].capitalize(), parts[1]
+
+        # Heuristic fallback if just model name provided
+        if "gemini" in model_str.lower():
+            return "Google", model_str
+        if "claude" in model_str.lower():
+            return "Anthropic", model_str
+
+        return "Google", model_str
 
     def get_capability_model(self, agent_name: str, capability_type: str):
         """

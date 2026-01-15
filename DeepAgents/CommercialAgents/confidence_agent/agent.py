@@ -16,6 +16,7 @@ from typing import cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_anthropic import ChatAnthropic
 from DeepAgents.replicate_adapter import ChatReplicate
@@ -25,6 +26,7 @@ from DeepAgents.hub_manager import get_or_push_prompt
 
 from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
 from DeepAgents.agent_brain import AgentMemory
+
 # Import Research Agent to use as a tool function
 try:
     from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
@@ -40,6 +42,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @tool
 def consult_research_agent(topic: str) -> str:
     """Consults the Research Agent to gather evidence, fact-check claims,
@@ -52,55 +55,41 @@ def consult_research_agent(topic: str) -> str:
         return result
     return "Research Agent found no conclusive evidence."
 
-def create_confidence_agent(model_name="claude-3-haiku-20240307", provider="Anthropic"):
+
+def create_confidence_agent(model_name="gemini-2.0-flash-001", provider="Google"):
     """Creates and returns the Confidence Agent."""
-    
+
     # Load config from file if defaults are used and provider is generic
     # This ensures consistency if called without explicit provider
     if provider == "Google" and model_name.startswith("meta"):
         # Heuristic: caller passed meta model but default provider?
         pass
 
-    try:
-        if provider == "Anthropic":
-            model = ChatAnthropic(
-                model_name=model_name,
-                temperature=0.0
-            ) 
-        elif "meta" in model_name or "replicate" in model_name.lower():
-             model = ChatReplicate(
-                model=model_name,
-                model_kwargs={"temperature": 0.0, "max_length": 4096}
-            )
-        elif provider == "Google":
-             # Google Vertex AI (via GenerativeAI SDK)
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                temperature=0.0,
-                location="us-central1", # Vertex usually auto-detects
-                max_retries=1
-            )
-        else:
-             # Legacy / Default Path
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                temperature=0.0,
-                max_retries=1
-            )
-    except Exception as e:
-         logger.error("Failed to initialize Primary Model (%s): %s. Switching to fallback.", model_name, e)
-         # Fallback to standard Google Flash if Replicate fails
-         model = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-001",
+    # Initialize Model (Fail Fast - No Try/Except hiding)
+    if provider == "Anthropic":
+        model = ChatAnthropic(model_name=model_name, temperature=0.0)
+    elif "meta" in model_name or "replicate" in model_name.lower():
+        model = ChatReplicate(
+            model=model_name, model_kwargs={"temperature": 0.0, "max_length": 4096}
+        )
+    elif provider == "Google":
+        # Google Vertex AI (via GenerativeAI SDK)
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
             vertexai=True,
-            temperature=0.1,
+            temperature=0.0,
+            location="us-central1",  # Vertex usually auto-detects
+            max_retries=1,
+        )
+    else:
+        # Legacy / Default Path
+        model = ChatGoogleGenerativeAI(
+            model=model_name, vertexai=True, temperature=0.0, max_retries=1
         )
 
     # Create the Deep Agent
     # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
-    
+
     agent = create_deep_agent(
         model=model,
         tools=[consult_research_agent],
@@ -108,6 +97,7 @@ def create_confidence_agent(model_name="claude-3-haiku-20240307", provider="Anth
     )
 
     return agent
+
 
 def _extract_final_answer(event: dict) -> str:
     """Extracts the final answer from a LangGraph event stream."""
@@ -130,6 +120,7 @@ def _extract_final_answer(event: dict) -> str:
             if hasattr(msg, "content") and msg.content:
                 extracted_report = msg.content
     return extracted_report
+
 
 def run_confidence_audit(content_to_audit: str):
     """Executes a confidence audit with memory and research integration."""
@@ -156,8 +147,10 @@ def run_confidence_audit(content_to_audit: str):
 
     # 3. RUN AGENT
     # We augment the prompt with memory context
-    initial_msg = (f"Audit the following content for accuracy, safety, and brand alignment. "
-                   f"Content: '{content_to_audit}'")
+    initial_msg = (
+        f"Audit the following content for accuracy, safety, and brand alignment. "
+        f"Content: '{content_to_audit}'"
+    )
     if context_str:
         initial_msg += f"\n\nCONSIDER PAST AUDIT INSIGHTS:\n{context_str}"
 
@@ -189,10 +182,10 @@ def run_confidence_audit(content_to_audit: str):
         try:
             print("\n📊 Generating Argus Fact Dashboard...")
             dash_llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-001", 
+                model="gemini-2.0-flash-001",
                 vertexai=True,
                 temperature=0,
-                location="us-central1"
+                location="us-central1",
             )
             dash_prompt = (
                 "Convert the following audit report into a high-visibility Markdown Dashboard.\n"
@@ -204,27 +197,28 @@ def run_confidence_audit(content_to_audit: str):
         except Exception as e:
             logger.warning("Dashboard generation failed: %s", e)
         # ----------------------------------------------
-        
+
         # SAVE TO CLOUD (AssetManager)
         try:
             from DeepAgents.asset_manager import AssetManager
+
             assets = AssetManager()
-            
+
             # Prefer dashboard if available
             save_content = dashboard if dashboard else final_report
-            
+
             saved_doc = assets.save_text_document(
                 text=save_content,
                 title=f"Audit_{uuid.uuid4().hex[:8]}",
                 session_id="confidence_audit",
-                subdir="Audits"
+                subdir="Audits",
             )
             cloud_url = saved_doc.get("cloud_url")
             if cloud_url and "http" in cloud_url:
                 print(f"✅ Audit Uploaded: {cloud_url}")
                 final_report += f"\n\n[CLOUD AUDIT]: {cloud_url}"
                 if dashboard:
-                     final_report += f"\n\n{dashboard}"
+                    final_report += f"\n\n{dashboard}"
         except Exception as e:
             print(f"⚠️ Failed to upload audit: {e}")
 
@@ -232,13 +226,14 @@ def run_confidence_audit(content_to_audit: str):
         memory.memorize(
             f"Audit Report on content '{content_to_audit[:50]}...': {final_report}",
             "ConfidenceAgent",
-            tags=["audit_report"]
+            tags=["audit_report"],
         )
         print("✅ Audit stored in Long-Term Memory.")
         return final_report
 
     print("❌ No final report produced.")
     return None
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:

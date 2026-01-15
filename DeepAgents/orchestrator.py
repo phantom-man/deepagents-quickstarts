@@ -63,11 +63,11 @@ async def main():
     )
     parser.add_argument("task_positional", nargs="?", help="Positional task input")
     parser.add_argument(
-        "--provider", type=str, default="Anthropic", help="LLM Provider (Google/Anthropic)"
+        "--provider", type=str, default="Google", help="LLM Provider (Google/Anthropic)"
     )
-    # Defaults to the powerful Gemini 3 Pro Preview (now verified working with global location)
+    # Defaults to Google Gemini 2.0 Flash
     parser.add_argument(
-        "--model", type=str, default="claude-3-haiku-20240307", help="Model Name"
+        "--model", type=str, default="gemini-2.0-flash-001", help="Model Name"
     )
 
     args = parser.parse_args()

@@ -76,8 +76,8 @@ def main():
     parser = argparse.ArgumentParser(description="DeepAgents Production Studio")
     
     # Defaults from Config
-    def_director_provider = AGENT_CONFIG.get("Director", {}).get("provider", "Anthropic")
-    def_director_model = AGENT_CONFIG.get("Director", {}).get("model", "claude-3-haiku-20240307")
+    def_director_provider = AGENT_CONFIG.get("Director", {}).get("provider", "Google")
+    def_director_model = AGENT_CONFIG.get("Director", {}).get("model", "gemini-2.0-flash-001")
 
     parser.add_argument("--task", type=str, help="The production task for the Director.")
     parser.add_argument("task_positional", nargs="?", help="Positional task input")

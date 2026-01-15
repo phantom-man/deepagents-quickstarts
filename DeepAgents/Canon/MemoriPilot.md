@@ -49,6 +49,15 @@
 - **Instruction Sync**: `copilot-instructions.md` updated to reflect absolute paths (`../DeepAgents/...`) and the new tech stack to prevent hallucination of legacy configs.
 - **Outcome**: System Instructions now align with the `system_config.py` reality.
 
+### 7. Zero Touch & Fail Fast (January 15, 2026)
+
+- **Directive**: STRICT Zero Touch enforcement. No hardcoded configuration overrides in Agent factories. All configuration MUST derive from LangSmith Hub via `SystemConfiguration`.
+- **Methodology**: "Fail Fast".
+  - REMOVED all fallback logic (e.g., `try-except` blocks that switched to Haiku/Replicate on failure).
+  - REMOVED local default dictionaries in `SystemConfiguration` if Hub pull fails (It must now Raise Error).
+  - UPDATED Co-pilot instructions to explicitly forbid fallback patterns.
+- **State**: The system is now brittle by design—it works correctly (Google Gemini) or it crashes visibly. This exposes errors immediately rather than concealing them.
+
 **Status**: Instructions Synced. Codebase Logic Aligned.
 
 ### 7. LangGraph Server Protocol Optimization (January 13, 2026)

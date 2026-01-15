@@ -804,11 +804,11 @@ def create_composer_agent(
     Factory to create the Composer Agent runner.
     """
     if model_config is None:
-        # Default to Anthropic Haiku for the Brain, music gen is separate
-        model_config = {"provider": "Anthropic", "model": "claude-3-haiku-20240307"}
+        # Default to Google Gemini for the Brain, music gen is separate
+        model_config = {"provider": "Google", "model": "gemini-2.0-flash-001"}
 
-    provider = model_config.get("provider", "Anthropic")
-    model_name = model_config.get("model", "claude-3-haiku-20240307")
+    provider = model_config.get("provider", "Google")
+    model_name = model_config.get("model", "gemini-2.0-flash-001")
 
     assets = AssetManager()
 
@@ -832,9 +832,9 @@ def create_composer_agent(
     llm = None
     try:
         # Determine Brain Provider (Separate from Music Gen Model)
-        # Default to Anthropic if not specified for Brain
-        brain_provider = "Anthropic"
-        brain_model = "claude-3-haiku-20240307"
+        # Default to Google if not specified for Brain
+        brain_provider = "Google"
+        brain_model = "gemini-2.0-flash-001"
 
         # Override if config explicitly asks for Replicate Brain (unlikely for now)
         # But we respect global "provider" if it matches a known LLM provider
@@ -849,46 +849,32 @@ def create_composer_agent(
         )
 
         if brain_provider == "Anthropic":
-            try:
-                llm = ChatAnthropic(model_name=brain_model, temperature=0.7)
-            except Exception as e:
-                logger.warning(f"Anthropic Brain Init Failed: {e}")
-                # Fallback to Replicate Llama 3
-                brain_provider = "Replicate"
-                brain_model = "meta/meta-llama-3-8b-instruct"
+            llm = ChatAnthropic(model_name=brain_model, temperature=0.7)
 
         if brain_provider == "Replicate":
-            try:
-                # Requires REPLICATE_API_TOKEN in env
-
-                llm = ChatReplicate(
-                    model=brain_model,
-                    model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1},
-                )
-            except Exception as e:
-                logger.warning(f"Replicate Init Failed: {e}. Falling back to Google.")
-                brain_provider = "Google"
+            # Requires REPLICATE_API_TOKEN in env
+            llm = ChatReplicate(
+                model=brain_model,
+                model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1},
+            )
 
         if brain_provider == "Google":
-            try:
-                # Use brain_model which should be gemini-2.0-flash-001 now
-                llm = ChatGoogleGenerativeAI(
-                    model=brain_model,
-                    vertexai=True,
-                    temperature=0.5,
-                    location="us-central1",  # Vertex usually auto-detects
-                    max_retries=1,
-                )
-            except Exception:
-                pass
+            # Use brain_model which should be gemini-2.0-flash-001 now
+            llm = ChatGoogleGenerativeAI(
+                model=brain_model,
+                vertexai=True,
+                temperature=0.5,
+                location="us-central1",  # Vertex usually auto-detects
+                max_retries=1,
+            )
 
         if not llm:
             raise ValueError("No LLM could be initialized")
 
     except Exception as e:
         logger.error(f"Brain Init Failed: {e}")
-        # Final Dummy Fallback
-        return lambda *args, **kwargs: f"Error: Agent Brain Died. {e}"
+        # Fail loudly
+        raise e
 
     # 3. Initialize Agent
     # Fix: Restored valid 'browse_library_tool'
@@ -897,11 +883,65 @@ def create_composer_agent(
     hub_prompt = get_or_push_prompt("composer-system-prompt", COMPOSER_INSTRUCTIONS)
 
     # We replace 'compose_tool' (which was recursive) with 'generate_music_tool' (which wraps the logic)
-    agent = create_deep_agent(
-        model=llm,
-        tools=[generate_music_tool, browse_library_tool],
-        system_prompt=hub_prompt,
-    )
+
+    # LINEAR CHAIN (No Retry Loops)
+    # The Composer is a simple "One-Shot" agent. It should not loop.
+    logger.info("✨ Creating Linear Composer Agent (Fail Fast Enabled)")
+
+    # Bind Tools
+    target_tools = [generate_music_tool, browse_library_tool]
+    llm_with_tools = llm.bind_tools(target_tools)
+
+    from langchain_core.messages import SystemMessage, AIMessage
+    from langchain_core.runnables import RunnableLambda
+
+    def linear_runner(state):
+        # Unwrap state
+        messages = state["messages"]
+        if isinstance(hub_prompt, str):
+            # Ensure system prompt is first
+            # Check if first msg is system, if not prepend
+            if not isinstance(messages[0], SystemMessage):
+                messages = [SystemMessage(content=hub_prompt)] + messages
+        elif isinstance(hub_prompt, object) and hasattr(hub_prompt, "format"):
+            # Handle PromptTemplate objects from Hub
+            # We simplify by just injecting instructions if we can
+            messages = [SystemMessage(content=COMPOSER_INSTRUCTIONS)] + messages
+
+        # 1. Invoke LLM
+        response = llm_with_tools.invoke(messages)
+
+        # 2. Check Tool Call
+        if response.tool_calls:
+            # We allow EXACTLY ONE tool execution
+            tc = response.tool_calls[0]
+            t_name = tc["name"]
+
+            tool_map = {t.name: t for t in target_tools}
+            selected = tool_map.get(t_name)
+
+            if selected:
+                try:
+                    logger.info(f"🎻 Executing Tool: {t_name}")
+                    res = selected.invoke(tc["args"])
+
+                    # Return the tool result directly as the "Answer"
+                    # We do NOT loop back to LLM to summarize, to avoid "Echo Chamber"
+                    return {
+                        "messages": [
+                            AIMessage(content=f"Successfully Generated: {res}")
+                        ]
+                    }
+                except Exception as e:
+                    logger.error(f"❌ Tool Execution Failed: {e}")
+                    raise e  # Fail Fast
+            else:
+                raise ValueError(f"Unknown tool invoked: {t_name}")
+
+        # No tool call? Return text.
+        return {"messages": [response]}
+
+    agent = RunnableLambda(linear_runner)
 
     return agent
 

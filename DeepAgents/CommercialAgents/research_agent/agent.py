@@ -36,77 +36,46 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def create_research_agent(model_name="claude-3-haiku-20240307", provider="Anthropic"):
+def create_research_agent(model_name="gemini-2.0-flash-001", provider="Google"):
     """Creates and returns the Commercial Research Agent."""
 
     # Initialize the model
     model = None
     if provider == "Anthropic":
-        try:
-            model = ChatAnthropic(
-                model_name=model_name,
-                temperature=0.0
-            ) 
-        except Exception as e:
-            logger.error(f"Failed to init Anthropic: {e}")
-            # Fallback handled below or crash? 
-            # If Anthropic fails (e.g. invalid key), we might want to stop or fallback.
-            # But adhering to user request for Anthropic, we should use it.
-            raise e
+        model = ChatAnthropic(
+            model_name=model_name,
+            temperature=0.0
+        ) 
 
     elif model_name.startswith("meta/") or "llama" in model_name.lower():
         # Replicate
         from DeepAgents.replicate_adapter import ChatReplicate
-        try:
-            model = ChatReplicate(
-                model=model_name,
-                model_kwargs={"temperature": 0.0, "max_length": 2048, "top_p": 1}
-            )
-        except Exception:
-             # Fallback
-            model = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-001",
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.1,
-            )
+        model = ChatReplicate(
+            model=model_name,
+            model_kwargs={"temperature": 0.0, "max_length": 2048, "top_p": 1}
+        )
     
     elif provider == "Google":
         # Google Vertex AI
-        try:
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.0, # Research needs precision
-                max_retries=1
-            )
-        except Exception as e:
-            logger.error(f"Failed to init Google Vertex: {e}")
-            raise e
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            vertexai=True,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            temperature=0.0, # Research needs precision
+            max_retries=1
+        )
             
     else: 
         # Default / Legacy Fallback
-        try:
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.0, 
-                max_retries=1
-            )
-        except Exception:
-            # Fallback
-            model = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-001",
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.1,
-            )
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            vertexai=True,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            temperature=0.0, 
+            max_retries=1
+        )
 
     # Create the Deep Agent
     # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py

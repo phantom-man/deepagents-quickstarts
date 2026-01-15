@@ -44,8 +44,11 @@ from DeepAgents.CommercialAgents.composer_agent.agent import (
 )
 from DeepAgents.editor_tools import merge_video_audio_logic
 
+from DeepAgents.system_config import SystemConfiguration
+
 # Setup Logger
 logger = logging.getLogger("DeepGraph")
+sys_conf = SystemConfiguration()
 
 
 # --- 1. The State (Shared Memory) ---
@@ -98,7 +101,12 @@ async def director_node(state: AgentState, config: RunnableConfig):
 
     # extracting config (optional usage)
     conf = config.get("configurable", {})
-    provider = conf.get("model_provider", "Anthropic")
+
+    # ZERO TOUCH: Get defaults from System Config
+    # If provided in runtime config, use it, else use System Truth
+    sys_prov, sys_model = sys_conf.get_agent_params("Director")
+
+    provider = conf.get("model_provider", sys_prov)
 
     # 1. Get Context
     directive = state.get("directive", "")
@@ -131,8 +139,10 @@ async def director_node(state: AgentState, config: RunnableConfig):
             else:
                 directive = str(last_msg)
 
-        prompt = f"Create a Creative Directive for: {directive}"
-        messages = [HumanMessage(content=prompt)]
+    # Pass dynamic provider and use system config's model if provider matches
+    target_model = sys_model if provider == sys_prov else "gemini-2.0-flash-001"
+
+    messages = [HumanMessage(content=prompt)]
 
     # 3. Invoke Director Agent
     # We use the factory we debugged earlier

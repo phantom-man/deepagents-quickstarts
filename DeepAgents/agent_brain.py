@@ -153,15 +153,15 @@ class AgentConfig:
     def _default_config(self) -> Dict[str, Any]:
         """Returns default configuration."""
         return {
-            "Director": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
-            "Researcher": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
-            "Confidence": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
+            "Director": {"provider": "Google", "model": "gemini-2.0-flash-001"},
+            "Researcher": {"provider": "Google", "model": "gemini-2.0-flash-001"},
+            "Confidence": {"provider": "Google", "model": "gemini-2.0-flash-001"},
             "Cinematographer": {
-                "provider": "Anthropic",
-                "model": "claude-3-haiku-20240307",
+                "provider": "Google",
+                "model": "gemini-2.0-flash-001",
                 "capabilities": [{"type": "video_generation", "models": [{"id": "haiper/v2"}]}]
             },
-            "Composer": {"provider": "Anthropic", "model": "claude-3-haiku-20240307"},
+            "Composer": {"provider": "Google", "model": "gemini-2.0-flash-001"},
         }
 
     def save_config(self) -> None:

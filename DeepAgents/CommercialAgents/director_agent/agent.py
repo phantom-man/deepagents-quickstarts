@@ -108,7 +108,7 @@ def assemble_final_cut(video_paths: List[str], audio_path: str, output_name: str
 
 
 def create_director_agent(
-    provider: str = "Anthropic", model_name: str = "claude-3-haiku-20240307", checkpointer: Any = None
+    provider: str = "Google", model_name: str = "gemini-2.0-flash-001", checkpointer: Any = None
 ):
     """Creates and returns the Director Agent."""
 
@@ -123,62 +123,35 @@ def create_director_agent(
         )
     elif provider == "Replicate":
         logger.info("🎬 Initializing Replicate Model: %s", model_name)
-        try:
-             # Requires REPLICATE_API_TOKEN in env
-            model = ChatReplicate(
-                model=model_name,
-                model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
-            )
-        except Exception as e:
-            logger.error("Failed to initialize Replicate Model (%s): %s", model_name, e)
-            # Fallback to Google if Replicate fails?
-            model = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-001",
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.7,
-            )
+        # Requires REPLICATE_API_TOKEN in env
+        model = ChatReplicate(
+            model=model_name,
+            model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
+        )
 
     elif provider == "Google":
         # Google Vertex AI (Gemini) via GenerativeAI SDK (Modern)
         logger.info("🎬 Initializing Google Vertex Model: %s", model_name)
-        try:
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.7,
-                max_retries=1,
-            )
-        except Exception as e:
-            logger.error("Failed to initialize Primary Google Model (%s): %s", model_name, e)
-            logger.info("Switching to Fallback Model (Replicate Llama 3)...")
-            try:
-                model = ChatReplicate(
-                    model="meta/meta-llama-3-8b-instruct",
-                    model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
-                )
-            except Exception as replicate_error:
-                logger.critical("Replicate Fallback Failed: %s. SYSTEM HALT.", replicate_error)
-                raise replicate_error
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            vertexai=True,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            temperature=0.7,
+            max_retries=1,
+        )
 
     else:
         # Default/Fallback to Google if unknown
         logger.warning(f"Unknown provider '{provider}'. Defaulting to Google Vertex AI.")
-        try:
-            model = ChatGoogleGenerativeAI(
-                model=model_name,
-                vertexai=True,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="us-central1",
-                temperature=0.7,
-                max_retries=1
-            )
-        except Exception as e:
-            logger.error("Failed to initialize Default Google Model (%s): %s", model_name, e)
-            raise e
+        model = ChatGoogleGenerativeAI(
+            model=model_name,
+            vertexai=True,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            temperature=0.7,
+            max_retries=1
+        )
 
     # Create the Deep Agent
     # 🔗 HUB INTEGRATION: Pull System Prompt
