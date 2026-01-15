@@ -44,6 +44,13 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "music_generation",
                     "models": [
                         { 
+                            "id": "publishers/google/models/lyria-002", 
+                            "priority": 120, 
+                            "description": "Google Lyria Native (Vertex AI). Primary Music Engine.",
+                            "supports_lyrics": False,
+                            "max_duration_seconds": 60
+                        },
+                        { 
                             "id": "lucataco/ace-step", 
                             "priority": 110, 
                             "description": "State-of-the-art text-to-music with lyric alignment.",
@@ -56,13 +63,6 @@ DEFAULT_SYSTEM_CONFIG = {
                             "description": "High fidelity instrumental and lyrical music generation.",
                             "supports_lyrics": True,
                             "max_duration_seconds": 240
-                        },
-                        { 
-                            "id": "publishers/google/models/lyria-002", 
-                            "priority": 95, 
-                            "description": "Google Lyria Native (Vertex AI). REQ: Quota Approval.",
-                            "supports_lyrics": False,
-                            "max_duration_seconds": 60
                         },
                         { 
                             "id": "google/lyria-2", 
