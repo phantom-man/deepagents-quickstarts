@@ -21,7 +21,7 @@ These are the immutable facts of the current project state. Copilot must priorit
     - *Model*: `gemini-2.0-flash-001`.
     - *Reason*: High Quota (RPM/TPM) required for complexity vs Anthropic's rate limits.
     - *Implementation*: Uses `langchain-google-genai` (GenAI SDK) with `vertexai=True`.
-    - *Note*: Anthropic (Claude) is retained as a BACKUP only. Do not enforce its usage.
+    - *Note*: Anthropic (Claude) is NOT A BACKUP. Do not enforce its usage.
 - **Observability**: **LangChain Tracing**.
     - *Status*: Connected directly (Cloud). `LANGCHAIN_TRACING_V2=true` is enabled. Do NOT use OTLP/localhost:4318.
 - **Package Structure**:
@@ -36,6 +36,7 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Architectural Diagram**: You MUST Review the "System Architecture" file at `DeepAgents/docs/system_architecture.md` for the "Truth" of the system data flow.
 - **Master Ontology**: You MUST align all agent logic with `DeepAgents/Canon/MASTER_ONTOLOGY.md`.
 - **MemoriPilot Protocol (CRITICAL)**: You MUST read `DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
+- **Fail Fast Methodology (CRITICAL)**: We use a "Fail Fast" methodology. Do NOT use fallbacks to hide errors. If a configured resource (Model, Hub Prompt, API) is unavailable, the application MUST crash/raise an error immediately so the root cause is visible. NO SILENT FAILURES.
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py` (Run from Repo Root).
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only` (Run from Repo Root).
 - **Environment**: `.env` handles secrets. `LANGCHAIN_HUB_HANDLE` is required for Prompt Hub.
@@ -50,7 +51,7 @@ These are the immutable facts of the current project state. Copilot must priorit
   - **Forbidden**: DO NOT store `.wav`, `.mp3`, or `.png` files in the Project Root or `DeepAgents/data/` folders.
 
 ### 5. Known Issues / Learnings
-- **Prompt Hub**: If `pull_prompt` fails, Do Not fallback to local constants.
+- **Prompt Hub**: If `pull_prompt` fails, RAISE AN ERROR. Do Not fallback to local constants.
 - **Console Input**: Uses `prompt_toolkit` to handle background log scrolling.
 
 ### 5. MemoriPilot Documentation & Protocols
@@ -150,7 +151,7 @@ I am the source of truth for the **Infrastructure**.
 1. **Primary Model (LLM):** All agents MUST use **Google Gemini 2.0 Flash** (`gemini-2.0-flash-001`) via `langchain-google-genai`.
 2. **Primary Model (Video):** MUST use **Zeroscope** or comparable Replicate model. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
 3. **Primary Model (Audio):** Replicate (ACE-Step, Minimax, or MusicGen).
-4. **Fallback Model:** If Google Gemini fails, fallback to `claude-3-haiku` as a secondary option.
+4. **No Fallbacks:** We use Fail Fast. If Google Gemini fails, the application MUST STOP. Do not fallback to other models.
 5. **Deprecated/Forbidden:** `ChatVertexAI` class, `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
 6. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.

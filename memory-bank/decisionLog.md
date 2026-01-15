@@ -2,6 +2,8 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-01-15 | Enforced "Fail Fast" Runtime Policy. | To solve the issue of Agents spinning in 15-step retry loops or hallucinating after tool execution ("Echo Chambers"), we hard-removed all `while` loops and retry logic. Agents must now succeed on the first attempt or crash immediately, making root cause analysis trivial. |
+| 2026-01-15 | Adopted Linear Chain for Composer Agent. | The standard ReAct pattern was causing the Composer to "think too much" after generating music, leading to hallucinated text follow-ups. We replaced it with a strict Linear Chain (`Reason -> Tool -> Stop`) that returns the tool output directly as the final answer. |
 | 2026-01-14 | Fixed Cinematographer Case Sensitivity. | The system config was sending 'replicate' (lowercase) but the code checked for 'Replicate' (Title Case), causing video generation to fail. Made the check case-insensitive. |
 | 2026-01-14 | Hardened Director Persona against 'Meta-Review' Hallucinations. | The Director Agent was outputting summaries of the plan instead of the plan itself. Updated `prompts.py` with strict 'YOU ARE THE AUTHOR' instructions to force actionable script output. |
 | 2026-01-14 | Enforced 'Pure Planner' Mode for Director. | Removed all tool access from the Director Agent to prevent `GraphRecursionError` caused by infinite validation loops. The Director MUST produce text-only plans that are routed by the Graph, not executed via internal tools. |
