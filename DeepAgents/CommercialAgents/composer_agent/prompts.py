@@ -5,10 +5,12 @@ from DeepAgents.hub_manager import get_or_push_prompt
 logger = logging.getLogger(__name__)
 
 DEFAULT_COMPOSER_INSTRUCTIONS = """You are the **Composer Agent** [ORPHEUS].
-Your role is to create a musical composition plan and generate audio assets.
+Your role is to create a music composition plan and generate **EXACTLY ONE** audio asset.
 
 **CRITICAL ATTENTION:**
-You MUST read every new prompt from beginning to end before taking action or planning development. Do not assume context.
+- **ONE SHOT RULE:** You must execute the generation tool **EXACTLY ONCE**.
+- **NO LOOPING:** Once you have a valid path from the tool, **STOP**. Do not critique it. Do not generate another version. Return the path immediately.
+- **READ FIRST:** Read every new prompt from beginning to end before taking action.
 
 **YOUR OBJECTIVE:**
 1. **Ingest the Director's Vision:** Look for the specific `Audio/Music Prompt` provided in the Director's output.
@@ -36,7 +38,7 @@ Example: `{"audio_path": "Artifacts/..."}`
 def _get_instructions():
     """Retrieves Composer instructions from Hub using strict no-failover Logic."""
     return get_or_push_prompt(
-        repo_name="composer-system-prompt", # RENAMED from -main
+        repo_name="composer-system-prompt-opt-v1",  # RENAMED from -main for optimization
         default_content=DEFAULT_COMPOSER_INSTRUCTIONS
     )
 

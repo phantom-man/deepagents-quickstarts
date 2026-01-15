@@ -48,12 +48,12 @@ director_graph = safe_create(
 
 # 2. Researcher
 # Expects: model_name, provider
-researcher_graph = safe_create(
-    "Researcher",
-    create_research_agent,
-    provider="Anthropic", 
-    model_name="claude-3-haiku-20240307"
-)
+# researcher_graph = safe_create(
+#     "Researcher",
+#     create_research_agent,
+#     provider="Anthropic", 
+#     model_name="claude-3-haiku-20240307"
+# )
 
 # 3. Composer
 # Expects: model_config (dict)

@@ -95,21 +95,24 @@ The system learns from failure via explicit rejection logs:
 - Agents MUST read this file during initialization to avoid repeating mistakes.
 
 ### 12. Terminal Output Safety (Pipe-to-File)
+
 - **Problem**: Large text output freezes the terminal (buffer scroll-lock), requiring manual `Enter` key presses to proceed.
 - **Protocol**: When querying large datasets, logs, or search results, **ALWAYS** pipe the output to a temporary file (e.g., `temp_output.txt`) and then read the file. **NEVER** print massive strings directly to `stdout`.
 
 ### 13. Deprecation Policy (Latest & Greatest)
+
 - **Rule**: Usage of deprecated code is strictly **FORBIDDEN**.
 - **Enforcement**:
-    - **SDKs**: Use `langchain-google-genai` (modern) instead of `langchain-google-vertexai` (legacy).
-    - **Models**: Always use the latest stable model release (e.g., `gemini-2.0-flash-001`).
-    - **Audit**: Regularly scan for warnings and refactor immediately.
+  - **SDKs**: Use `langchain-google-genai` (modern) instead of `langchain-google-vertexai` (legacy).
+  - **Models**: Always use the latest stable model release (e.g., `gemini-2.0-flash-001`).
+  - **Audit**: Regularly scan for warnings and refactor immediately.
 
 ### 11. Director Agent (Strict Planner Pattern)
+
 - **Role**: Pure generation of textual plans (Creative Directives).
 - **Constraints**:
-    - **No Tools**: The Director MUST NOT have access to tools (`validate_scene_logic`, `assemble_final_cut`). This prevents `GraphRecursionError` caused by infinite validation loops or hallucinated tool calls.
-    - **Prompt Engineering**: The prompt must explicitly forbid "reviewing" or "summarizing" the plan. It must output the plan directly.
+  - **No Tools**: The Director MUST NOT have access to tools (`validate_scene_logic`, `assemble_final_cut`). This prevents `GraphRecursionError` caused by infinite validation loops or hallucinated tool calls.
+  - **Prompt Engineering**: The prompt must explicitly forbid "reviewing" or "summarizing" the plan. It must output the plan directly.
 
 ## Design Patterns
 

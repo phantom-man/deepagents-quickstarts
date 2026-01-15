@@ -15,7 +15,9 @@ from langchain.tools import tool
 from langchain_core.messages import BaseMessage
 from langchain_core.language_models import BaseChatModel
 from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
+from langchain_google_genai import ChatGoogleGenerativeAI 
+import os
 
 from DeepAgents.replicate_adapter import ChatReplicate
 from DeepAgents.agent_factory import create_deep_agent
@@ -131,37 +133,29 @@ def create_director_agent(
             logger.error("Failed to initialize Replicate Model (%s): %s", model_name, e)
             # Fallback to Google if Replicate fails?
             model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash-001",
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.7,
-                location="us-central1"
             )
 
-    else:
-        # Default to Google (Gemini)
-
-        
-        # User Directive: Location MUST be global for this model.
-        location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
-        
-        logger.info("🎬 Initializing Google Model: %s at %s", model_name, location)
+    elif provider == "Google":
+        # Google Vertex AI (Gemini) via GenerativeAI SDK (Modern)
+        logger.info("🎬 Initializing Google Vertex Model: %s", model_name)
         try:
             model = ChatGoogleGenerativeAI(
                 model=model_name,
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.7,
-                # convert_system_message_to_human=True, # Often needed for some models but Gemini handles system now
-                max_retries=1, 
+                max_retries=1,
             )
         except Exception as e:
-            logger.error("Failed to initialize Primary Model (%s): %s", model_name, e)
-            # Strict Protocol: Stop if primary fails?
-            # User said: "stop what you are doing and talk to me first" if I run into problems with access.
-            # But "failing that... use fallback" logic in strict mode?
-            # User said: "for fall backs they must use our typical location"
-            # So fallback IS allowed.
+            logger.error("Failed to initialize Primary Google Model (%s): %s", model_name, e)
             logger.info("Switching to Fallback Model (Replicate Llama 3)...")
             try:
-                # Using basic Llama 3 8b via Replicate as a cheap backup
-                # Note: Requires REPLICATE_API_TOKEN in env
                 model = ChatReplicate(
                     model="meta/meta-llama-3-8b-instruct",
                     model_kwargs={"temperature": 0.7, "max_length": 2048, "top_p": 1}
@@ -169,6 +163,22 @@ def create_director_agent(
             except Exception as replicate_error:
                 logger.critical("Replicate Fallback Failed: %s. SYSTEM HALT.", replicate_error)
                 raise replicate_error
+
+    else:
+        # Default/Fallback to Google if unknown
+        logger.warning(f"Unknown provider '{provider}'. Defaulting to Google Vertex AI.")
+        try:
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
+                temperature=0.7,
+                max_retries=1
+            )
+        except Exception as e:
+            logger.error("Failed to initialize Default Google Model (%s): %s", model_name, e)
+            raise e
 
     # Create the Deep Agent
     # 🔗 HUB INTEGRATION: Pull System Prompt

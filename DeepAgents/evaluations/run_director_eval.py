@@ -3,6 +3,7 @@ import asyncio
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langsmith import Client, evaluate
 from langsmith.schemas import Example, Run
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -19,7 +20,7 @@ from DeepAgents.CommercialAgents.director_agent.agent import create_director_age
 load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env")))
 
 # Initialize Agent
-director_app = create_director_agent(model_name="gemini-3-pro-preview")
+director_app = create_director_agent(model_name="gemini-2.0-flash-001")
 
 @retry(
     stop=stop_after_attempt(5),
@@ -54,7 +55,7 @@ def target(inputs: dict) -> dict:
     return {"output": answer}
 
 # Evaluator LLM
-eval_llm = ChatGoogleGenerativeAI(model="gemini-3-pro-preview", temperature=0)
+eval_llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-001", vertexai=True, temperature=0, location="us-central1")
 
 def element_presence_evaluator(run: Run, example: Example) -> dict:
     """

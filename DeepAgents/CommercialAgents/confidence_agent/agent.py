@@ -16,6 +16,7 @@ from typing import cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_anthropic import ChatAnthropic
 from DeepAgents.replicate_adapter import ChatReplicate
 from langchain.tools import tool
@@ -71,22 +72,30 @@ def create_confidence_agent(model_name="claude-3-haiku-20240307", provider="Anth
                 model=model_name,
                 model_kwargs={"temperature": 0.0, "max_length": 4096}
             )
-        else:
-             # Legacy / Google Path
-            location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
+        elif provider == "Google":
+             # Google Vertex AI (via GenerativeAI SDK)
             model = ChatGoogleGenerativeAI(
                 model=model_name,
+                vertexai=True,
                 temperature=0.0,
-                location=location,
+                location="us-central1", # Vertex usually auto-detects
+                max_retries=1
+            )
+        else:
+             # Legacy / Default Path
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
+                vertexai=True,
+                temperature=0.0,
                 max_retries=1
             )
     except Exception as e:
          logger.error("Failed to initialize Primary Model (%s): %s. Switching to fallback.", model_name, e)
          # Fallback to standard Google Flash if Replicate fails
          model = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash-001",
+            vertexai=True,
             temperature=0.1,
-            location="us-central1"
         )
 
     # Create the Deep Agent
@@ -180,10 +189,10 @@ def run_confidence_audit(content_to_audit: str):
         try:
             print("\n📊 Generating Argus Fact Dashboard...")
             dash_llm = ChatGoogleGenerativeAI(
-                model="gemini-3-pro-preview", 
+                model="gemini-2.0-flash-001", 
+                vertexai=True,
                 temperature=0,
-                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                location="global"
+                location="us-central1"
             )
             dash_prompt = (
                 "Convert the following audit report into a high-visibility Markdown Dashboard.\n"

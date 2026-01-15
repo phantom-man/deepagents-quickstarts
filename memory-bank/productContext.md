@@ -40,7 +40,7 @@ Current Brain: Google Gemini 2.0 Flash (High Quota/Performance optimized).
 ## Models & Providers (Managed via LangSmith)
 
 - **Intelligence**: **Google Gemini** (Strict Constraint: **Gemini 2.0 Flash 001** `gemini-2.0-flash-001`).
-    - *Fallback*: Anthropic Claude 3 Haiku (Secondary).
+  - *Fallback*: Anthropic Claude 3 Haiku (Secondary).
 - **Vision/Media**: **Replicate** (Flux/Zeroscope/Minimax).
 - **Priorities**: Defined dynamically in the configuration matrix (e.g. Minimax 1.5 > ACE-Step).
 

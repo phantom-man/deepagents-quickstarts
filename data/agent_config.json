@@ -1,27 +1,27 @@
 {
     "Director": {
-        "provider": "Anthropic",
-        "model": "claude-3-haiku-20240307"
+        "provider": "Google",
+        "model": "gemini-2.0-flash-001"
     },
     "Researcher": {
-        "provider": "Anthropic",
-        "model": "claude-3-haiku-20240307"
+        "provider": "Google",
+        "model": "gemini-2.0-flash-001"
     },
     "Confidence": {
-        "provider": "Anthropic",
-        "model": "claude-3-haiku-20240307"
+        "provider": "Google",
+        "model": "gemini-2.0-flash-001"
     },
     "Cinematographer": {
-        "provider": "Anthropic",
-        "model": "claude-3-haiku-20240307",
+        "provider": "Google",
+        "model": "gemini-2.0-flash-001",
         "image_provider": "Google",
-        "image_model": "imagen-4.0-fast-generate-001",
+        "image_model": "imagen-3.0-generate-001",
         "video_provider": "Replicate",
         "video_model": "anotherjesse/zeroscope-v2-xl:9f747673945c62801b13b84701c783929c0ee784e4748ec062204894dda1a351"
     },
     "Composer": {
-        "provider": "Replicate",
-        "model": "meta/meta-llama-3-70b-instruct"
+        "provider": "Google",
+        "model": "gemini-2.0-flash-001"
     },
     "Voice": {
         "provider": "Replicate",

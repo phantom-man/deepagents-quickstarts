@@ -7,7 +7,8 @@ and request resources or tools to enhance their performance.
 import json
 import logging
 from DeepAgents.replicate_adapter import ChatReplicate
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
+# from langchain_google_genai import ChatGoogleGenerativeAI # Deprecated
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
@@ -25,10 +26,10 @@ try:
     )
 except Exception:
     # Fallback
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro-001",
+    llm = ChatVertexAI(
+        model="gemini-2.0-flash-exp",
         temperature=0.8,
-        location="global"
+    )
     )
 
 AGENTS = [

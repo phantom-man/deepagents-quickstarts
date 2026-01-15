@@ -1,0 +1,15 @@
+{
+  "prompt": "Handheld camera. Medium shots and close-ups of people's feet tapping on the pavement, hips swaying, hands clapping. Camera pans up to reveal a lively city street at night, neon signs, and a crowd of people starting to dance.",
+  "timestamp": 1768413721,
+  "date": "2026-01-14 11:02:02",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768413721_0dbc6fd3.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768413721_0dbc6fd3.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768413721_0dbc6fd3.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

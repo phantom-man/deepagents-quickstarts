@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K, high quality, photorealistic. Slow motion. Wide establishing shot of a dimly lit city street at night. Heavy rain pours down, creating reflections of neon lights in the puddles. Camera slowly tracks behind a person walking through the rain, their face obscured by the hood of their jacket.",
+  "timestamp": 1768450421,
+  "date": "2026-01-14 21:13:42",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768450421_3ccab033.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768450421_3ccab033.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768450421_3ccab033.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

@@ -15,6 +15,7 @@ from typing import Optional, cast
 from dotenv import load_dotenv
 from langchain_core.runnables.config import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_anthropic import ChatAnthropic
 import json
 import os
@@ -64,26 +65,47 @@ def create_research_agent(model_name="claude-3-haiku-20240307", provider="Anthro
         except Exception:
              # Fallback
             model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash-001",
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.1,
-                location="us-central1"
             )
-    else: 
-        # Strict Rule: Global location for experimental models
-        location = "global" if "exp" in model_name or "preview" in model_name else "us-central1"
-        
+    
+    elif provider == "Google":
+        # Google Vertex AI
         try:
             model = ChatGoogleGenerativeAI(
                 model=model_name,
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.0, # Research needs precision
-                location=location
+                max_retries=1
+            )
+        except Exception as e:
+            logger.error(f"Failed to init Google Vertex: {e}")
+            raise e
+            
+    else: 
+        # Default / Legacy Fallback
+        try:
+            model = ChatGoogleGenerativeAI(
+                model=model_name,
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
+                temperature=0.0, 
+                max_retries=1
             )
         except Exception:
             # Fallback
             model = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash-001",
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.1,
-                location="us-central1"
             )
 
     # Create the Deep Agent

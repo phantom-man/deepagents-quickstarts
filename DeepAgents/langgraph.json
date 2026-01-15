@@ -1,7 +1,6 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "researcher": "./graph_app.py:researcher_graph",
     "director": "./graph_app.py:director_graph",
     "composer": "./graph_app.py:composer_graph",
     "confidence": "./graph_app.py:confidence_graph",

@@ -2,11 +2,13 @@
 Main Orchestration Graph for DeepAgents.
 Implements the Director -> Researcher -> Validator -> Director loop.
 """
+
 # pylint: disable=no-name-in-module, import-outside-toplevel, unused-import, broad-exception-caught, unused-argument, wrong-import-position
 
 # --- Path Setup to resolve 'DeepAgents' package ---
 import sys
 import os
+
 try:
     # Add Repo Root to Path (One level up from 'graphs', two levels up?)
     # File is at DeepAgents/graphs/agency_graph.py
@@ -73,6 +75,7 @@ class AgentState(TypedDict):
 # --- 2. The Config Schema (Dynamic Toggles in LangSmith) ---
 class GraphConfig(TypedDict):
     """Configuration schema for the graph."""
+
     require_validation: bool
     max_revisions: int
     model_provider: Literal["Anthropic", "Google", "Replicate"]
@@ -143,12 +146,27 @@ async def director_node(state: AgentState, config: RunnableConfig):
     final_msg = response_state["messages"][-1]
 
     # Robust extraction (Handle both AIMessage object and serialized dict)
+    content = ""
     if hasattr(final_msg, "content"):
-        content = final_msg.content
+        raw_content = final_msg.content
     elif isinstance(final_msg, dict):
-        content = final_msg.get("content", "")
+        raw_content = final_msg.get("content", "")
     else:
-        content = str(final_msg)
+        raw_content = str(final_msg)
+
+    # Flatten List if present (Anthropic Fix)
+    if isinstance(raw_content, list):
+        text_parts = []
+        for block in raw_content:
+            if isinstance(block, dict) and "text" in block:
+                text_parts.append(block["text"])
+            elif isinstance(block, str):
+                text_parts.append(block)
+            elif hasattr(block, "text"):
+                text_parts.append(getattr(block, "text"))
+        content = "\n".join(text_parts)
+    else:
+        content = str(raw_content)
 
     return {
         "messages": [final_msg],
@@ -171,8 +189,7 @@ async def researcher_node(state: AgentState, config: RunnableConfig):
     # We pass the plan as the "Topic" to research/verify
     # "Research the validity of this plan: ..."
     research_query = (
-        "Verify the facts and feasibility of this Creative Directive:\n"
-        f"{plan}"
+        "Verify the facts and feasibility of this Creative Directive:\n" f"{plan}"
     )
 
     result = run_research_task(research_query)
@@ -264,13 +281,10 @@ async def validator_node(state: AgentState, config: RunnableConfig):
     }
 
 
-
 # --- 4. The Router (Conditional Edges) ---
 
 
-def validation_router(
-    state: AgentState, config: RunnableConfig
-) -> Union[
+def validation_router(state: AgentState, config: RunnableConfig) -> Union[
     Literal["director", "cinematographer", "composer", "production_branch", "end"],
     List[str],
 ]:
@@ -321,19 +335,19 @@ def validation_router(
     # We return a list of nodes from the router, OR we point to a "parallel_scheduler" node.
     # But standard way: Router -> [Node A, Node B]
 
-    if parallel:
-        return ["cinematographer", "composer"]
+    # Serial Enforcement (Stable Mode)
+    # if parallel:
+    #    return ["cinematographer", "composer"]
 
     # Serial: Cine then Composer
     return "cinematographer"  # which points to composer
 
 
-def cine_router(state: AgentState, config: RunnableConfig) -> Literal["composer", "editor"]:
+def cine_router(
+    state: AgentState, config: RunnableConfig
+) -> Literal["composer", "editor"]:
     """Decides if Cine goes to Composer (Serial) or Editor (Parallel)."""
-    conf = config.get("configurable", {})
-    parallel = conf.get("parallel_production", True)
-    if parallel:
-        return "editor"
+    # Force Serial Flow
     return "composer"
 
 
@@ -380,7 +394,8 @@ async def cinematographer_node(state: AgentState, config: RunnableConfig):
             # Clean up the string to get just the path if verbose
 
             match = re.search(
-                r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)", result
+                r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
+                result,
             )
             if match:
                 clean_path = match.group(1)
@@ -419,7 +434,8 @@ async def composer_node(state: AgentState, config: RunnableConfig):
         assets = []
         # Heuristic extraction
         match = re.search(
-            r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)", result
+            r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
+            result,
         )
         if match:
             assets.append(match.group(1))
@@ -500,11 +516,10 @@ workflow.set_entry_point("director")
 
 # Conditional Edge (Router)
 workflow.add_conditional_edges(
-    "director", # Direct to Validation Router (which skips to Production)
+    "director",  # Direct to Validation Router (which skips to Production)
     validation_router,
     # path_map dictionary used to map return values to node names
     {
-
         "director": "director",
         "cinematographer": "cinematographer",
         "composer": "composer",
@@ -520,9 +535,7 @@ workflow.add_conditional_edges(
 # Parallel Convergence
 # If Parallel, Cine -> Editor. If Serial, Cine -> Composer -> Editor.
 workflow.add_conditional_edges(
-    "cinematographer",
-    cine_router,
-    {"composer": "composer", "editor": "editor"}
+    "cinematographer", cine_router, {"composer": "composer", "editor": "editor"}
 )
 workflow.add_edge("composer", "editor")
 

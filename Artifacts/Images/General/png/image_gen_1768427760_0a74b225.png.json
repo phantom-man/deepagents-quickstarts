@@ -1,0 +1,15 @@
+{
+  "prompt": "A storyboard image for a music video in the style of Alanis Morissette about a character going crazy. Three-act structure with introduction, breakdown, and resolution. Visuals should convey a strong aesthetic and emotional mood.",
+  "timestamp": 1768427760,
+  "date": "2026-01-14 14:56:01",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768427760_0a74b225.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768427760_0a74b225.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768427760_0a74b225.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

@@ -14,6 +14,7 @@ from typing import Optional, List
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from DeepAgents.replicate_adapter import ChatReplicate
 
 # Add Repo Root to Path
@@ -97,10 +98,9 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
             print(f"⚠️ Replicate LLM Init Failed: {e}. Falling back to Google.")
             try:
                 self.llm = ChatGoogleGenerativeAI(
-                    model="gemini-1.5-pro-001",
+                    model="gemini-2.0-flash-001",
+                    vertexai=True,
                     temperature=0.2,
-                    project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-                    location=os.getenv("GOOGLE_CLOUD_LOCATION")
                 )
             except Exception as e2:
                  print(f"⚠️ Fallback LLM Init Failed: {e2}")

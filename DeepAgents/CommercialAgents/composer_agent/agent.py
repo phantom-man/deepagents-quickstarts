@@ -3,35 +3,40 @@ Composer Agent Module.
 Handles the creation of musical compositions (Audio or Text/ABC).
 """
 
+# pylint: disable=too-many-lines, too-many-locals, too-many-branches, too-many-statements
+# pylint: disable=broad-exception-caught, logging-fstring-interpolation, used-before-assignment
+
 import os
 import re
-import random
+import sys
 import time
+import base64
 import uuid
 import logging
-import glob
 import shutil
-from typing import Optional, Dict, Any, List
-import requests
-
 from dotenv import load_dotenv
+from typing import Optional, Dict, Any, List
+
+import requests
+import google.auth
+from google.auth.transport.requests import Request
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain_google_vertexai import ChatVertexAI # Deprecated
-from DeepAgents.replicate_adapter import ChatReplicate
 from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
 
+from DeepAgents.replicate_adapter import ChatReplicate
 from DeepAgents.agent_factory import create_deep_agent
 from DeepAgents.asset_manager import AssetManager
 from DeepAgents.hub_manager import get_or_push_prompt
+from DeepAgents.system_config import SystemConfiguration
 
 try:
     from DeepAgents.CommercialAgents.composer_agent.prompts import (
-        COMPOSER_INSTRUCTIONS, 
-        ACE_STEP_SCHEMA, 
+        COMPOSER_INSTRUCTIONS,
+        ACE_STEP_SCHEMA,
         MINIMAX_SCHEMA,
-        LYRIA_SCHEMA
+        LYRIA_SCHEMA,
     )
 except ImportError:
     # Basic fallback if file missing
@@ -47,7 +52,14 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
 logger = logging.getLogger("ComposerAgent")
 
-def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio", max_mb: int = 20, force_extension: Optional[str] = None) -> Optional[str]:
+
+def _download_and_validate_asset(
+    url: str,
+    session_id: str,
+    prefix: str = "audio",
+    max_mb: int = 20,
+    force_extension: Optional[str] = None,
+) -> Optional[str]:
     """
     Downloads and validates audio from a URL.
     Returns local filepath if valid, None if failed/invalid.
@@ -62,18 +74,20 @@ def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio
             return url
 
         logger.info(f"⬇️ Downloading & Validating {prefix}: {url}")
-        
+
         # 1. Head Check for Size
         try:
             h = requests.head(url, timeout=10)
             content_length = int(h.headers.get("content-length", 0))
-            max_bytes = max_mb * 1024 * 1024 
-            
+            max_bytes = max_mb * 1024 * 1024
+
             if content_length > max_bytes:
-                logger.warning(f"⚠️ Audio too large ({content_length/1024/1024:.2f}MB). Limit is {max_mb}MB.")
+                logger.warning(
+                    f"⚠️ Audio too large ({content_length/1024/1024:.2f}MB). Limit is {max_mb}MB."
+                )
                 return None
         except Exception:
-            pass # Head might fail on some signed URLs, create session to try GET
+            pass  # Head might fail on some signed URLs, create session to try GET
 
         # 2. Download
         r = requests.get(url, timeout=60, stream=True)
@@ -123,6 +137,7 @@ def _download_and_validate_asset(url: str, session_id: str, prefix: str = "audio
         logger.error(f"Validation Failed: {e}")
         return None
 
+
 # Import new history tools
 try:
     from DeepAgents.CommercialAgents.composer_agent.history_tools import (
@@ -149,9 +164,9 @@ def check_service_status() -> Dict[str, bool]:
         "lucataco/ace-step": True,
         "minimax/music-1.5": True,
         "google/lyria-2": True,
-        "meta/musicgen": True
+        "meta/musicgen": True,
     }
-    
+
     if not replicate:
         logger.warning("Replicate SDK not installed. Assuming all DOWN.")
         return {k: False for k in status_map}
@@ -163,11 +178,11 @@ def check_service_status() -> Dict[str, bool]:
         try:
             m = replicate.models.get(model)
             # Accessing latest version usually confirms API connectivity & Existence
-            v = m.latest_version 
+            v = m.latest_version
         except Exception as e:
             logger.warning(f"⚠️ Service {model} seems DOWN or Unreachable: {e}")
             status_map[model] = False
-            
+
     return status_map
 
 
@@ -179,7 +194,7 @@ def check_service_status() -> Dict[str, bool]:
 #    """
 #    # Lazy import to avoid circular dependencies
 #    from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-#    
+#
 #    logger.info("🎻 Composer > 📞 Calling Research Agent about: %s", topic)
 #    extra_config = {
 #        "tags": ["sub-agent-call", "agent:researcher", "source:composer"],
@@ -191,7 +206,9 @@ def check_service_status() -> Dict[str, bool]:
 #    return "Research Agent could not find significant information."
 
 
-def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "minimax") -> Dict[str, str]:
+def _generate_lyrics_and_style(
+    input_text: str, llm: Any, model_type: str = "minimax"
+) -> Dict[str, str]:
     """
     Helper to generate lyrics and style using the LLM.
     Implements a Reflexion Loop to strictly enforce API constraints.
@@ -215,8 +232,8 @@ def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "min
 
     try:
         # from langchain_core.messages import AIMessage, HumanMessage  # REMOVED due to UnboundLocalError
-        
-        for attempt in range(1, 4): # Try up to 3 times
+
+        for attempt in range(1, 4):  # Try up to 3 times
             response = llm.invoke(messages)
             content = response.content
             result = {}
@@ -224,39 +241,59 @@ def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "min
             # Parse Output
             if model_type == "ace-step":
                 tags_match = re.search(r"TAGS:\s*(.*)", content, re.IGNORECASE)
-                result["tags"] = tags_match.group(1).strip() if tags_match else input_text
+                result["tags"] = (
+                    tags_match.group(1).strip() if tags_match else input_text
+                )
             else:
                 # Standard Style/Prompt Extraction (Minimax & Lyria)
                 style_match = re.search(r"STYLE:\s*(.*)", content, re.IGNORECASE)
-                result["prompt"] = style_match.group(1).strip() if style_match else input_text
+                result["prompt"] = (
+                    style_match.group(1).strip() if style_match else input_text
+                )
 
-            lyrics_match = re.search(r"LYRICS:\s*(.*)", content, re.IGNORECASE | re.DOTALL)
+            lyrics_match = re.search(
+                r"LYRICS:\s*(.*)", content, re.IGNORECASE | re.DOTALL
+            )
             lyrics = lyrics_match.group(1).strip() if lyrics_match else ""
             result["lyrics"] = lyrics
 
             # Validate Constraints (Minimax Only)
             constraint_errors = []
             if model_type == "minimax":
-                if len(lyrics) > 550: # Safety buffer below 600
-                    constraint_errors.append(f"Lyrics are {len(lyrics)} chars (Max 550 allowable)")
+                if len(lyrics) > 550:  # Safety buffer below 600
+                    constraint_errors.append(
+                        f"Lyrics are {len(lyrics)} chars (Max 550 allowable)"
+                    )
                 prompt_val = result.get("prompt", "")
-                if len(prompt_val) > 290: # Safety buffer below 300
-                    constraint_errors.append(f"Style Prompt is {len(prompt_val)} chars (Max 300 allowable)")
-            
+                if len(prompt_val) > 290:  # Safety buffer below 300
+                    constraint_errors.append(
+                        f"Style Prompt is {len(prompt_val)} chars (Max 300 allowable)"
+                    )
+
             # ACE-Step Constraints (Loose for now)
             if model_type == "ace-step":
-                 if not result.get("tags") and not lyrics:
-                     constraint_errors.append("Failed to generate Tags or Lyrics")
+                if not result.get("tags") and not lyrics:
+                    constraint_errors.append("Failed to generate Tags or Lyrics")
 
-            if not constraint_errors and (lyrics or result.get("tags") or result.get("prompt")):
-                logger.info(f"✅ Generated Valid Lyrics/Style (Attempt {attempt}, Model: {model_type})")
+            if not constraint_errors and (
+                lyrics or result.get("tags") or result.get("prompt")
+            ):
+                logger.info(
+                    f"✅ Generated Valid Lyrics/Style (Attempt {attempt}, Model: {model_type})"
+                )
                 return result
 
             # Reflexion: Add feedback to history for next turn
-            logger.warning(f"⚠️ Constraint Violation (Attempt {attempt}): {', '.join(constraint_errors)}. Retrying...")
+            logger.warning(
+                f"⚠️ Constraint Violation (Attempt {attempt}): {', '.join(constraint_errors)}. Retrying..."
+            )
             messages.append(AIMessage(content=content))
-            messages.append(HumanMessage(content=f"SYSTEM ERROR: The output violated strict API requirements. \nErrors: {'; '.join(constraint_errors)}. \n\nPlease REWRITE the content to comply."))
-            last_valid_result = result # Save just in case but don't return yet
+            messages.append(
+                HumanMessage(
+                    content=f"SYSTEM ERROR: The output violated strict API requirements. \nErrors: {'; '.join(constraint_errors)}. \n\nPlease REWRITE the content to comply."
+                )
+            )
+            last_valid_result = result  # Save just in case but don't return yet
 
         # Fallback if 3 attempts fail
         logger.error("❌ Max retries reached. Using best effort.")
@@ -267,18 +304,22 @@ def _generate_lyrics_and_style(input_text: str, llm: Any, model_type: str = "min
         return {"prompt": input_text, "tags": input_text, "lyrics": ""}
 
 
-def _generate_descriptive_filename(prompt: str, session_id: str, ext: str = "mp3") -> str:
+def _generate_descriptive_filename(
+    prompt: str, session_id: str, ext: str = "mp3"
+) -> str:
     """Generates a descriptive filename from the prompt."""
     clean_prompt = "".join([c if c.isalnum() else "_" for c in prompt[:30]]).strip("_")
     timestamp = int(time.time())
     return f"{clean_prompt}_{session_id[:6]}_{timestamp}.{ext}"
 
 
-def _safe_replicate_run(model_id: str, input_data: Dict[str, Any], wait_time: int = 5) -> Any:
+def _safe_replicate_run(
+    model_id: str, input_data: Dict[str, Any], wait_time: int = 5
+) -> Any:
     """Runs Replicate prediction with rate limit hygiene."""
     logger.info(f"⏳ Waiting {wait_time}s to avoid Rate Limits...")
     time.sleep(wait_time)
-    
+
     if ":" not in model_id and "/" in model_id:
         try:
             model = replicate.models.get(model_id)
@@ -314,11 +355,11 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
     # --- 1. Service Availability Check ---
     status_map = check_service_status()
-    
+
     # --- 2. Strategy Selection & Fallback ---
     # Default selection logic
     target_model = model_name
-    
+
     # Logic: Default to ACE-Step unless specific model requested
     if "/" not in target_model:
         lower_input = input_text.lower()
@@ -346,7 +387,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
     if "lyria" in target_model and status_map.get("google/lyria-2") is False:
         logger.warning("🚨 Lyria-2 is DOWN. Falling back to MusicGen.")
         target_model = "meta/musicgen"
-    
+
     logger.info(f"✅ Final Strategy: {target_model}")
 
     if "bark" in target_model or "suno-ai" in target_model:
@@ -359,32 +400,37 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
         # Parse Duration explicitly for models that support it
         duration_sec = None
-        dur_match = re.search(r"(\d+)\s*(min|minute|sec|second)", input_text, re.IGNORECASE)
+        dur_match = re.search(
+            r"(\d+)\s*(min|minute|sec|second)", input_text, re.IGNORECASE
+        )
         if dur_match:
             val = int(dur_match.group(1))
             unit = dur_match.group(2).lower()
             if "min" in unit:
-                duration_sec = min(val * 60, 300) # Cap at 300s
+                duration_sec = min(val * 60, 300)  # Cap at 300s
             else:
                 duration_sec = min(val, 300)
             logger.info(f"   Duration parsed: {duration_sec}s")
-        
+
         # Case: Native Google Lyria
-        if "lyria-002" in target_model or ("lyria" in target_model and "google" in target_model and "002" in target_model): 
+        if "lyria-002" in target_model or (
+            "lyria" in target_model
+            and "google" in target_model
+            and "002" in target_model
+        ):
             logger.info("🎵 Generating with Native Google Lyria-2 (Vertex Predict)...")
-            import google.auth
-            from google.auth.transport.requests import Request
-            import requests # re-import
-            import base64
-            
+
             # Auth & Call (Lines omitted)
             credentials, project_id = google.auth.default()
             if not credentials.valid:
                 credentials.refresh(Request())
             target_project = project_id or "crafty-hook-483415-b3"
             endpoint = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{target_project}/locations/us-central1/publishers/google/models/lyria-002:predict"
-            headers = {"Authorization": f"Bearer {credentials.token}", "Content-Type": "application/json"}
-            
+            headers = {
+                "Authorization": f"Bearer {credentials.token}",
+                "Content-Type": "application/json",
+            }
+
             # Use duration if valid (Lyria allows fixed lengths of 60s usually, check docs)
             # Actually Lyria 002 is often fixed or takes a length param. We'll ignore for now or pass context.
             payload = {
@@ -393,92 +439,64 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         "prompt": input_text,
                     }
                 ],
-                "parameters": {
-                    "sampleCount": 1
-                }
+                "parameters": {"sampleCount": 1},
             }
             # Lyria 2 often generates fixed segments.
-            
+
             # ... (Existing Request Logic)
-            
+
             response = requests.post(endpoint, headers=headers, json=payload)
             if response.status_code == 200:
-                # ... (Existing Handling)
-                # Just placeholder to ensure context match for replace
-                pass
+                data = response.json()
+                if "predictions" in data and len(data["predictions"]) > 0:
+                    pred = data["predictions"][0]
+                    if "bytesBase64Encoded" in pred:
+                        b64_data = pred["bytesBase64Encoded"]
+                        audio_bytes = base64.b64decode(b64_data)
+
+                        fname = _generate_descriptive_filename(
+                            input_text, session_id, ext="wav"
+                        )
+                        temp_path = os.path.abspath(fname)
+                        with open(temp_path, "wb") as f:
+                            f.write(audio_bytes)
+                        final_url = temp_path
+                    else:
+                        raise ValueError(
+                            f"Unexpected Lyria Response Keys: {pred.keys()}"
+                        )
+                else:
+                    raise ValueError(f"No predictions returned: {data}")
+            else:
+                logger.error(
+                    f"Lyria 002 Native Failed {response.status_code}: {response.text}"
+                )
+                target_model = "meta/musicgen"
 
         # Case: ACE-Step (Optimized Configuration)
         elif "ace-step" in target_model:
-            logger.info("🎵 Generating with ACE-Step (High Quality Mode)...")
-            
-            # Determine prompt & lyrics
-            lyrics_data = _generate_lyrics_and_style(input_text, llm, "ace-step")
-            
-            # ACE-Step Max Quality Params
-            input_data = {
-                "lyrics": lyrics_data.get("lyrics", ""),
-                "prompt": lyrics_data.get("tags", input_text), # Prompt acts as Tags/Style
-                "num_inference_steps": 50, # Maximize steps (usually 20-50 range)
-                "guidance_scale": 7.5, # Standard strong enforcement
-                # Duration is supported by some ACE implementation, if not it generates based on lyrics
-            }
-            if duration_sec:
-                input_data["duration"] = duration_sec
-                
-            ace_out = _safe_replicate_run("lucataco/ace-step", input_data=input_data)
-            final_url = _extract_replicate_url(ace_out)
-
-        # Case: Minimax Music-1.5
-        elif "minimax" in target_model:
-            logger.info("🎵 Generating with Minimax Music-1.5...")
-            # Note: Minimax Music-1.5 does NOT support 'duration'. Length is determined by text/lyrics.
-            
-            # Generate Lyrics/Style first
-            minimax_lyrics = _generate_lyrics_and_style(input_text, llm, "minimax")
-            style_prompt = minimax_lyrics.get("prompt", input_text)
-            lyrics_text = minimax_lyrics.get("lyrics", "")
-
-            # Construct Payload
-            payload = {
-                "prompt": style_prompt,
-                "lyrics": lyrics_text,
-                "model_version": "music-1.5"
-            }
-            
-            minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
-            final_url = _extract_replicate_url(minimax_out)
-
-        # Case: MusicGen (Fallback)
-        else:
-            logger.info("🎵 Generating with MusicGen...")
-            mg_out = _safe_replicate_run(
-                "meta/musicgen", 
-                input_data={"prompt": input_text, "duration": min(duration_sec, 30) if duration_sec else 20}
-            )
-            final_url = _extract_replicate_url(mg_out)
-
-        # Case: ACE-Step (Optimized Configuration)
-        if "ace-step" in target_model:
             logger.info("🎤 Generating with ACE-Step (High Quality Mode)...")
-            
+
             # Map global duration to ACE specific logic (Cap 240s)
             ace_duration = min(duration_sec, 240) if duration_sec else 60
             logger.info(f"   ACE-Step Duration set to: {ace_duration}s")
 
             # Generate Tags/Lyrics
-            lyric_data = _generate_lyrics_and_style(input_text, llm, model_type="ace-step")
+            lyric_data = _generate_lyrics_and_style(
+                input_text, llm, model_type="ace-step"
+            )
             tags = lyric_data.get("tags", input_text)
             lyrics = lyric_data.get("lyrics", "[inst]")
-            
+
             # High Quality Params
             input_data = {
                 "lyrics": lyrics,
                 "prompt": tags,
                 "duration": ace_duration,
-                "num_inference_steps": 50, # MAX Quality
-                "guidance_scale": 7.5
+                "num_inference_steps": 50,  # MAX Quality
+                "guidance_scale": 7.5,
             }
-            
+
             # ACE Step Run
             ace_out = _safe_replicate_run("lucataco/ace-step", input_data=input_data)
             final_url = _extract_replicate_url(ace_out)
@@ -490,17 +508,17 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 "duration": ace_duration,
                 "scheduler": "heun",
                 "guidance_type": "apg",
-                "guidance_scale": 20,        # Boosted to 20 for strict adherence
-                "number_of_steps": 200,      # MAX (200) for best quality
+                "guidance_scale": 20,  # Boosted to 20 for strict adherence
+                "number_of_steps": 200,  # MAX (200) for best quality
                 "granularity_scale": 10,
                 "guidance_interval": 0.5,
                 "min_guidance_scale": 3,
-                "tag_guidance_scale": 10,    # MAX (10) - Absolute Stlye Adherence
+                "tag_guidance_scale": 10,  # MAX (10) - Absolute Stlye Adherence
                 "lyric_guidance_scale": 10,  # MAX (10) - Absolute Lyric Adherence
-                "guidance_interval_decay": 0
+                "guidance_interval_decay": 0,
             }
             logger.info(f"   Payload Keys: {payload.keys()}")
-            
+
             ace_out = _safe_replicate_run("lucataco/ace-step", input_data=payload)
             final_url = _extract_replicate_url(ace_out)
 
@@ -508,60 +526,62 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         elif "music-1.5" in target_model:
             logger.info("🎤 Generating with Minimax Music-1.5 (Text-to-Music)...")
 
-            # Minimax doesn't have explicit 'duration' param typically, but we should pass it 
+            # Minimax doesn't have explicit 'duration' param typically, but we should pass it
             # if the new API supports it, or rely on lyric length.
             # Assuming 'duration' int/float is supported per user instruction.
-            
-            lyric_data = _generate_lyrics_and_style(input_text, llm, model_type="minimax")
+
+            lyric_data = _generate_lyrics_and_style(
+                input_text, llm, model_type="minimax"
+            )
             lyrics_text = lyric_data.get("lyrics", input_text)
             style_prompt = lyric_data.get("prompt", input_text)
-            
-            payload = {
-                "prompt": style_prompt,
-                "lyrics": lyrics_text
-            }
+
+            payload = {"prompt": style_prompt, "lyrics": lyrics_text}
             # Note: Minimax Music-1.5 does NOT support 'duration'. Length is determined by text/lyrics.
-            
+
             minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
             final_url = _extract_replicate_url(minimax_out)
 
         # Case: Lyria-2
         elif "lyria" in target_model:
             logger.info("🎵 Generating with Google Lyria-2...")
-            lyria_out = _safe_replicate_run("google/lyria-2", input_data={"prompt": input_text})
+            lyria_out = _safe_replicate_run(
+                "google/lyria-2", input_data={"prompt": input_text}
+            )
             final_url = _extract_replicate_url(lyria_out)
 
         # Case: MusicGen
         else:
             logger.info("🎵 Generating with MusicGen...")
             mg_out = _safe_replicate_run(
-                "meta/musicgen", 
-                input_data={"prompt": input_text, "duration": 20}
+                "meta/musicgen", input_data={"prompt": input_text, "duration": 20}
             )
             final_url = _extract_replicate_url(mg_out)
 
         # C. Save & Rename
         if final_url:
             fname = _generate_descriptive_filename(input_text, session_id)
-            local_path = _download_and_validate_asset(final_url, session_id, prefix="final")
-            
+            local_path = _download_and_validate_asset(
+                final_url, session_id, prefix="final"
+            )
+
             if local_path:
                 # FIX: Ensure we use the AssetManager's directory structure
                 # We want Artifacts/Audio/Music/
                 target_dir = os.path.join(assets.base_dir, "Audio", "Music")
                 os.makedirs(target_dir, exist_ok=True)
-                
+
                 final_path = os.path.join(target_dir, fname)
-                
+
                 # Move from temp (CWD) to Target
                 shutil.move(local_path, final_path)
                 logger.info(f"🎉 Final Asset Ready: {final_path}")
-                
+
                 # Retrieve used lyrics for display
                 used_lyrics = locals().get("lyrics", locals().get("lyrics_text", "N/A"))
 
                 return f"**Audio Generated ({current_model_used}):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n\n**(Verified Lyrics Used)**:\n{used_lyrics}"
-            
+
         return "Generation failed: No URL returned."
 
     except Exception as e:
@@ -574,28 +594,39 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
     Selects the best music model based on prompt analysis and System Configuration.
     """
     try:
-        from DeepAgents.system_config import SystemConfiguration
         sys_config = SystemConfiguration()
         cfg = sys_config.load_config()
-        
+
         # Get all composer music models
         capabilities = cfg.get("agents", {}).get("Composer", {}).get("capabilities", [])
-        music_cap = next((c for c in capabilities if c.get("type") == "music_generation"), None)
-        
+        music_cap = next(
+            (c for c in capabilities if c.get("type") == "music_generation"), None
+        )
+
         if not music_cap:
-            return "minimax/music-1.5" # Fallback
-            
+            return "minimax/music-1.5"  # Fallback
+
         models = music_cap.get("models", [])
-        
+
         # 1. Analyze Prompt for Constraints (Lyrics vs Instrumental & Duration)
         requires_lyrics = False
         requires_duration = False
         duration_val = 0
-        
+
         # Heuristics for Lyrics (Fast & effective)
-        lyrics_keywords = ["lyrics", "singing", "vocal", "rap", "song about", "ballad", "verse", "chorus", "voice"]
+        lyrics_keywords = [
+            "lyrics",
+            "singing",
+            "vocal",
+            "rap",
+            "song about",
+            "ballad",
+            "verse",
+            "chorus",
+            "voice",
+        ]
         if any(w in prompt.lower() for w in lyrics_keywords):
-             requires_lyrics = True
+            requires_lyrics = True
 
         # Heuristics for Duration
         dur_match = re.search(r"(\d+)\s*(min|minute|sec|second)", prompt, re.IGNORECASE)
@@ -607,24 +638,29 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
                 duration_val = val * 60
             else:
                 duration_val = val
-             
+
         # LLM Confirmation (Optional but robust)
         if llm:
             try:
                 # Classify very cheaply
-                msg = HumanMessage(content=f"""Classify this music request: '{prompt}'.
+                msg = HumanMessage(
+                    content=f"""Classify this music request: '{prompt}'.
                 1. Reply 'VOCAL' if it needs singing/lyrics, or 'INSTRUMENTAL' if it is background/score/instrumental only.
                 2. Reply 'DURATION_YES' if specific time length is requested, 'DURATION_NO' if not.
                 Format: <TYPE>|<DURATION_CONSTRAINT>
                 Example: VOCAL|DURATION_NO
-                Reply ONLY the string.""")
-                res = llm.invoke([msg]) 
+                Reply ONLY the string."""
+                )
+                res = llm.invoke([msg])
                 parts = res.content.upper().split("|")
                 if len(parts) >= 1:
-                     if "VOCAL" in parts[0]: requires_lyrics = True
-                     elif "INSTRUMENTAL" in parts[0]: requires_lyrics = False
+                    if "VOCAL" in parts[0]:
+                        requires_lyrics = True
+                    elif "INSTRUMENTAL" in parts[0]:
+                        requires_lyrics = False
                 if len(parts) >= 2:
-                     if "DURATION_YES" in parts[1]: requires_duration = True
+                    if "DURATION_YES" in parts[1]:
+                        requires_duration = True
             except Exception as e:
                 logger.warning(f"Classification skipped: {e}")
 
@@ -633,7 +669,7 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
         for m in models:
             score = m.get("priority", 0)
             model_id = m.get("id")
-            
+
             # Constraint: Lyrics
             model_supports_lyrics = m.get("supports_lyrics", False)
             if requires_lyrics and not model_supports_lyrics:
@@ -641,25 +677,33 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
 
             # Constraint: Duration (Soft Constraint / Penalty)
             # If User asks for duration, but model ignores it (like Minimax), penalize heavily
-            model_supports_duration = m.get("supports_duration", True) # Default to True if undefined unless known bad
+            model_supports_duration = m.get(
+                "supports_duration", True
+            )  # Default to True if undefined unless known bad
             if requires_duration and not model_supports_duration:
-                logger.info(f"   Model {model_id} penalized: Ignores requested duration.")
-                score -= 50 # Massive penalty, pushes it below others
-            
+                logger.info(
+                    f"   Model {model_id} penalized: Ignores requested duration."
+                )
+                score -= 50  # Massive penalty, pushes it below others
+
             # Add to candidates with dynamic score
             candidates.append({"id": model_id, "score": score, "data": m})
-            
+
         # 3. Sort by Dynamic Score
         candidates.sort(key=lambda x: x["score"], reverse=True)
-        
+
         if not candidates:
             # Fallback
-            logger.info("No models matched strict constraints. Returning highest priority available.")
+            logger.info(
+                "No models matched strict constraints. Returning highest priority available."
+            )
             candidates = [{"id": m["id"], "score": m["priority"]} for m in models]
             candidates.sort(key=lambda x: x["score"], reverse=True)
-            
+
         best_model = candidates[0].get("id")
-        logger.info(f"🧠 Model Selection: Request(Lyrics={requires_lyrics}, Duration={requires_duration}) -> Selected '{best_model}' (Score: {candidates[0]['score']})")
+        logger.info(
+            f"🧠 Model Selection: Request(Lyrics={requires_lyrics}, Duration={requires_duration}) -> Selected '{best_model}' (Score: {candidates[0]['score']})"
+        )
         return best_model
 
     except Exception as e:
@@ -680,24 +724,24 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str
     # 1. Init LLM (Needed for both Selection and Generation)
     llm_for_lyrics = None
     try:
-        from langchain_google_genai import ChatGoogleGenerativeAI
         llm_for_lyrics = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-001",
-            vertexai=True,
-            temperature=0.7
+            model="gemini-2.0-flash-001", vertexai=True, temperature=0.7
         )
     except Exception as e:
         logger.warning("Could not init LLM for lyrics/selection: %s", e)
         try:
-             # Fallback
+            # Fallback
             llm_for_lyrics = ChatReplicate(
-                model="meta/meta-llama-3-70b-instruct", 
-                model_kwargs={"temperature": 0.7, "max_length": 2048} 
+                model="meta/meta-llama-3-70b-instruct",
+                model_kwargs={"temperature": 0.7, "max_length": 2048},
             )
-        except: pass
+        except:
+            pass
 
     # 2. Select Model
-    if model_name == "auto" or "/" not in model_name: # Handle "minimax/music-1.5" or just "auto"
+    if (
+        model_name == "auto" or "/" not in model_name
+    ):  # Handle "minimax/music-1.5" or just "auto"
         target_model = _select_optimal_music_model(prompt, llm_for_lyrics)
     else:
         target_model = model_name
@@ -708,7 +752,7 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str
         input_text=prompt,
         llm=llm_for_lyrics,
         assets=assets,
-        session_id="tool_direct"
+        session_id="tool_direct",
     )
 
 
@@ -736,18 +780,18 @@ def browse_library_tool(filter_type: str = "all") -> str:
         filter_type: "audio", "video", "image", or "all".
     """
     assets = AssetManager()
-    
+
     # If "all", pass None, else pass type
     a_type = None if filter_type == "all" else filter_type
-    
+
     results = assets.list_assets(asset_type=a_type)
     if not results:
         return "Library is empty."
-        
+
     output = "Current Asset Library:\n"
-    for item in results[:10]: # Limit to 10 most recent
+    for item in results[:10]:  # Limit to 10 most recent
         output += f"- [{item.get('asset_type')}] {item.get('prompt', 'Unknown')} (File: {os.path.basename(item.get('path', ''))})\n"
-        
+
     return output
 
 
@@ -789,25 +833,24 @@ def create_composer_agent(
     try:
         # Determine Brain Provider (Separate from Music Gen Model)
         # Default to Anthropic if not specified for Brain
-        brain_provider = "Anthropic" 
+        brain_provider = "Anthropic"
         brain_model = "claude-3-haiku-20240307"
-        
+
         # Override if config explicitly asks for Replicate Brain (unlikely for now)
         # But we respect global "provider" if it matches a known LLM provider
         if provider in ["Google", "Anthropic"]:
-             brain_provider = provider
-             # Use the passed model name if available
-             if provider == "Google": 
-                 brain_model = model_name if model_name else "gemini-2.0-flash-001"
-        
-        logger.info(f"🎻 Orpheus > Initializing Brain with {brain_provider}/{brain_model}...")
+            brain_provider = provider
+            # Use the passed model name if available
+            if provider == "Google":
+                brain_model = model_name if model_name else "gemini-2.0-flash-001"
+
+        logger.info(
+            f"🎻 Orpheus > Initializing Brain with {brain_provider}/{brain_model}..."
+        )
 
         if brain_provider == "Anthropic":
             try:
-                llm = ChatAnthropic(
-                    model_name=brain_model, 
-                    temperature=0.7
-                )
+                llm = ChatAnthropic(model_name=brain_model, temperature=0.7)
             except Exception as e:
                 logger.warning(f"Anthropic Brain Init Failed: {e}")
                 # Fallback to Replicate Llama 3
@@ -817,10 +860,10 @@ def create_composer_agent(
         if brain_provider == "Replicate":
             try:
                 # Requires REPLICATE_API_TOKEN in env
-                from DeepAgents.replicate_adapter import ChatReplicate
+
                 llm = ChatReplicate(
                     model=brain_model,
-                    model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1}
+                    model_kwargs={"temperature": 0.5, "max_length": 2048, "top_p": 1},
                 )
             except Exception as e:
                 logger.warning(f"Replicate Init Failed: {e}. Falling back to Google.")
@@ -833,15 +876,14 @@ def create_composer_agent(
                     model=brain_model,
                     vertexai=True,
                     temperature=0.5,
-                    location="us-central1", # Vertex usually auto-detects
-                    max_retries=1
+                    location="us-central1",  # Vertex usually auto-detects
+                    max_retries=1,
                 )
             except Exception:
                 pass
 
-
         if not llm:
-             raise ValueError("No LLM could be initialized")
+            raise ValueError("No LLM could be initialized")
 
     except Exception as e:
         logger.error(f"Brain Init Failed: {e}")
@@ -850,17 +892,17 @@ def create_composer_agent(
 
     # 3. Initialize Agent
     # Fix: Restored valid 'browse_library_tool'
-    
+
     # 🔗 HUB INTEGRATION: Pull System Prompt
     hub_prompt = get_or_push_prompt("composer-system-prompt", COMPOSER_INSTRUCTIONS)
-    
+
     # We replace 'compose_tool' (which was recursive) with 'generate_music_tool' (which wraps the logic)
     agent = create_deep_agent(
         model=llm,
-        tools=[generate_music_tool, browse_library_tool], 
+        tools=[generate_music_tool, browse_library_tool],
         system_prompt=hub_prompt,
     )
-    
+
     return agent
 
 
@@ -872,54 +914,62 @@ def run_composer_task(request_description: str) -> str:
     logger.info(f"🎻 Composer Consulted: {request_description}")
     try:
         from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
-        
+
         # Create a fresh agent instance
         agent = create_composer_agent()
-        
+
         # Format input
         inputs = {"messages": [HumanMessage(content=request_description)]}
-        
+
         # Run
         result = agent.invoke(inputs)
-        
+
         final_response = ""
         if isinstance(result, dict) and "messages" in result:
-             msg = result["messages"][-1]
-             if isinstance(msg.content, list):
-                 # Flatten list of blocks to string
-                 texts = [block.get("text", "") if isinstance(block, dict) else str(block) for block in msg.content]
-                 final_response = "\n".join(texts)
-             else:
-                 final_response = str(msg.content)
+            msg = result["messages"][-1]
+            if isinstance(msg.content, list):
+                # Flatten list of blocks to string
+                texts = [
+                    block.get("text", "") if isinstance(block, dict) else str(block)
+                    for block in msg.content
+                ]
+                final_response = "\n".join(texts)
+            else:
+                final_response = str(msg.content)
         else:
-             final_response = str(result)
+            final_response = str(result)
 
         # HITL Check Logic
         # We need to extract the asset path from the response string to check approval
         # Simple heuristic: Look for valid paths or http links
-        import re
+
         # Regex for paths (simplified)
-        matches = re.findall(r"([a-zA-Z]:\\[^ \n\r\t]+|\/Users\/[^ \n\r\t]+|http[s]?://[^ \n\r\t]+)", final_response)
-        
+        matches = re.findall(
+            r"([a-zA-Z]:\\[^ \n\r\t]+|\/Users\/[^ \n\r\t]+|http[s]?://[^ \n\r\t]+)",
+            final_response,
+        )
+
         candidates = []
         for p in matches:
             # Clean punctuation
             p = p.rstrip(".,\"'()")
             # Ignore tools/scripts, look for extensions
-            if any(ext in p.lower() for ext in [".mp3", ".wav", ".mp4", ".png", ".jpg"]):
-                 candidates.append(p)
+            if any(
+                ext in p.lower() for ext in [".mp3", ".wav", ".mp4", ".png", ".jpg"]
+            ):
+                candidates.append(p)
 
         # Prioritize Cloud URLs (http) over local paths for LangSmith compatibility
         # Sort so http comes first
         candidates.sort(key=lambda x: 0 if x.startswith("http") else 1)
-        
+
         for p in candidates:
-             if is_asset_rejected(p):
-                 return f"HITL_REJECTED: User rejected asset {p}. Retry."
-             # HITL DISABLED: Always proceed
-             # if not is_asset_approved(p):
-             #    return f"HITL_REVIEW_REQUIRED: {p}"
-        
+            if is_asset_rejected(p):
+                return f"HITL_REJECTED: User rejected asset {p}. Retry."
+            # HITL DISABLED: Always proceed
+            # if not is_asset_approved(p):
+            #    return f"HITL_REVIEW_REQUIRED: {p}"
+
         return str(final_response)
 
     except Exception as e:
@@ -932,4 +982,3 @@ if __name__ == "__main__":
         print(run_composer_task(sys.argv[1]))
     else:
         print("Composer Agent ready. Pass a prompt to test.")
-

@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4K, high quality, photorealistic. Medium close-up on a woman's face, lit dramatically from the side. Her eyes dart around the room, brow furrowed, lips pursed.",
+  "timestamp": 1768429703,
+  "date": "2026-01-14 15:28:24",
+  "asset_type": "image",
+  "subtype": null,
+  "filename": "image_gen_1768429703_78fa2e02.png",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Images\\General\\png\\image_gen_1768429703_78fa2e02.png",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/image_gen_1768429703_78fa2e02.png",
+  "session_id": "default",
+  "metadata": {
+    "model": "flux-schnell",
+    "provider": "Replicate"
+  }
+}

@@ -9,7 +9,8 @@ import logging
 import importlib.util
 import requests
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_vertexai import ChatVertexAI
+# from langchain_google_genai import ChatGoogleGenerativeAI # Deprecated
 from langchain_core.messages import HumanMessage
 
 # Load env variables
@@ -133,11 +134,11 @@ class SystemDiagnostics:
         success = False
         for model_name in models_to_test:
             try:
-                llm = ChatGoogleGenerativeAI(
+                llm = ChatVertexAI(
                     model=model_name, 
                     temperature=0.0,
-                    project=project,
-                    location=location,
+                    # project=project, # Vertex uses google-auth default or env
+                    # location=location, # Auto-detect usually best, or use kwarg
                     max_retries=0 # Do not retry 429s during a probe
                 )
                 # Simple "Hello" query

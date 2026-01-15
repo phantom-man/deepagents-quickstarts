@@ -28,6 +28,7 @@ from langchain_core.messages import (
 from langchain_core.language_models import BaseChatModel
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_core.tools import tool, StructuredTool
 from langsmith import traceable
 
@@ -62,9 +63,12 @@ def _initialize_llm(provider: str, model_name: str) -> Optional[BaseChatModel]:
     """Initialize the LLM/Chat Model."""
     try:
         if provider.lower() == "google":
-            # Already imported globally
+            # Upgrade to GenerativeAI SDK (Vertex Mode)
             return ChatGoogleGenerativeAI(
                 model=model_name,
+                vertexai=True,
+                project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+                location="us-central1",
                 temperature=0.7,
                 max_output_tokens=2048,
             )
@@ -74,7 +78,11 @@ def _initialize_llm(provider: str, model_name: str) -> Optional[BaseChatModel]:
             )
         # Default fallback
         return ChatGoogleGenerativeAI(
-            model="gemini-1.5-pro-001",
+            model="gemini-2.0-flash-001",
+            vertexai=True,
+            project=os.getenv("GOOGLE_CLOUD_PROJECT"),
+            location="us-central1",
+            temperature=0.7,
         )
     except Exception as e:
         logger.error("Cinematographer LLM Init Failed: %s", e)
