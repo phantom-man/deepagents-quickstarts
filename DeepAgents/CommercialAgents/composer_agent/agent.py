@@ -530,36 +530,85 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         return f"Error: {e}"
 
 
-def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music-1.5") -> str:
+def _select_optimal_music_model(prompt: str, llm: Any) -> str:
+    """
+    Selects the best music model based on prompt analysis and System Configuration.
+    """
+    try:
+        from DeepAgents.system_config import SystemConfiguration
+        sys_config = SystemConfiguration()
+        cfg = sys_config.load_config()
+        
+        # Get all composer music models
+        capabilities = cfg.get("agents", {}).get("Composer", {}).get("capabilities", [])
+        music_cap = next((c for c in capabilities if c.get("type") == "music_generation"), None)
+        
+        if not music_cap:
+            return "minimax/music-1.5" # Fallback
+            
+        models = music_cap.get("models", [])
+        
+        # 1. Analyze Prompt for Constraints (Lyrics vs Instrumental)
+        requires_lyrics = False
+        
+        # Heuristics for Lyrics (Fast & effective, keeps it simple for Zero Touch)
+        lyrics_keywords = ["lyrics", "singing", "vocal", "rap", "song about", "ballad", "verse", "chorus", "voice"]
+        if any(w in prompt.lower() for w in lyrics_keywords):
+             requires_lyrics = True
+             
+        # LLM Confirmation (Optional but robust)
+        if llm:
+            try:
+                # Classify very cheaply
+                msg = HumanMessage(content=f"Classify this music request: '{prompt}'. \nReply 'VOCAL' if it needs singing/lyrics, or 'INSTRUMENTAL' if it is background/score/instrumental only. Reply ONLY the word.")
+                res = llm.invoke([msg]) 
+                if "VOCAL" in res.content.upper():
+                    requires_lyrics = True
+                elif "INSTRUMENTAL" in res.content.upper():
+                    requires_lyrics = False
+            except Exception as e:
+                logger.warning(f"Classification skipped: {e}")
+
+        # 2. Filter Models
+        candidates = []
+        for m in models:
+            # If request needs lyrics, model MUST support them
+            model_supports = m.get("supports_lyrics", False)
+            if requires_lyrics and not model_supports:
+                continue
+            candidates.append(m)
+            
+        # 3. Sort by Priority
+        candidates.sort(key=lambda x: x.get("priority", 0), reverse=True)
+        
+        if not candidates:
+            # Fallback: If instrumental requested but only vocal models exist, that's fine.
+            # If vocal requested but only instrumental exist, we pick best available and warn.
+            logger.info("No models matched strict constraints (e.g. Lyrics requested but only Instrumental avail). Returning highest priority available.")
+            candidates = sorted(models, key=lambda x: x.get("priority", 0), reverse=True)
+            
+        best_model = candidates[0].get("id")
+        logger.info(f"🧠 Model Selection: Request(Lyrics={requires_lyrics}) -> Selected '{best_model}' (Supports: {candidates[0].get('supports_lyrics')})")
+        return best_model
+
+    except Exception as e:
+        logger.error(f"Selection Logic Failed: {e}")
+        return "minimax/music-1.5"
+
+
+def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str:
     """
     Directly generates audio using a Replicate model determined by System Configuration.
     Args:
         prompt: The description of the music.
-        model_name: Optional override, but System Config takes precedence for Capabilities.
+        model_name: "auto" triggers dynamic selection. Specific ID overrides.
     """
     logger.info("🎵 Direct Audio Tool called: %s", prompt)
     assets = AssetManager()
-    
-    # Dynamic Model Selection via LangSmith Config
-    try:
-        from DeepAgents.system_config import SystemConfiguration
-        sys_config = SystemConfiguration()
-        model_cfg = sys_config.get_capability_model("Composer", "music_generation")
-        if model_cfg:
-            target_model = model_cfg.get("id")
-            logger.info(f"System Optimized Model Selection: {target_model} (Priority: {model_cfg.get('priority')})")
-        else:
-            logger.warning("System Config missing 'music_generation' capability. Using default.")
-            target_model = "minimax/music-1.5"
-    except Exception as e:
-         logger.error(f"Config Load Error: {e}")
-         target_model = "minimax/music-1.5"
 
-    # We might need an LLM for lyrics if Minimax or ACE-Step
-    # Using lazy import to avoid circular dependency or heavy init if unused
+    # 1. Init LLM (Needed for both Selection and Generation)
     llm_for_lyrics = None
     try:
-        # Switch to Google Native Gemini for lyrics first (consistent with stack)
         from langchain_google_genai import ChatGoogleGenerativeAI
         llm_for_lyrics = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash-001",
@@ -567,15 +616,22 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "minimax/music
             temperature=0.7
         )
     except Exception as e:
-        logger.warning("Could not init LLM for lyrics, continuing without: %s", e)
+        logger.warning("Could not init LLM for lyrics/selection: %s", e)
         try:
-            # Fallback
+             # Fallback
             llm_for_lyrics = ChatReplicate(
                 model="meta/meta-llama-3-70b-instruct", 
                 model_kwargs={"temperature": 0.7, "max_length": 2048} 
             )
         except: pass
 
+    # 2. Select Model
+    if model_name == "auto" or "/" not in model_name: # Handle "minimax/music-1.5" or just "auto"
+        target_model = _select_optimal_music_model(prompt, llm_for_lyrics)
+    else:
+        target_model = model_name
+
+    # 3. Execute
     return _handle_replicate_generation(
         model_name=target_model,
         input_text=prompt,
@@ -594,11 +650,9 @@ def generate_music_tool(prompt: str) -> str:
     Returns the path/link to the generated audio or an error message.
     """
     try:
-        # Determine likely model based on prompt content (simple heuristic)
-        # The agent.py logic already does this in _handle_replicate_generation
-        # So we just pass the prompt.
-        # We default to 'minimax/music-1.5' as the primary generator
-        return _generate_music_audio_internal(prompt, model_name="minimax/music-1.5")
+        # Determine likely model based on prompt content (advanced selection via _select_optimal_music_model)
+        # We pass "auto" to trigger dynamic configuration lookup
+        return _generate_music_audio_internal(prompt, model_name="auto")
     except Exception as e:
         return f"Error generation music: {e}"
 
