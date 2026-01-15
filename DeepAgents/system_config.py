@@ -163,7 +163,7 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "video_generation",
                     "models": [
                         {
-                            "id": "replicate/zeroscope-v2-xl",
+                            "id": "replicate/anotherjesse/zeroscope-v2-xl",
                             "priority": 100,
                             "description": "Standard video generation.",
                             "strengths": "Fast, cost-effective, decent consistency.",

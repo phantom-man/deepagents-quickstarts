@@ -2,6 +2,8 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
+| 2026-01-15 | Prioritized Google Studio Voices in System Config. | To align with the project's Google-centric architecture and reduce reliance on third-party Replicate proxies (Minimax/XTTS), we explicitly prioritized `en-US-Studio` models in the configuration. This ensures the Composer Agent attempts to use high-quality native Google TTS first. |
+| 2026-01-15 | Synced Local Configuration to LangSmith Hub (Overwrite). | The remote `deepagents-system-config` on LangSmith was outdated (pointing to Anthropic Claude Haiku) and overriding the local `Gemini-2.0-Flash` defaults. To enforce consistent behavior and use the correct SOTA model, we pushed the local `DEFAULT_SYSTEM_CONFIG` to the Hub, establishing it as the single Source of Truth. |
 | 2026-01-15 | Enforced "Fail Fast" Runtime Policy. | To solve the issue of Agents spinning in 15-step retry loops or hallucinating after tool execution ("Echo Chambers"), we hard-removed all `while` loops and retry logic. Agents must now succeed on the first attempt or crash immediately, making root cause analysis trivial. |
 | 2026-01-15 | Adopted Linear Chain for Composer Agent. | The standard ReAct pattern was causing the Composer to "think too much" after generating music, leading to hallucinated text follow-ups. We replaced it with a strict Linear Chain (`Reason -> Tool -> Stop`) that returns the tool output directly as the final answer. |
 | 2026-01-14 | Fixed Cinematographer Case Sensitivity. | The system config was sending 'replicate' (lowercase) but the code checked for 'Replicate' (Title Case), causing video generation to fail. Made the check case-insensitive. |
