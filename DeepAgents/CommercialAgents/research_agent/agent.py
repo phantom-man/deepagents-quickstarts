@@ -281,7 +281,8 @@ def run_research_task(topic: str,
         return final_answer
 
     print("❌ No final answer produced.")
-    return None
+    raise RuntimeError("Research Agent failed to produce a final answer. Check API Quotas or Model Availability.")
+
 
 if __name__ == "__main__":
     print("Initializing Research Agent...")

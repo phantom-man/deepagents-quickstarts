@@ -50,33 +50,34 @@ logging.getLogger("opentelemetry.attributes").setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 
 
-@tool
-def validate_scene_logic(scene_description: str) -> str:
-    """
-    Validates the narrative continuity and logic of a proposed scene.
-    Call this BEFORE finalizing a scene treatment to ensure it makes sense.
-    Returns a critique: 'PASS' or a list of issues to fix.
-    """
-    logger.info("🎬 Director > 🧠 Validating Scene Logic...")
-
-    # We use a fresh LLM call for the critique (Self-Reflection)
-    # Replaced Gemini-3 with Replicate Llama 3 70B for validation
-    try:
-        validator_llm = ChatReplicate(
-            model="meta/meta-llama-3-70b-instruct",
-            model_kwargs={"temperature": 0.1, "max_length": 2048}
-        )
-    except Exception as e:
-        logger.error("Validator LLM Init Failed: %s", e)
-        return "Validation System Offline (Check Replicate Token)"
-
-    prompt = SCENE_VALIDATION_PROMPT.format(scene_description=scene_description)
-
-    try:
-        response = validator_llm.invoke(prompt)
-        return str(response.content)
-    except Exception as e:
-        return f"Validation Error: {e}"
+# DEPRECATED: Ensure this is not used in production.
+# @tool
+# def validate_scene_logic(scene_description: str) -> str:
+#     """
+#     Validates the narrative continuity and logic of a proposed scene.
+#     Call this BEFORE finalizing a scene treatment to ensure it makes sense.
+#     Returns a critique: 'PASS' or a list of issues to fix.
+#     """
+#     logger.info("🎬 Director > 🧠 Validating Scene Logic...")
+#
+#     # We use a fresh LLM call for the critique (Self-Reflection)
+#     # Replaced Gemini-3 with Replicate Llama 3 70B for validation
+#     try:
+#         validator_llm = ChatReplicate(
+#             model="meta/meta-llama-3-70b-instruct",
+#             model_kwargs={"temperature": 0.1, "max_length": 2048}
+#         )
+#     except Exception as e:
+#         logger.error("Validator LLM Init Failed: %s", e)
+#         return "Validation System Offline (Check Replicate Token)"
+#
+#     prompt = SCENE_VALIDATION_PROMPT.format(scene_description=scene_description)
+#
+#     try:
+#         response = validator_llm.invoke(prompt)
+#         return str(response.content)
+#     except Exception as e:
+#         return f"Validation Error: {e}"
 
 
 # Sub-Agent Tools Removed (Linear Pipeline Enforcement)

@@ -6,12 +6,19 @@ Watches 'DeepAgents/voice_log.txt' for new lines and speaks them using Edge-TTS.
 Also listens for 'Hey Copilot' to trigger interruptions (Conceptual Implementation).
 """
 import os
+import sys
 import time
 import asyncio
 import logging
 import subprocess
+import threading
 
-# Load Env explicitly to ensure Replicate token is present
+# Add Repo Root to Path to ensure 'DeepAgents' package resolves
+# Current: DeepAgents/voice_bridge.py -> Parent: DeepAgents -> Root: ../
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
@@ -28,16 +35,16 @@ try:
 except ImportError:
     pass
 
-import sys
-import threading
-
-# Add current dir to path to import atlas_db
-sys.path.append(os.path.dirname(__file__))
+# Handle local vs package imports
 try:
-    from atlas_db import add_command, init_db
-except ImportError:
-    # Fallback if running from root
     from DeepAgents.atlas_db import add_command, init_db
+except ImportError:
+    try:
+         # Fallback for side-by-side
+        from atlas_db import add_command, init_db
+    except ImportError as e:
+        logging.error(f"Failed to import atlas_db: {e}")
+        sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VoiceBridge")

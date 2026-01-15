@@ -12,8 +12,13 @@ from typing import Optional
 from langsmith import Client
 from dotenv import load_dotenv
 
-# Load Env for API KEY
-load_dotenv()
+# Load Env for API KEY (Robust Pathing)
+from pathlib import Path
+env_path = Path(__file__).parent / ".env"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+else:
+    load_dotenv() # Fallback
 
 def inspect_langsmith(limit: int = 10, filter_runs: bool = True):
     """
@@ -25,61 +30,38 @@ def inspect_langsmith(limit: int = 10, filter_runs: bool = True):
     print(f"   Listing last {limit} threads...")
 
     try:
-        # List threads (most recent first by default)
-        threads = list(client.list_threads(limit=limit))
-        if not threads:
-            print("⚠️ No threads found.")
+        # List runs (most recent first by default) instead of threads
+        # We filter for root runs (Traces) to avoid noise
+        root_runs = list(client.list_runs(limit=limit, is_root=True, project_name=os.getenv('LANGCHAIN_PROJECT', 'default')))
+        if not root_runs:
+            print("⚠️ No runs found.")
             return
 
-        for i, thread in enumerate(threads):
+        for i, root_run in enumerate(root_runs):
             print(f"\n{'='*60}")
-            print(f"THREAD [{i+1}/{len(threads)}]: {thread.id}")
-            print(f"Created: {thread.created_at}")
-            print(f"Metadata: {thread.metadata}")
+            print(f"TRACE [{i+1}/{len(root_runs)}]: {root_run.id}")
+            print(f"Name: {root_run.name}")
+            print(f"Start Time: {root_run.start_time}")
+            print(f"Tags: {root_run.tags}")
             print(f"{'='*60}")
 
-            # Fetch runs for this thread
-            runs = list(client.list_runs(thread_id=thread.id))
-            if not runs:
-                print("  (No runs in this thread)")
-                continue
+            # Print details of the root run
+            print(f"  Status: {root_run.status}")
+            if root_run.error:
+                print(f"  ❌ ERROR: {root_run.error}")
 
-            # Sort runs by time (oldest first to tell the story, or newest?)
-            # Usually list_runs returns newest first. Let's reverse for chronological replay.
-            runs.reverse()
-
-            for run in runs:
-                # If we only want LLM runs and this isn't one, skip?
-                # The user asked to see "sub detail of each run".
-                
-                print(f"\n  ⏱️  Run: {run.name} ({run.run_type})")
-                print(f"      ID: {run.id}")
-                print(f"      Status: {run.status}")
-                
-                if run.error:
-                    print(f"      ❌ ERROR: {run.error}")
-
-                duration = "N/A"
-                if run.end_time and run.start_time:
-                    duration = f"{(run.end_time - run.start_time).total_seconds():.2f}s"
-                print(f"      Duration: {duration}")
-                
-                # Show Inputs/Outputs for interesting types
-                if filter_runs and run.run_type not in ["llm", "chain", "tool"]:
-                    continue
-
-                if run.inputs:
-                    print(f"      📥 Inputs: {str(run.inputs)[:200]}..." if len(str(run.inputs)) > 200 else f"      📥 Inputs: {run.inputs}")
-                
-                if run.outputs:
-                    # Truncate large outputs for readability
-                    out_str = str(run.outputs)
-                    display_out = out_str[:300] + "..." if len(out_str) > 300 else out_str
-                    print(f"      📤 Outputs: {display_out}")
-                
-                # If LLM, try to get more detail?
-                # client.list_runs returns Run objects which usually have inputs/outputs populated.
-                # read_run might get more, but usually list_runs is enough.
+            duration = "N/A"
+            if root_run.end_time and root_run.start_time:
+                duration = f"{(root_run.end_time - root_run.start_time).total_seconds():.2f}s"
+            print(f"  Duration: {duration}")
+            
+            if root_run.inputs:
+                print(f"  📥 Inputs: {str(root_run.inputs)[:200]}..." if len(str(root_run.inputs)) > 200 else f"  📥 Inputs: {root_run.inputs}")
+            
+            if root_run.outputs:
+                out_str = str(root_run.outputs)
+                display_out = out_str[:300] + "..." if len(out_str) > 300 else out_str
+                print(f"  📤 Outputs: {display_out}")
 
     except Exception as e:
         print(f"❌ Error Inspecting LangSmith: {e}")

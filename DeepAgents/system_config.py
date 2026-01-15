@@ -120,8 +120,28 @@ DEFAULT_SYSTEM_CONFIG = {
                 {
                     "type": "voice_generation",
                     "models": [
-                        {"id": "lucataco/xtts-v2", "priority": 100},
-                        {"id": "minimax/speech-01", "priority": 90},
+                        {
+                            "id": "google/en-US-Studio-O",
+                            "priority": 110,
+                            "description": "Google Cloud TTS - Studio O (Female)",
+                            "provider": "Google",
+                        },
+                        {
+                            "id": "google/en-US-Studio-M",
+                            "priority": 105,
+                            "description": "Google Cloud TTS - Studio M (Male)",
+                            "provider": "Google",
+                        },
+                        {
+                            "id": "lucataco/xtts-v2",
+                            "priority": 100,
+                            "description": "XTTS v2 (Replicate). Good cloning.",
+                        },
+                        {
+                            "id": "minimax/speech-01",
+                            "priority": 90,
+                            "description": "Minimax Speech 01 (Replicate).",
+                        },
                     ],
                     "asset_paths": {"voice_clones": "Artifacts/Audio/Voices"},
                 },

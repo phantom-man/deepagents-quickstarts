@@ -212,10 +212,11 @@ class AssetManager:
         text: str,
         title: str,
         session_id: str,
-        subdir: str = "Reports"
+        subdir: str = "Reports",
+        extension: str = "md"
     ) -> Dict[str, str]:
         """
-        Saves a text document (Markdown) and uploads to Cloud.
+        Saves a text document and uploads to Cloud.
         Returns dict with keys: 'local_path', 'cloud_url'.
         """
         # 1. Prepare Paths
@@ -227,7 +228,8 @@ class AssetManager:
         # 2. Filename
         clean_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).strip().replace(' ', '_')
         timestamp = int(time.time())
-        filename = f"{clean_title}_{timestamp}.md"
+        extension = extension.lstrip('.')
+        filename = f"{clean_title}_{timestamp}.{extension}"
         file_path = os.path.join(full_dir, filename)
         
         # 3. Write Local

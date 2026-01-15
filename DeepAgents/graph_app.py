@@ -68,11 +68,36 @@ director_graph = safe_create(
 # )
 
 # 3. Composer
-# Expects: model_config (dict)
-c_prov, c_mod = sys_conf.get_agent_params("Composer")
-composer_graph = safe_create(
-    "Composer", create_composer_agent, model_config={"provider": c_prov, "model": c_mod}
-)
+# Wrap the Linear Runnable in a StateGraph
+def _create_composer_wrapper():
+    try:
+        c_prov, c_mod = sys_conf.get_agent_params("Composer")
+        
+        # This returns a RunnableLambda, NOT a Graph
+        composer_runnable = create_composer_agent(model_config={"provider": c_prov, "model": c_mod})
+        
+        def composer_node_adapter(state: MessagesState):
+            # RunnableLambda expects a dict, which MessagesState is compatible with
+            return composer_runnable.invoke(state)
+
+        # Build Graph
+        builder = StateGraph(MessagesState)
+        builder.add_node("composer", composer_node_adapter)
+        builder.set_entry_point("composer")
+        builder.add_edge("composer", END)
+        
+        return builder.compile()
+        
+    except Exception as e:
+        print(f"FAILED to wrap Composer: {e}")
+        # Graph requires valid object
+        def err_node(state): return {"messages": [AIMessage(content=f"Composer Failed: {e}")]}
+        g = StateGraph(MessagesState) 
+        g.add_node("error", err_node)
+        g.set_entry_point("error")
+        return g.compile()
+
+composer_graph = _create_composer_wrapper()
 
 # 4. Confidence
 # Expects: model_name, provider
@@ -124,7 +149,7 @@ def _create_cinematographer_wrapper():
         print(f"FAILED to wrap Cinematographer: {e}")
 
         # Fallback error graph
-        def err_node(s):
+        def err_node(state):
             return {"messages": [AIMessage(content=f"Cinematographer Failed: {e}")]}
 
         g = StateGraph(MessagesState)
