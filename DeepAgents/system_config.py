@@ -47,21 +47,30 @@ DEFAULT_SYSTEM_CONFIG = {
                             "id": "publishers/google/models/lyria-002", 
                             "priority": 120, 
                             "description": "Google Lyria Native (Vertex AI). Primary Music Engine.",
+                            "strengths": "Fast generation, high fidelity instrumental, consistent structure.",
+                            "weaknesses": "No lyrics support, max 60s clips, strict instrumental focus.",
                             "supports_lyrics": False,
+                            "supports_duration": False, 
                             "max_duration_seconds": 60
                         },
                         { 
                             "id": "lucataco/ace-step", 
                             "priority": 110, 
                             "description": "State-of-the-art text-to-music with lyric alignment.",
+                            "strengths": "Excellent lyric synchronization, supports explicit duration constraints.",
+                            "weaknesses": "Can be expensive, occasionally hallucinates phantom vocals.",
                             "supports_lyrics": True,
+                            "supports_duration": True,
                             "max_duration_seconds": 240
                         },
                         { 
                             "id": "minimax/music-1.5", 
                             "priority": 100, 
                             "description": "High fidelity instrumental and lyrical music generation.",
+                            "strengths": "Best-in-class full song structure, emotional range.",
+                            "weaknesses": "Ignores explicit duration constraints (length determined by lyrics/text volume).",
                             "supports_lyrics": True,
+                            "supports_duration": False,
                             "max_duration_seconds": 240
                         },
                         { 
@@ -117,11 +126,17 @@ DEFAULT_SYSTEM_CONFIG = {
                             "id": "replicate/zeroscope-v2-xl",
                             "priority": 100,
                             "description": "Standard video generation.",
+                            "strengths": "Fast, cost-effective, decent consistency.",
+                            "weaknesses": "Low resolution, short duration, struggles with complex motion.",
+                            "best_practices": "Use simple prompts, focus on single subjects."
                         },
                         {
                             "id": "haiper/v2",
                             "priority": 80,
                             "description": "High quality video generation.",
+                            "strengths": "High realism, good motion coherence.",
+                            "weaknesses": "Slow generation, expensive.",
+                            "best_practices": "Detailed prompts with specific lighting/camera angles."
                         }
                     ]
                 },
@@ -131,12 +146,18 @@ DEFAULT_SYSTEM_CONFIG = {
                         {
                             "id": "google/imagen-3.0-generate-001",
                             "priority": 100,
-                            "description": "Google Vertex AI Imagen 3"
+                            "description": "Google Vertex AI Imagen 3",
+                            "strengths": "Excellent text rendering, photorealism, distinct styles.",
+                            "weaknesses": "Strict safety filters.",
+                            "best_practices": "Use negative prompts for exclusions, specify aspect ratio clearly."
                         },
                         {
                             "id": "replicate/flux-schnell",
                             "priority": 90,
-                            "description": "Black Forest Labs Flux Model"
+                            "description": "Black Forest Labs Flux Model",
+                            "strengths": "Fastest SOTA model, great prompt adherence.",
+                            "weaknesses": "Less detail than Pro version.",
+                            "best_practices": "Use 'cinematic' keywords, avoid vague terms."
                         }
                     ]
                 }

@@ -158,7 +158,13 @@ I am the source of truth for the **Infrastructure**.
     - **Consult the User** immediately if simple fixes fail.
     - **Research:** If the user insists on a fix, I MUST read the API/SDK documentation and use research tools types. I must NOT rely solely on internal training.
 
-### B. LangChain/LangSmith Best Practices
+### C. Model Knowledge & Research Directive (Mandatory)
+**Rule:** When connecting to a model, coding a model connector, or writing prompts for a model in LangSmith, I **MUST** read all available information about that model first.
+- **Scope:** This includes API reference, parameter definitions, example payloads provided by the provider (e.g., Replicate, Google, OpenAI), and "Strengths/Weaknesses".
+- **Action:** I must look for specific quality parameters (e.g., `num_inference_steps`, `guidance_scale`) and ensure they are set to maximize quality unless instructed otherwise.
+- **Forbidden:** Do not guess parameters based on generic model types.
+
+### D. LangChain/LangSmith Best Practices
 1. **Prompt Management:** All System Prompts must be **PUSHED** to LangSmith Hub and **PULLED** for use. Hardcoded strings are Not to be used.
 2. **Tracing:** `LANGCHAIN_TRACING_V2=true` must be enabled. All interactions must be traced.
 3. **Safety & Integrity (Directive):**
