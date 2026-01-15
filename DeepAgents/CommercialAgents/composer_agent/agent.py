@@ -373,33 +373,63 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
         
         # Case: Native Google Lyria (Prioritized if enabled via ID injection)
         if "lyria-002" in target_model or ("lyria" in target_model and "google" in target_model and "002" in target_model): 
-            logger.info("🎵 Generating with Native Google Lyria-2 (Vertex AI)...")
-            from google import genai
-            from google.genai import types
+            logger.info("🎵 Generating with Native Google Lyria-2 (Vertex Predict)...")
+            import google.auth
+            from google.auth.transport.requests import Request
+            import requests
+            import base64
             
-            client = genai.Client(vertexai=True, location="us-central1")
+            # 1. Auth
+            credentials, project_id = google.auth.default()
+            if not credentials.valid:
+                credentials.refresh(Request())
             
-            # Using the exact ID discovered: 'lyria-002' or publishers path
-            # The API call returns raw bytes, we need to save locally and return a path as 'url'
-            google_model_id = "lyria-002" # or "publishers/google/models/lyria-002"
+            target_project = project_id or "crafty-hook-483415-b3"
             
-            response = client.models.generate_content(
-                model=google_model_id,
-                contents=input_text,
-                config=types.GenerateContentConfig(response_modalities=["AUDIO"])
-            )
+            # 2. Endpoint (Raw Predict)
+            endpoint = f"https://us-central1-aiplatform.googleapis.com/v1/projects/{target_project}/locations/us-central1/publishers/google/models/lyria-002:predict"
             
-            if response.candidates and response.candidates[0].content.parts[0].inline_data:
-                part = response.candidates[0].content.parts[0]
-                ext = "wav" if "wav" in part.inline_data.mime_type else "mp3"
-                fname = _generate_descriptive_filename(input_text, session_id, ext=ext)
-                # Save locally immediately because we don't have a URL
-                temp_path = os.path.abspath(fname)
-                with open(temp_path, "wb") as f:
-                    f.write(part.inline_data.data)
-                final_url = temp_path # Logic below handles local paths
+            headers = {
+                "Authorization": f"Bearer {credentials.token}",
+                "Content-Type": "application/json"
+            }
+            
+            # 3. Payload
+            payload = {
+                "instances": [
+                    {
+                        "prompt": input_text,
+                        "negative_prompt": "low quality, static, noise",
+                        # "duration": duration_sec # Does not appear in curl spec, assume fixed
+                    }
+                ],
+                "parameters": {} # Default
+            }
+            
+            # 4. Call
+            resp = requests.post(endpoint, headers=headers, json=payload, timeout=120)
+            
+            if resp.status_code == 200:
+                data = resp.json()
+                if "predictions" in data and len(data["predictions"]) > 0:
+                    pred = data["predictions"][0]
+                    # Format: {'bytesBase64Encoded': '...'}
+                    if "bytesBase64Encoded" in pred:
+                        b64_data = pred["bytesBase64Encoded"]
+                        audio_bytes = base64.b64decode(b64_data)
+                        
+                        fname = _generate_descriptive_filename(input_text, session_id, ext="wav")
+                        # Save locally immediately because we don't have a URL
+                        temp_path = os.path.abspath(fname)
+                        with open(temp_path, "wb") as f:
+                            f.write(audio_bytes)
+                        final_url = temp_path # Logic below handles local paths
+                    else:
+                        raise ValueError(f"Unexpected Lyria Response Keys: {pred.keys()}")
+                else:
+                    raise ValueError(f"No predictions returned: {data}")
             else:
-                 raise ValueError("Google Lyria returned no audio candidates.")
+                raise ValueError(f"Lyria 002 Predict Failed {resp.status_code}: {resp.text}")
 
         # Case: ACE-Step (Primary Default)
         elif "ace-step" in target_model:
