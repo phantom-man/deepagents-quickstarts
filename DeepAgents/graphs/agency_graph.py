@@ -126,7 +126,6 @@ async def director_node(state: AgentState, config: RunnableConfig):
             "TASK: Rewrite the Creative Directive to address the critique. "
             f"Maintain the original goal: {directive}"
         )
-        messages = [HumanMessage(content=prompt)]
     else:
         # Fresh Plan
         # If we have messages in state, use them, otherwise use directive
@@ -138,6 +137,7 @@ async def director_node(state: AgentState, config: RunnableConfig):
                 directive = last_msg.get("content", "")
             else:
                 directive = str(last_msg)
+        prompt = directive
 
     # Pass dynamic provider and use system config's model if provider matches
     target_model = sys_model if provider == sys_prov else "gemini-2.0-flash-001"
