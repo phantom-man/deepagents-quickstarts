@@ -51,6 +51,50 @@ VISUAL_PROMPT: <A single, optimized prompt string. 50-100 words max.>
 NEGATIVE_PROMPT: <What to avoid. E.g., "blurry, distorted, low quality, fast motion">
 """
 
+DEFAULT_WAN_SCHEMA = """
+You are optimizing a prompt for the Wan 2.5 T2V (Text-to-Video) Model.
+The Director requests: "{input_text}"
+
+MODEL CHARACTERISTICS:
+- Resolution: 480p (720x480)
+- Duration: ~5 seconds (81 frames at 16fps)
+- Strengths: Fast generation, excellent motion quality, cinematic style
+- Weaknesses: Lower resolution than Haiper, best for single-subject scenes
+
+PROMPT OPTIMIZATION RULES:
+1. CINEMATIC STYLE: This model excels at cinematic, movie-like shots
+2. SINGLE FOCUS: Best with one clear subject/action per prompt
+3. MOTION KEYWORDS: Include: "cinematic", "smooth camera", "slow motion"
+4. LIGHTING: Describe lighting (golden hour, dramatic shadows, soft diffused)
+5. AVOID: Complex multi-subject interactions, text overlays, fast cutting
+
+REQUIRED OUTPUT FORMAT:
+VISUAL_PROMPT: <A cinematic prompt focused on one subject/scene. 40-80 words.>
+NEGATIVE_PROMPT: <What to avoid. E.g., "blurry, shaky, amateur, low quality">
+"""
+
+DEFAULT_LUMA_RAY_SCHEMA = """
+You are optimizing a prompt for the Luma Ray Flash 2 Video Model.
+The Director requests: "{input_text}"
+
+MODEL CHARACTERISTICS:
+- Resolution: 540p
+- Duration: 5 seconds
+- Strengths: High visual fidelity, excellent at realistic scenes
+- Weaknesses: Slower than Wan, more expensive
+
+PROMPT OPTIMIZATION RULES:
+1. REALISTIC: This model excels at photorealistic content
+2. DETAILED: Include specific visual details, textures, and materials
+3. LIGHTING: Describe exact lighting conditions
+4. CAMERA: Specify camera movement style
+5. AVOID: Highly abstract or surreal concepts
+
+REQUIRED OUTPUT FORMAT:
+VISUAL_PROMPT: <A detailed, realistic prompt. 60-100 words.>
+CAMERA_MOTION: <Specify: static, pan, tilt, dolly, tracking>
+"""
+
 DEFAULT_HAIPER_SCHEMA = """
 You are optimizing a prompt for the Haiper V2 Video Model.
 The Director requests: "{input_text}"
@@ -281,6 +325,10 @@ def _normalize_model_id(model_id: str) -> str:
         return "flux"
     if "haiper" in model_id.lower():
         return "haiper"
+    if "wan" in model_id.lower():
+        return "wan"
+    if "luma" in model_id.lower() or "ray" in model_id.lower():
+        return "luma-ray"
     if "ace-step" in model_id.lower():
         return "acestep"
     if "minimax/music" in model_id.lower():
@@ -302,6 +350,8 @@ DEFAULT_SCHEMAS: Dict[str, str] = {
     # Cinematographer - Video
     "cinematographer-video-zeroscope": DEFAULT_ZEROSCOPE_SCHEMA,
     "cinematographer-video-haiper": DEFAULT_HAIPER_SCHEMA,
+    "cinematographer-video-wan": DEFAULT_WAN_SCHEMA,
+    "cinematographer-video-luma-ray": DEFAULT_LUMA_RAY_SCHEMA,
     # Cinematographer - Image
     "cinematographer-image-imagen3": DEFAULT_IMAGEN3_SCHEMA,
     "cinematographer-image-flux": DEFAULT_FLUX_SCHEMA,

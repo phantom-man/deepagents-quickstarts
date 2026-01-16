@@ -30,10 +30,15 @@ from DeepAgents.agent_factory import create_deep_agent
 from DeepAgents.asset_manager import AssetManager
 from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.system_config import SystemConfiguration
+from DeepAgents.model_schemas import get_model_schema
 
 try:
     from DeepAgents.CommercialAgents.composer_agent.prompts import (
         COMPOSER_INSTRUCTIONS,
+        # Note: ACE_STEP_SCHEMA, MINIMAX_SCHEMA, LYRIA_SCHEMA now loaded dynamically via get_model_schema()
+    )
+    # Legacy fallback schemas (used only if Hub/model_schemas unavailable)
+    from DeepAgents.CommercialAgents.composer_agent.prompts import (
         ACE_STEP_SCHEMA,
         MINIMAX_SCHEMA,
         LYRIA_SCHEMA,
@@ -212,20 +217,33 @@ def _generate_lyrics_and_style(
     """
     Helper to generate lyrics and style using the LLM.
     Implements a Reflexion Loop to strictly enforce API constraints.
-    Supports: Minimax Music-1.5, ACE-Step.
+    Uses dynamic schema loading from LangSmith Hub via get_model_schema().
+    Supports: Minimax Music-1.5, ACE-Step, Lyria.
     """
     if not llm:
         return {"prompt": input_text, "tags": input_text}
 
-    if model_type == "ace-step":
-        # ACE-Step Schema
-        schema_compliant_prompt = ACE_STEP_SCHEMA.format(input_text=input_text)
-    elif model_type == "lyria":
-        # Google Lyria-2 Schema
-        schema_compliant_prompt = LYRIA_SCHEMA.format(input_text=input_text)
-    else:
-        # Defaults to Minimax Music-1.5 Schema
-        schema_compliant_prompt = MINIMAX_SCHEMA.format(input_text=input_text)
+    # Dynamic Schema Loading from Hub (with local fallback)
+    try:
+        # Map model_type to model_id for schema lookup
+        model_id_map = {
+            "ace-step": "replicate/lucataco/ace-step",
+            "lyria": "google/lyria-002",
+            "minimax": "minimax/music-1.5"
+        }
+        model_id = model_id_map.get(model_type, "minimax/music-1.5")
+        schema_template = get_model_schema("Composer", "music_generation", model_id)
+        schema_compliant_prompt = schema_template.format(input_text=input_text)
+        logger.info(f"[SCHEMA] Using dynamic schema for {model_type}")
+    except Exception as schema_error:
+        logger.warning(f"[SCHEMA] Dynamic schema load failed ({schema_error}), using fallback")
+        # Fallback to hardcoded schemas
+        if model_type == "ace-step":
+            schema_compliant_prompt = ACE_STEP_SCHEMA.format(input_text=input_text)
+        elif model_type == "lyria":
+            schema_compliant_prompt = LYRIA_SCHEMA.format(input_text=input_text)
+        else:
+            schema_compliant_prompt = MINIMAX_SCHEMA.format(input_text=input_text)
 
     messages = [HumanMessage(content=schema_compliant_prompt)]
     last_valid_result = {}

@@ -37,6 +37,7 @@ from langsmith import traceable
 from DeepAgents.asset_manager import AssetManager
 import replicate
 from DeepAgents.hub_manager import get_or_push_prompt
+from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
     CINEMATOGRAPHER_INSTRUCTIONS,
 )
@@ -257,48 +258,74 @@ def create_cinematographer_agent(
     def _generate_video(prompt: str, duration: int = 5) -> str:
         """
         Generates a video clip (5-10s) based on the prompt.
+        Uses dynamic schema-based prompt optimization from LangSmith Hub.
         Returns local file path (and cloud link).
         """
-        logger.info(f"🎥 Generating Video: {prompt[:40]}...")
+        logger.info(f"[VIDEO] Generating Video: {prompt[:60]}...")
         if vid_provider.lower() != "replicate":
             return "Error: Only Replicate supported for video currently."
 
         try:
+            # Dynamic Prompt Optimization via Model Schema
+            optimized_prompt = prompt
+            try:
+                # Get model-specific schema from Hub
+                schema_template = get_model_schema(
+                    "Cinematographer",
+                    "video_generation",
+                    f"replicate/{vid_model}"
+                )
+                
+                # Use LLM to optimize prompt according to schema
+                optimization_prompt = schema_template.format(input_text=prompt)
+                optimization_response = llm.invoke([HumanMessage(content=optimization_prompt)])
+                
+                # Parse the structured output
+                parsed = parse_schema_output(optimization_response.content, vid_model)
+                if parsed.get("VISUAL_PROMPT"):
+                    optimized_prompt = parsed["VISUAL_PROMPT"]
+                    logger.info(f"[SCHEMA] Optimized prompt: {optimized_prompt[:60]}...")
+                else:
+                    logger.info("[SCHEMA] No VISUAL_PROMPT in response, using original")
+                    
+            except Exception as schema_error:
+                logger.warning(f"[SCHEMA] Optimization failed ({schema_error}), using original prompt")
+            
             # Map common args based on model
-            input_args: Dict[str, Any] = {"prompt": prompt}
+            input_args: Dict[str, Any] = {"prompt": optimized_prompt}
             
             # Model-specific parameters
             if "wan" in vid_model.lower():
                 # Wan models use different parameters
                 input_args["num_frames"] = 81  # ~5 seconds at 16fps
                 input_args["resolution"] = "480p"
-                logger.info(f"🎥 Using Wan model parameters: {input_args}")
+                logger.info(f"[VIDEO] Using Wan model parameters: {input_args}")
             elif "ray" in vid_model.lower() or "luma" in vid_model.lower():
                 # Luma Ray models
                 input_args["duration"] = "5s"
-                logger.info(f"🎥 Using Luma Ray parameters: {input_args}")
+                logger.info(f"[VIDEO] Using Luma Ray parameters: {input_args}")
             elif "zeroscope" in vid_model.lower():
                 input_args["num_frames"] = 24
-                logger.info(f"🎥 Using Zeroscope parameters: {input_args}")
+                logger.info(f"[VIDEO] Using Zeroscope parameters: {input_args}")
 
-            logger.info(f"🎥 Calling Replicate model: {vid_model}")
+            logger.info(f"[VIDEO] Calling Replicate model: {vid_model}")
             output = replicate.run(vid_model, input=input_args)
             video_url = output[0] if isinstance(output, list) else output
 
             if video_url:
-                logger.info(f"🎥 Video generated, saving: {video_url}")
+                logger.info(f"[VIDEO] Video generated, saving: {video_url}")
                 path = assets.save_asset(
                     str(video_url),
                     "video",
                     session_id,
                     prompt,
-                    metadata={"model": vid_model, "provider": "Replicate"},
+                    metadata={"model": vid_model, "provider": "Replicate", "optimized_prompt": optimized_prompt},
                 )
                 if path:
                     return f"Saved: {path}{_get_cloud_url(path)}"
                 return "Error: Failed to save Video."
         except Exception as e:
-            logger.error(f"🎥 Video generation error: {e}")
+            logger.error(f"[VIDEO] Video generation error: {e}")
             return f"Error Generating Video: {e}"
         return "Error: Video Generation returned no data."
 
