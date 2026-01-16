@@ -118,7 +118,11 @@ class AssetManager:
         return full_path
 
     def _upload_to_gcs(self, local_path: str, filename: str) -> str:
-        """Uploads file to GCS and returns Public URL."""
+        """Uploads file to GCS and returns the GCS URL.
+        
+        Note: URL may require authentication to download. Use the GCS client
+        in editor_tools.download_if_url() for authenticated downloads.
+        """
         if not self.gcs_client or not self.bucket_name:
             return None
             
@@ -129,11 +133,10 @@ class AssetManager:
             blob = bucket.blob(blob_name)
             blob.upload_from_filename(local_path)
             
-            # Since bucket is Uniform/Public or we need Signed URL:
-            # We will generate a signed URL valid for 7 days (max allowed for V4 usually)
-            # Or usually standard Storage URL if public.
-            # User said "bucket is public", so we use public link.
-            return blob.public_url
+            # Return the standard GCS URL - download will be authenticated by editor_tools
+            gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
+            logger.info(f"GCS Upload Success: {blob_name}")
+            return gcs_url
         except Exception as e:
             logger.error(f"GCS Upload Failed: {e}")
             return None

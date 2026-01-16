@@ -30,11 +30,12 @@ logger = logging.getLogger("EditorTools")
 
 
 def download_if_url(path_or_url: str) -> str:
-    """Downloads a file if it is a URL, otherwise returns the path."""
+    """Downloads a file if it is a URL, otherwise returns the path.
+    Supports both regular HTTP URLs and Google Cloud Storage URLs (authenticated).
+    """
     if not path_or_url.startswith("http"):
         return path_or_url
-        
-    import requests
+    
     temp_dir = os.path.join(os.path.dirname(__file__), "../Artifacts/Temp")
     os.makedirs(temp_dir, exist_ok=True)
     
@@ -48,8 +49,44 @@ def download_if_url(path_or_url: str) -> str:
     # Check if already downloaded
     if os.path.exists(local_path):
         return local_path
-        
-    logger.info(f"⬇️ Downloading: {path_or_url}")
+    
+    # Check if this is a GCS URL - use authenticated download
+    if "storage.googleapis.com" in path_or_url or "storage.cloud.google.com" in path_or_url:
+        logger.info(f"[DOWNLOAD] GCS authenticated download: {path_or_url}")
+        try:
+            from google.cloud import storage
+            from urllib.parse import urlparse
+            
+            # Parse the GCS URL to extract bucket and blob
+            parsed = urlparse(path_or_url)
+            
+            # Format: storage.googleapis.com/bucket-name/path/to/file
+            # OR: storage.cloud.google.com/bucket-name/path/to/file
+            path_parts = parsed.path.lstrip("/").split("/", 1)
+            if len(path_parts) < 2:
+                raise ValueError(f"Invalid GCS URL format: {path_or_url}")
+            
+            bucket_name = path_parts[0]
+            blob_name = path_parts[1]
+            
+            client = storage.Client()
+            bucket = client.bucket(bucket_name)
+            blob = bucket.blob(blob_name)
+            
+            blob.download_to_filename(local_path)
+            logger.info(f"[SUCCESS] GCS download complete: {local_path}")
+            return local_path
+            
+        except ImportError:
+            logger.error("[FAILED] google-cloud-storage not installed for GCS download")
+            raise
+        except Exception as e:
+            logger.error(f"[FAILED] GCS download error: {e}")
+            raise
+    
+    # Standard HTTP download for non-GCS URLs
+    import requests
+    logger.info(f"[DOWNLOAD] HTTP download: {path_or_url}")
     try:
         response = requests.get(path_or_url, stream=True)
         response.raise_for_status()
@@ -68,7 +105,7 @@ def merge_video_audio_logic(
     Logic for merging video and audio.
     """
     logger.info(
-        "✂️ Editor > Merging %d clips with audio %s...", len(video_paths), audio_path
+        "[EDITOR] Merging %d clips with audio %s...", len(video_paths), audio_path
     )
 
     # 0. Download Assets if URLs
@@ -109,7 +146,7 @@ def merge_video_audio_logic(
 
     if not real_files:
         logging.info(
-            "ℹ️ Simulation Mode triggered by missing MoviePy or detected mock assets."
+            "[INFO] Simulation Mode triggered by missing MoviePy or detected mock assets."
         )
         # Mock Merge
         assets = AssetManager()
@@ -117,7 +154,7 @@ def merge_video_audio_logic(
         path = assets.save_asset(content, "video", "final_cut", "Merged Video")
         if path is None:
             return "Error: Failed to save simulation asset."
-        logger.info("✅ Simulation Merge Complete: %s", path)
+        logger.info("[SUCCESS] Simulation Merge Complete: %s", path)
         return path
 
     try:
@@ -182,7 +219,7 @@ def generate_storyboard_panel(description: str, filename: str) -> str:
     Generates a visual asset (StoryBoard Panel) for the video.
     Returns the absolute path to the generated asset.
     """
-    logger.info("🎨 Generative Artist > Creating panel: %s...", filename)
+    logger.info("[ARTIST] Creating panel: %s...", filename)
     assets = AssetManager()
     # Create a mock video file (text) or empty mp4 if moviepy was here
     # We use text file to simulate the asset for the 'Mock Merge' to handle
