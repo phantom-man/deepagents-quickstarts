@@ -60,6 +60,27 @@
 
 **Status**: Instructions Synced. Codebase Logic Aligned.
 
+### 8. Command-Based Mesh Routing Architecture (January 16, 2026)
+
+- **Problem**: Director Agent was generating plans but NOT delegating to production agents (Composer, Cinematographer, Editor). Routing was hardcoded via conditional edges in the StateGraph.
+- **Root Cause**: Agents lacked inter-agent communication tools and graph edges were statically defined rather than dynamically determined by agent decisions.
+- **Solution**: Implemented LangGraph's **Command Pattern** for dynamic multi-agent routing.
+  - **HANDOFF Protocol**: Agents return `HANDOFF:agent_name:directive` strings via delegation tools.
+  - **Command Return**: Each node parses tool responses for HANDOFF patterns and returns `Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]`.
+  - **No Explicit Edges**: Graph assembly uses ONLY `add_node()` and `set_entry_point()`. Routing is entirely determined by Command returns.
+- **Tools Created**: 
+  - `discover_agents()` - Lists all available agents and capabilities
+  - `delegate_to_director/researcher/confidence/composer/cinematographer/editor()` - Returns HANDOFF strings
+  - `signal_task_complete()` - Returns END signal
+  - Agent-specific tool sets: `DIRECTOR_TOOLS`, `RESEARCHER_TOOLS`, `CONFIDENCE_TOOLS`, `COMPOSER_TOOLS`, `CINEMATOGRAPHER_TOOLS`, `EDITOR_TOOLS`
+- **Files Modified**:
+  - `DeepAgents/inter_agent_comms.py` - Central delegation tool hub
+  - `DeepAgents/graphs/agency_graph.py` - All 6 nodes now return Command
+  - `DeepAgents/CommercialAgents/director_agent/agent.py` - Uses DIRECTOR_TOOLS
+- **Architectural Significance**: This is the "highest maturity" LangGraph pattern. Agents now form a true **mesh network** where any agent can discover and delegate to any other agent at runtime.
+
+**Status**: Full Mesh Architecture Deployed. Server Live.
+
 ### 7. LangGraph Server Protocol Optimization (January 13, 2026)
 
 - **Problem**: Repeated failures when starting `langgraph_cli` from Project Root (`Invalid value for '--config'`).

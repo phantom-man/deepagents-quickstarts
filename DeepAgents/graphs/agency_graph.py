@@ -29,6 +29,7 @@ from typing import Annotated, TypedDict, List, Literal, Union, Any, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
+from langgraph.types import Command
 from langchain_anthropic import ChatAnthropic
 
 # Import our Agents (as tools/nodes)
@@ -92,33 +93,108 @@ class GraphConfig(TypedDict):
 # --- 3. The Nodes (Workers) ---
 
 
-async def director_node(state: AgentState, config: RunnableConfig):
+def _parse_handoff(content: str) -> Optional[tuple[str, str]]:
     """
-    The Director plans the content.
-    If returning from a rejection, it refines the plan based on critique.
+    Parse HANDOFF patterns from agent tool output.
+    Returns (target_agent, directive) or None if no handoff.
+    """
+    import re
+    # Pattern: HANDOFF:agent_name:directive
+    match = re.search(r"HANDOFF:(director|researcher|validator|composer|cinematographer|editor|end):(.+)", content, re.IGNORECASE | re.DOTALL)
+    if match:
+        return (match.group(1).lower(), match.group(2).strip())
+    return None
+
+
+def _extract_handoffs_and_content(messages: List[Any]) -> tuple[List[tuple[str, str]], str]:
+    """
+    Extract handoffs and content from agent response messages.
+    Returns (list of handoffs, combined content string).
+    """
+    handoffs = []
+    content_parts = []
+    
+    for msg in messages:
+        # Check for tool messages (ToolMessage contains tool output)
+        if hasattr(msg, "type") and msg.type == "tool":
+            tool_content = msg.content if hasattr(msg, "content") else str(msg)
+            handoff = _parse_handoff(tool_content)
+            if handoff:
+                handoffs.append(handoff)
+        elif hasattr(msg, "content"):
+            # Collect AI message content
+            raw = msg.content
+            if isinstance(raw, list):
+                for block in raw:
+                    if isinstance(block, dict) and "text" in block:
+                        content_parts.append(block["text"])
+                    elif isinstance(block, str):
+                        content_parts.append(block)
+            elif isinstance(raw, str):
+                content_parts.append(raw)
+    
+    final_content = "\n".join(content_parts) if content_parts else ""
+    return handoffs, final_content
+
+
+def _route_from_handoffs(
+    handoffs: List[tuple[str, str]], 
+    state_update: dict, 
+    default_target: str,
+    logger_context: str
+) -> Command:
+    """
+    Common routing logic based on handoffs.
+    Returns a Command with the appropriate goto target.
+    """
+    if handoffs:
+        targets = [h[0] for h in handoffs]
+        logger.info("[%s] Delegating to: %s", logger_context, targets)
+        
+        # Priority order for multiple handoffs
+        if "end" in targets:
+            return Command(update=state_update, goto=END)
+        elif "director" in targets:
+            return Command(update=state_update, goto="director")
+        elif "validator" in targets:
+            return Command(update=state_update, goto="validator")
+        elif "researcher" in targets:
+            return Command(update=state_update, goto="researcher")
+        elif "cinematographer" in targets:
+            return Command(update=state_update, goto="cinematographer")
+        elif "composer" in targets:
+            return Command(update=state_update, goto="composer")
+        elif "editor" in targets:
+            return Command(update=state_update, goto="editor")
+    
+    # Default routing
+    logger.info("[%s] No handoff, routing to: %s", logger_context, default_target)
+    if default_target == "end":
+        return Command(update=state_update, goto=END)
+    return Command(update=state_update, goto=default_target)
+
+
+async def director_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
+    """
+    The Director plans the content and delegates to appropriate agents.
+    Uses Command for dynamic routing based on tool calls.
     """
     logger.info("🎬 NODE: Director")
 
-    # extracting config (optional usage)
     conf = config.get("configurable", {})
-
-    # ZERO TOUCH: Get defaults from System Config
-    # If provided in runtime config, use it, else use System Truth
     sys_prov, sys_model = sys_conf.get_agent_params("Director")
-
     provider = conf.get("model_provider", sys_prov)
 
     # 1. Get Context
     directive = state.get("directive", "")
     critique = state.get("validation_report", "")
     plan = state.get("director_plan", "")
-
-    # 2. Check if this is a Revision
     revision_count = state.get("revision_count", 0)
 
-    messages = []
+    # 2. Build prompt
     if revision_count > 0 and critique:
-        # Rejection refinement
         prompt = (
             "Your previous plan was REJECTED by the Audit Agent.\n"
             f"CRITIQUE: {critique}\n"
@@ -127,8 +203,6 @@ async def director_node(state: AgentState, config: RunnableConfig):
             f"Maintain the original goal: {directive}"
         )
     else:
-        # Fresh Plan
-        # If we have messages in state, use them, otherwise use directive
         if not directive and state["messages"]:
             last_msg = state["messages"][-1]
             if hasattr(last_msg, "content"):
@@ -139,75 +213,51 @@ async def director_node(state: AgentState, config: RunnableConfig):
                 directive = str(last_msg)
         prompt = directive
 
-    # Pass dynamic provider and use system config's model if provider matches
-    target_model = sys_model if provider == sys_prov else "gemini-2.0-flash-001"
-
-    messages = [HumanMessage(content=prompt)]
-
-    # 3. Invoke Director Agent
-    # We use the factory we debugged earlier
+    # 3. Invoke Director Agent (with mesh tools)
     agent = create_director_agent(provider=provider)
+    response_state = await agent.ainvoke({"messages": [HumanMessage(content=prompt)]})
+    all_messages = response_state.get("messages", [])
+    
+    # 4. Parse handoffs and content
+    handoffs, final_content = _extract_handoffs_and_content(all_messages)
+    final_msg = all_messages[-1] if all_messages else AIMessage(content=final_content)
 
-    # Convert 'agent' (CompiledGraph) to a simple invoker or run it
-    # Director agent expects {"messages": []}
-    response_state = await agent.ainvoke({"messages": messages})
-
-    # Extract AIMessage
-    final_msg = response_state["messages"][-1]
-
-    # Robust extraction (Handle both AIMessage object and serialized dict)
-    content = ""
-    if hasattr(final_msg, "content"):
-        raw_content = final_msg.content
-    elif isinstance(final_msg, dict):
-        raw_content = final_msg.get("content", "")
-    else:
-        raw_content = str(final_msg)
-
-    # Flatten List if present (Anthropic Fix)
-    if isinstance(raw_content, list):
-        text_parts = []
-        for block in raw_content:
-            if isinstance(block, dict) and "text" in block:
-                text_parts.append(block["text"])
-            elif isinstance(block, str):
-                text_parts.append(block)
-            elif hasattr(block, "text"):
-                text_parts.append(getattr(block, "text"))
-        content = "\n".join(text_parts)
-    else:
-        content = str(raw_content)
-
-    return {
+    state_update = {
         "messages": [final_msg],
-        "director_plan": content,
-        "directive": directive,  # Persist if empty
+        "director_plan": final_content,
+        "directive": directive,
     }
+    
+    # 5. Route based on handoffs or default
+    skip_prod = conf.get("skip_production", False)
+    default_target = "end" if skip_prod else "cinematographer"
+    
+    return _route_from_handoffs(handoffs, state_update, default_target, "Director")
 
 
-async def researcher_node(state: AgentState, config: RunnableConfig):
+async def researcher_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
     """
     The Researcher verifies the Director's plan.
+    Uses Command for dynamic routing.
     """
     logger.info("🔎 NODE: Researcher")
     plan = state.get("director_plan", "")
 
-    # Call the Tool Function directly (Zero Touch wrapper)
-    # Ideally, we should wrap this in an Agent loop if it was complex,
-    # but run_research_task handles it.
-
-    # We pass the plan as the "Topic" to research/verify
-    # "Research the validity of this plan: ..."
     research_query = (
         "Verify the facts and feasibility of this Creative Directive:\n" f"{plan}"
     )
 
     result = run_research_task(research_query)
 
-    return {
+    state_update = {
         "messages": [AIMessage(content=f"Research Report:\n{result}")],
         "research_data": result,
     }
+    
+    # Default: After research, go to validator for approval
+    return _route_from_handoffs([], state_update, "validator", "Researcher")
 
 
 def _parse_validation_output(content: Union[str, List[Any]]) -> tuple[str, int, str]:
@@ -261,12 +311,19 @@ def _parse_validation_output(content: Union[str, List[Any]]) -> tuple[str, int, 
     return status, score, text_content
 
 
-async def validator_node(state: AgentState, config: RunnableConfig):
+async def validator_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
     """
     The Confidence Agent audits the Plan + Research.
+    Uses Command for dynamic routing based on approval/rejection.
     """
     logger.info("⚖️ NODE: Validator")
 
+    conf = config.get("configurable", {})
+    max_revs = conf.get("max_revisions", 3)
+    skip_prod = conf.get("skip_production", False)
+    
     plan = state.get("director_plan", "")
     research = state.get("research_data", "")
 
@@ -275,98 +332,57 @@ async def validator_node(state: AgentState, config: RunnableConfig):
     # Create Agent using Factory (ensures Hub Prompts + Tools)
     agent = create_confidence_agent(provider="Anthropic")
 
-    # Construct input message for the agent
     msg = HumanMessage(content=f"Verify this verification request:\n{audit_context}")
 
     response_state = await agent.ainvoke({"messages": [msg]})
     final_msg = response_state["messages"][-1]
+    
     # Parse output using robust helper
     status, score, clean_text = _parse_validation_output(final_msg.content)
-    return {
+    revision_count = state.get("revision_count", 0) + 1
+    
+    state_update = {
         "messages": [final_msg],
         "validation_report": clean_text,
         "validation_status": status,
         "validation_score": score,
-        "revision_count": state.get("revision_count", 0) + 1,
+        "revision_count": revision_count,
     }
+    
+    # Routing logic based on validation result
+    if revision_count > max_revs:
+        logger.warning("⚠️ Max revisions (%s) reached. Forcing proceed.", max_revs)
+        default_target = "end" if skip_prod else "cinematographer"
+        return _route_from_handoffs([], state_update, default_target, "Validator")
+    
+    if status == "REJECTED":
+        logger.info("❌ Plan Rejected. Sending back to Director.")
+        return Command(update=state_update, goto="director")
+    
+    # APPROVED or SKIPPED - proceed to production
+    logger.info("✅ Plan Approved. Proceeding to Production.")
+    default_target = "end" if skip_prod else "cinematographer"
+    return _route_from_handoffs([], state_update, default_target, "Validator")
 
 
 # --- 4. The Router (Conditional Edges) ---
 
+# --- 4. LEGACY ROUTERS (Deprecated - Command pattern now handles routing) ---
+# These are kept for reference but no longer used in the mesh architecture.
 
-def validation_router(state: AgentState, config: RunnableConfig) -> Union[
-    Literal["director", "cinematographer", "composer", "production_branch", "end"],
-    List[str],
-]:
-    """
-    Decides the next step based on validation status and configuration.
-    """
-    logger.info("🔀 ROUTER: Validation Check")
-
-    # 1. Read Config
-    conf = config.get("configurable", {})
-    require_validation = conf.get("require_validation", True)
-    max_revs = conf.get("max_revisions", 3)
-    skip_prod = conf.get("skip_production", False)
-    parallel = conf.get("parallel_production", True)
-
-    # 2. Check Loop Limits
-    revs = state.get("revision_count", 0)
-    if revs > max_revs:
-        # Force exit to avoid infinite loop
-        logger.warning("⚠️ Max revisions (%s) reached. Forcing proceed.", max_revs)
-        if skip_prod:
-            return "end"
-        return ["cinematographer", "composer"] if parallel else "cinematographer"
-
-    # 3. Check Status
-    # Default to SKIPPED if validator was removed
-    status = state.get("validation_status", "SKIPPED")
-
-    # If valid logic says REJECTED, go back
-    # Implicitly approve SKIPPED status
-    if require_validation and status != "APPROVED" and status != "SKIPPED":
-        logger.info("❌ Plan Rejected. sending back to Director.")
-        return "director"
-
-    # Proceed to Production
-    logger.info("✅ Plan Approved (or Skipped validation). Proceeding to Production.")
-
-    if skip_prod:
-        return "end"
-
-    # Parallel branch logic is handled by returning list in LangGraph usually,
-    # but here we use a conditional map to a 'fork' node or router returns multiple?
-    # LangGraph Configurable Edges return a single node key usually.
-    # To run parallel, we point to multiple nodes if the framework supports it
-    # (StateGraph does via mapping).
-
-    # Actually, to run parallel in LangGraph:
-    # We return a list of nodes from the router, OR we point to a "parallel_scheduler" node.
-    # But standard way: Router -> [Node A, Node B]
-
-    # Serial Enforcement (Stable Mode)
-    # if parallel:
-    #    return ["cinematographer", "composer"]
-
-    # Serial: Cine then Composer
-    return "cinematographer"  # which points to composer
-
-
-def cine_router(
-    state: AgentState, config: RunnableConfig
-) -> Literal["composer", "editor"]:
-    """Decides if Cine goes to Composer (Serial) or Editor (Parallel)."""
-    # Force Serial Flow
-    return "composer"
+# def validation_router(...): # DEPRECATED - validator_node uses Command
+# def cine_router(...): # DEPRECATED - cinematographer_node uses Command
 
 
 # --- Production Nodes ---
 
 
-async def cinematographer_node(state: AgentState, config: RunnableConfig):
+async def cinematographer_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
     """
     Executes the Visual Directive.
+    Uses Command for dynamic routing.
     """
     logger.info("🎥 NODE: Cinematographer")
     plan = state.get("director_plan", "")
@@ -374,25 +390,18 @@ async def cinematographer_node(state: AgentState, config: RunnableConfig):
     # Safety: Ensure plan is string
     if not isinstance(plan, str):
         if isinstance(plan, list):
-            # Try to join or take last
             plan = str(plan[-1]) if plan else ""
         else:
             plan = str(plan)
 
-    # We invoke the agent generator logic
-    # But for graph simplicity, we use the synchronous helper tailored for this
-    # run_cinematographer_task(plan) returns a string path or error
     try:
         from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
             run_cinematographer_task,
         )
 
-        # Parse mode from plan? Or just basic
-        # We pass the WHOLE plan. The Agent (LLM) parses it.
         result = run_cinematographer_task(plan)
 
         # Extract path
-        # Heuristic: Check for 'Saved: path' or return raw
         path = (
             result
             if "Artifacts" in result or "C:" in result or "http" in result
@@ -401,8 +410,6 @@ async def cinematographer_node(state: AgentState, config: RunnableConfig):
 
         assets = []
         if path:
-            # Clean up the string to get just the path if verbose
-
             match = re.search(
                 r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
                 result,
@@ -411,20 +418,29 @@ async def cinematographer_node(state: AgentState, config: RunnableConfig):
                 clean_path = match.group(1)
                 assets.append(clean_path)
             else:
-                assets.append(path)  # Hope for best
+                assets.append(path)
 
-        return {
+        state_update = {
             "messages": [AIMessage(content=f"Visuals Created: {result}")],
             "video_assets": assets,
         }
+        
+        # Default: After visuals, go to composer for audio
+        return _route_from_handoffs([], state_update, "composer", "Cinematographer")
+        
     except Exception as e:
         logger.error("Cinematography Failed: %s", e)
-        return {"messages": [AIMessage(content=f"Visual Error: {e}")]}
+        state_update = {"messages": [AIMessage(content=f"Visual Error: {e}")]}
+        # On error, still try to continue to composer
+        return _route_from_handoffs([], state_update, "composer", "Cinematographer")
 
 
-async def composer_node(state: AgentState, config: RunnableConfig):
+async def composer_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
     """
     Executes the Audio Directive.
+    Uses Command for dynamic routing.
     """
     logger.info("🎻 NODE: Composer")
     plan = state.get("director_plan", "")
@@ -432,17 +448,15 @@ async def composer_node(state: AgentState, config: RunnableConfig):
     # Safety: Ensure plan is string
     if not isinstance(plan, str):
         if isinstance(plan, list):
-            # Try to join or take last
             plan = str(plan[-1]) if plan else ""
         else:
             plan = str(plan)
 
     try:
         result = run_composer_task(plan)
-        # Ensure result is string
         result = str(result)
         assets = []
-        # Heuristic extraction
+        
         match = re.search(
             r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
             result,
@@ -450,107 +464,89 @@ async def composer_node(state: AgentState, config: RunnableConfig):
         if match:
             assets.append(match.group(1))
 
-        return {
+        state_update = {
             "messages": [AIMessage(content=f"Audio Created: {result}")],
             "audio_assets": assets,
         }
+        
+        # Default: After audio, go to editor to merge
+        return _route_from_handoffs([], state_update, "editor", "Composer")
+        
     except Exception as e:
         logger.error("Composition Failed: %s", e)
-        return {"messages": [AIMessage(content=f"Audio Error: {e}")]}
+        state_update = {"messages": [AIMessage(content=f"Audio Error: {e}")]}
+        # On error, still try to continue to editor
+        return _route_from_handoffs([], state_update, "editor", "Composer")
 
 
-async def editor_node(state: AgentState, config: RunnableConfig):
+async def editor_node(
+    state: AgentState, config: RunnableConfig
+) -> Command[Literal["director", "researcher", "validator", "cinematographer", "composer", "editor", "__end__"]]:
     """
     Merges the assets.
+    Uses Command for dynamic routing (typically ends workflow).
     """
     logger.info("✂️ NODE: Editor (Merge)")
 
-    # Read Config
     conf = config.get("configurable", {})
     do_merge = conf.get("merge_output", True)
     fname = conf.get("output_filename", "final_cut.mp4")
 
     if not do_merge:
-        return {"messages": [AIMessage(content="Merge skipped by config.")]}
+        state_update = {"messages": [AIMessage(content="Merge skipped by config.")]}
+        return _route_from_handoffs([], state_update, "end", "Editor")
 
     v_assets = state.get("video_assets", [])
     a_assets = state.get("audio_assets", [])
 
     if not v_assets or not a_assets:
-        return {
+        state_update = {
             "messages": [
                 AIMessage(content="Skipping Merge: Missing Video or Audio assets.")
             ]
         }
-
-    # Take the latest
-    # Since we use 'operator.add' (list concat), we might have multiples if looped.
-    # Strategy: Use ALL videos (sequence) and LAST audio.
+        return _route_from_handoffs([], state_update, "end", "Editor")
 
     final_audio = a_assets[-1]
-
-    # Filter for valid strings
     valid_videos = [v for v in v_assets if isinstance(v, str) and len(v) > 3]
 
     if not valid_videos:
-        return {
+        state_update = {
             "messages": [AIMessage(content="Skipping Merge: No valid video paths.")]
         }
+        return _route_from_handoffs([], state_update, "end", "Editor")
 
     res_path = merge_video_audio_logic(
         video_paths=valid_videos, audio_path=final_audio, output_name=fname
     )
 
-    return {
+    state_update = {
         "messages": [AIMessage(content=f"FINAL CUT: {res_path}")],
         "final_output": res_path,
     }
+    
+    # Editor is typically the final step
+    return _route_from_handoffs([], state_update, "end", "Editor")
 
 
 # --- 5. The Graph (Assembly) ---
 
 workflow = StateGraph(AgentState)
 
-# Nodes
+# Nodes - ALL agents now use Command for dynamic mesh routing
 workflow.add_node("director", director_node)
-# workflow.add_node("researcher", researcher_node) # SKIPPING RESEARCHER
-# workflow.add_node("validator", validator_node) # SKIPPING VALIDATOR
+workflow.add_node("researcher", researcher_node)
+workflow.add_node("validator", validator_node)
 workflow.add_node("cinematographer", cinematographer_node)
 workflow.add_node("composer", composer_node)
 workflow.add_node("editor", editor_node)
 
-# Edges
+# Entry Point
 workflow.set_entry_point("director")
-# workflow.add_edge("director", "researcher") # SKIPPING RESEARCHER
-# workflow.add_edge("researcher", "validator") # SKIPPING VALIDATOR
 
-# Conditional Edge (Router)
-workflow.add_conditional_edges(
-    "director",  # Direct to Validation Router (which skips to Production)
-    validation_router,
-    # path_map dictionary used to map return values to node names
-    {
-        "director": "director",
-        "cinematographer": "cinematographer",
-        "composer": "composer",
-        "end": END,
-        # Handling the list output for parallel execution requires mapping individual keys
-        # But 'add_conditional_edges' expects specific structure for standard execution.
-        # When returning a list ["A", "B"], LangGraph (v0.1+) automatically fans out.
-        # We just need to ensure the targets exist in the graph.
-        "production_branch": "cinematographer",
-    },
-)
-
-# Parallel Convergence
-# If Parallel, Cine -> Editor. If Serial, Cine -> Composer -> Editor.
-workflow.add_conditional_edges(
-    "cinematographer", cine_router, {"composer": "composer", "editor": "editor"}
-)
-workflow.add_edge("composer", "editor")
-
-# Final
-workflow.add_edge("editor", END)
+# MESH MODE: All nodes use Command for dynamic routing
+# No explicit edges needed - each node returns Command(goto="next_node")
+# This enables full mesh capability where any agent can route to any other
 
 # Compile for execution
 app = workflow.compile()

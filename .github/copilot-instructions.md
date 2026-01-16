@@ -71,6 +71,8 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Windows Encoding (CRITICAL)**: Windows cp1252 encoding crashes on Unicode emoji characters in log messages. All logging MUST use ASCII-safe alternatives (`[KEY]`, `[CACHE HIT]`, `[SUCCESS]`, `[FAILED]`, `[FALLBACK]` instead of emojis). Set `PYTHONIOENCODING=utf-8` when running Python.
 - **Google SDK Slow Import**: `google.api_core._python_version_support.check_python_version()` calls `packages_distributions()` which scans ALL installed packages (~26-30 seconds). This is unavoidable but cached after first import.
 - **LangGraph Server Isolation**: On Windows, running the LangGraph server directly in VS Code integrated terminals causes premature exit. Use `Start-Job` for background isolation or run in a separate PowerShell window.
+- **LangGraph Command Pattern (CRITICAL)**: All agent nodes MUST return `Command[Literal[...]]` for dynamic routing. Do NOT use `add_conditional_edges()` or hardcoded keyword routing. Agents delegate via `HANDOFF:agent_name:directive` strings parsed from tool output. This is the "Gold Standard" mesh architecture.
+- **Inter-Agent Delegation**: Use tools from `inter_agent_comms.py` (`discover_agents`, `delegate_to_*`, `signal_task_complete`). Each agent has a curated tool set (`DIRECTOR_TOOLS`, `COMPOSER_TOOLS`, etc.).
 
 ### 5. MemoriPilot Documentation & Protocols
 The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.

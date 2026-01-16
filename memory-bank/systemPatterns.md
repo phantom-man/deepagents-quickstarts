@@ -57,6 +57,26 @@ Rules:
 - **Discovery**: Agents possess a `discover_agents` tool. If they encounter a task outside their domain, they query the registry to find a peer who can handle it.
 - **Dynamic Handoff**: This allows for emergent behavior (e.g., Cinematographer realizing they need music and calling Composer directly).
 
+### 6a. Command-Based Mesh Routing (LangGraph Gold Standard)
+
+- **Pattern**: All agent nodes in the StateGraph return `Command[Literal[...]]` instead of plain state dictionaries.
+- **HANDOFF Protocol**: Delegation tools return `HANDOFF:agent_name:directive` strings. The node function parses these from `ToolMessage` content and routes accordingly.
+- **Implementation**:
+  ```python
+  from langgraph.types import Command
+  from typing import Literal
+  
+  def agent_node(state) -> Command[Literal["other_agent", "__end__"]]:
+      # ... invoke agent ...
+      handoff = _parse_handoff(response)  # e.g., "HANDOFF:composer:generate music"
+      if handoff:
+          return Command(update={...}, goto=handoff[0])
+      return Command(update={...}, goto="__end__")
+  ```
+- **No Conditional Edges**: Graph assembly uses ONLY `add_node()` and `set_entry_point()`. All routing decisions are made dynamically by Command returns.
+- **Agent Tool Sets**: Each agent receives a curated set of delegation tools (`DIRECTOR_TOOLS`, `COMPOSER_TOOLS`, etc.) from `inter_agent_comms.py`.
+- **Rationale**: This is the highest-maturity LangGraph pattern for multi-agent orchestration. It eliminates brittle hardcoded routing and enables true emergent agent collaboration.
+
 ### 7. Human-in-the-Loop (HITL) Gate
 
 - **Blocking Signal**: Agents generating expensive/creative assets (Image/Music) yield a specific string `HITL_REVIEW_REQUIRED: {id}`.

@@ -81,6 +81,11 @@ logger = logging.getLogger(__name__)
 
 
 # Sub-Agent Tools Removed (Linear Pipeline Enforcement)
+# RESTORED: Director now uses discovery and delegation tools for mesh routing
+
+
+# Import the inter-agent communication tools
+from DeepAgents.inter_agent_comms import DIRECTOR_TOOLS
 
 
 @tool
@@ -166,10 +171,10 @@ def create_director_agent(
     # Let's try to filter tools to ensure they are clean Pydantic tools
     # Using 'tool' decorator makes them StructuredTool.
     
-    # STRICT MODE: Director only Plans. Tools removed to prevent GraphRecursionError.
+    # MESH MODE: Director uses discovery and delegation tools for dynamic routing.
     agent = create_deep_agent(
         model=cast(BaseChatModel, model),
-        tools=[],  # Empty tools enables pure Chat/Generation mode (No looping)
+        tools=DIRECTOR_TOOLS,  # Tools for mesh-based agent discovery and delegation
         system_prompt=hub_prompt,
         checkpointer=checkpointer
     )
