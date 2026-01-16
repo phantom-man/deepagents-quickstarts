@@ -1,36 +1,62 @@
+"""
+LangGraph Application Entry Point - Lazy Loading Edition
+
+This module uses lazy initialization to avoid slow startup times.
+Graphs are only created when first accessed, not at import time.
+"""
 import os
 import sys
+from functools import lru_cache
 from dotenv import load_dotenv
-from langgraph.graph import StateGraph, MessagesState, END
-from langchain_core.messages import AIMessage
 
 # Ensure root (one level up) is in path so "DeepAgents" package resolves correctly
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-try:
-    from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
-    from DeepAgents.CommercialAgents.research_agent.agent import create_research_agent
-    from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
-    from DeepAgents.CommercialAgents.confidence_agent.agent import (
-        create_confidence_agent,
-    )
-    from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
-        create_cinematographer_agent,
-    )
-except ImportError:
-    # Double check path if failed
-    print(f"Import failed. Path: {sys.path}")
-    raise
-
-# Import System Config for Zero-Touch Configuration
-from DeepAgents.system_config import SystemConfiguration
-
 load_dotenv()
-sys_conf = SystemConfiguration()
+
+# --- Lazy Import Helpers ---
+# These defer heavy imports until actually needed
+
+@lru_cache(maxsize=1)
+def _get_langgraph_imports():
+    """Lazy load LangGraph components."""
+    from langgraph.graph import StateGraph, MessagesState, END
+    from langchain_core.messages import AIMessage
+    return StateGraph, MessagesState, END, AIMessage
+
+
+@lru_cache(maxsize=1)
+def _get_system_config():
+    """Lazy load SystemConfiguration."""
+    from DeepAgents.system_config import SystemConfiguration
+    return SystemConfiguration()
+
+
+@lru_cache(maxsize=1)
+def _get_agent_factories():
+    """Lazy load all agent factory functions."""
+    try:
+        from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
+        from DeepAgents.CommercialAgents.research_agent.agent import create_research_agent
+        from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
+        from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
+        from DeepAgents.CommercialAgents.cinematographer_agent.agent import create_cinematographer_agent
+        return {
+            "director": create_director_agent,
+            "research": create_research_agent,
+            "composer": create_composer_agent,
+            "confidence": create_confidence_agent,
+            "cinematographer": create_cinematographer_agent,
+        }
+    except ImportError as e:
+        print(f"Import failed. Path: {sys.path}. Error: {e}")
+        raise
 
 
 # --- Graph Factory Wrappers (To prevent startup crashes) ---
-def safe_create(name, factory_func, **kwargs):
+def _safe_create(name, factory_func, **kwargs):
+    """Safely create a graph, returning an error graph on failure."""
+    StateGraph, MessagesState, END, AIMessage = _get_langgraph_imports()
     try:
         return factory_func(**kwargs)
     except Exception as e:
@@ -46,37 +72,38 @@ def safe_create(name, factory_func, **kwargs):
         return bg.compile()
 
 
-# --- Initialize Graphs ---
+# --- Lazy Graph Factories ---
+# Each graph is created ONLY when first accessed via the property
 
-# 1. Director
-d_prov, d_mod = sys_conf.get_agent_params("Director")
-director_graph = safe_create(
-    "Director",
-    create_director_agent,
-    provider=d_prov,
-    model_name=d_mod,
-    checkpointer=None,
-)
+@lru_cache(maxsize=1)
+def _create_director_graph():
+    """Lazy factory for Director graph."""
+    sys_conf = _get_system_config()
+    factories = _get_agent_factories()
+    d_prov, d_mod = sys_conf.get_agent_params("Director")
+    return _safe_create(
+        "Director",
+        factories["director"],
+        provider=d_prov,
+        model_name=d_mod,
+        checkpointer=None,
+    )
 
-# 2. Researcher
-# Expects: model_name, provider
-# researcher_graph = safe_create(
-#     "Researcher",
-#     create_research_agent,
-#     provider="Google",
-#     model_name="gemini-2.0-flash-001"
-# )
 
-# 3. Composer
-# Wrap the Linear Runnable in a StateGraph
-def _create_composer_wrapper():
+@lru_cache(maxsize=1)
+def _create_composer_graph():
+    """Lazy factory for Composer graph (wrapped in StateGraph)."""
+    StateGraph, MessagesState, END, AIMessage = _get_langgraph_imports()
+    sys_conf = _get_system_config()
+    factories = _get_agent_factories()
+    
     try:
         c_prov, c_mod = sys_conf.get_agent_params("Composer")
         
         # This returns a RunnableLambda, NOT a Graph
-        composer_runnable = create_composer_agent(model_config={"provider": c_prov, "model": c_mod})
+        composer_runnable = factories["composer"](model_config={"provider": c_prov, "model": c_mod})
         
-        def composer_node_adapter(state: MessagesState):
+        def composer_node_adapter(state):
             # RunnableLambda expects a dict, which MessagesState is compatible with
             return composer_runnable.invoke(state)
 
@@ -90,35 +117,39 @@ def _create_composer_wrapper():
         
     except Exception as e:
         print(f"FAILED to wrap Composer: {e}")
-        # Graph requires valid object
-        def err_node(state): return {"messages": [AIMessage(content=f"Composer Failed: {e}")]}
+        def err_node(state): 
+            return {"messages": [AIMessage(content=f"Composer Failed: {e}")]}
         g = StateGraph(MessagesState) 
         g.add_node("error", err_node)
         g.set_entry_point("error")
         return g.compile()
 
-composer_graph = _create_composer_wrapper()
 
-# 4. Confidence
-# Expects: model_name, provider
-conf_prov, conf_mod = sys_conf.get_agent_params("Confidence")
-confidence_graph = safe_create(
-    "Confidence", create_confidence_agent, provider=conf_prov, model_name=conf_mod
-)
+@lru_cache(maxsize=1)
+def _create_confidence_graph():
+    """Lazy factory for Confidence graph."""
+    sys_conf = _get_system_config()
+    factories = _get_agent_factories()
+    conf_prov, conf_mod = sys_conf.get_agent_params("Confidence")
+    return _safe_create(
+        "Confidence", 
+        factories["confidence"], 
+        provider=conf_prov, 
+        model_name=conf_mod
+    )
 
 
-# 5. Cinematographer
-# Custom wrapper required because this agent returns a Generator, not a Graph.
-def _create_cinematographer_wrapper():
+@lru_cache(maxsize=1)
+def _create_cinematographer_graph():
+    """Lazy factory for Cinematographer graph (wrapped in StateGraph)."""
+    StateGraph, MessagesState, END, AIMessage = _get_langgraph_imports()
+    factories = _get_agent_factories()
+    
     try:
-        # Get dynamic params
-        # Cinematographer agent handles internal config resolution, but we can pass explicit override if needed.
-        # Passing empty/None forces it to use SystemConfig via its internal logic.
-        cinema_func = create_cinematographer_agent(model_config=None)
+        # Get the cinematographer function
+        cinema_func = factories["cinematographer"](model_config=None)
 
-        # 2. Define the Graph Node
-        def run_cinema_node(state: MessagesState):
-            # Check if messages exist
+        def run_cinema_node(state):
             if not state.get("messages"):
                 return {"messages": [AIMessage(content="No input provided.")]}
 
@@ -126,19 +157,16 @@ def _create_cinematographer_wrapper():
             final_output = []
 
             # Consume the generator
-            # run_agent yields (type, content)
-            # Default args for cinema: mode="storyboard"
             for msg_type, content in cinema_func(input_text=user_input):
                 if msg_type == "output":
                     final_output.append(content)
-                # We ignore 'thinking' messages for the final state output
 
             result_text = (
                 "\n\n".join(final_output) if final_output else "No output generated."
             )
             return {"messages": [AIMessage(content=result_text)]}
 
-        # 3. Build Graph
+        # Build Graph
         builder = StateGraph(MessagesState)
         builder.add_node("cinematographer", run_cinema_node)
         builder.set_entry_point("cinematographer")
@@ -147,18 +175,20 @@ def _create_cinematographer_wrapper():
 
     except Exception as e:
         print(f"FAILED to wrap Cinematographer: {e}")
-
-        # Fallback error graph
         def err_node(state):
             return {"messages": [AIMessage(content=f"Cinematographer Failed: {e}")]}
-
         g = StateGraph(MessagesState)
         g.add_node("error", err_node)
         g.set_entry_point("error")
         return g.compile()
 
 
-cinematographer_graph = _create_cinematographer_wrapper()
+# --- Module-Level Graph Accessors ---
+# These call the lazy factories which use @lru_cache to only create once.
+# Note: LangGraph CLI will still trigger creation during startup introspection,
+# but subsequent accesses reuse the cached instances.
 
-# Fallback: Expose director as 'graph' for legacy/default config support
-# graph = director_graph
+director_graph = _create_director_graph()
+composer_graph = _create_composer_graph()
+confidence_graph = _create_confidence_graph()
+cinematographer_graph = _create_cinematographer_graph()

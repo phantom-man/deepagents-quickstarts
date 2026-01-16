@@ -40,7 +40,20 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py` (Run from Repo Root).
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only` (Run from Repo Root).
 - **Environment**: `.env` handles secrets. `LANGCHAIN_HUB_HANDLE` is required for Prompt Hub.
-- **LangGraph Development Server**: You MUST change directory to `DeepAgents/` first to ensure config resolution. Use: `cd DeepAgents; python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking`.
+- **LangGraph Development Server (CRITICAL)**:
+    - **Startup Time**: Server requires **~50-65 seconds** to initialize all graphs due to Google SDK `packages_distributions()` scanning.
+    - **Windows Encoding**: MUST set `$env:PYTHONIOENCODING="utf-8"` to prevent Unicode crashes.
+    - **Background Job Required**: On Windows, use PowerShell `Start-Job` to prevent terminal interference.
+    - **Command (Direct)**:
+      ```powershell
+      $env:PYTHONIOENCODING="utf-8"; Set-Location C:\Users\User\source\repos\deepagents-quickstarts\DeepAgents; python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking --no-reload
+      ```
+    - **Command (Background Job - Recommended for Windows)**:
+      ```powershell
+      $job = Start-Job -ScriptBlock { Set-Location C:\Users\User\source\repos\deepagents-quickstarts\DeepAgents; $env:PYTHONIOENCODING="utf-8"; python -m langgraph_cli dev --port 2024 --no-browser --allow-blocking --no-reload 2>&1 }; Write-Host "Job ID: $($job.Id)"; Start-Sleep -Seconds 60; Receive-Job -Id $job.Id -Keep | Select-Object -Last 20
+      ```
+    - **Verification**: `Invoke-WebRequest -Uri "http://127.0.0.1:2024/ok" -UseBasicParsing`
+    - **Studio UI**: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 
 ### 4. Media & Asset Storage Standards
 - **Golden Rule**: Google Cloud Storage (GCS) is the "Gold Standard" for all generated media.
@@ -53,6 +66,11 @@ These are the immutable facts of the current project state. Copilot must priorit
 ### 5. Known Issues / Learnings
 - **Prompt Hub**: If `pull_prompt` fails, RAISE AN ERROR. Do Not fallback to local constants.
 - **Console Input**: Uses `prompt_toolkit` to handle background log scrolling.
+- **Search Tooling**: `Tavily` is DEPRECATED for Google Agents. You MUST use Native Google Search Grounding (`tools=[{'google_search': {}}]`).
+- **Music Hallucinations**: Instrumental requests MUST use the "Phase-Based Classification" pattern (Classify -> Generate) to prevent lyric generation.
+- **Windows Encoding (CRITICAL)**: Windows cp1252 encoding crashes on Unicode emoji characters in log messages. All logging MUST use ASCII-safe alternatives (`[KEY]`, `[CACHE HIT]`, `[SUCCESS]`, `[FAILED]`, `[FALLBACK]` instead of emojis). Set `PYTHONIOENCODING=utf-8` when running Python.
+- **Google SDK Slow Import**: `google.api_core._python_version_support.check_python_version()` calls `packages_distributions()` which scans ALL installed packages (~26-30 seconds). This is unavoidable but cached after first import.
+- **LangGraph Server Isolation**: On Windows, running the LangGraph server directly in VS Code integrated terminals causes premature exit. Use `Start-Job` for background isolation or run in a separate PowerShell window.
 
 ### 5. MemoriPilot Documentation & Protocols
 The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.

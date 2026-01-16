@@ -94,7 +94,17 @@ The system learns from failure via explicit rejection logs:
 - `bad_examples.md` stores failed outputs (e.g., hallucinated research).
 - Agents MUST read this file during initialization to avoid repeating mistakes.
 
-### 12. Terminal Output Safety (Pipe-to-File)
+### 14. Phase-Based Prompting (Meta-Cognitive Polymer)
+- **Problem**: Agents hallucinate content (e.g., Lyrics in Instrumental tracks) when "Generating" and "Thinking" occur in the same pass.
+- **Solution**: Break prompts into **PHASE 1 (Audit/Classify)** and **PHASE 2 (Execute)**.
+- **Pattern**: The Agent must first output a classification (e.g., "Mode: Instrumental") which activates negative constraints for the subsequent generation block.
+
+### 15. Native Search Grounding (Google)
+- **Deprecation**: `Tavily` is deprecated for Google-based agents.
+- **New Standard**: Use `google_search` tool natively embedded in `ChatGoogleGenerativeAI`.
+- **Reasoning**: Lower latency, better citation integration, and unified billing/quota with the Vertex AI stack.
+
+### 16. Terminal Output Safety (Pipe-to-File)
 
 - **Problem**: Large text output freezes the terminal (buffer scroll-lock), requiring manual `Enter` key presses to proceed.
 - **Protocol**: When querying large datasets, logs, or search results, **ALWAYS** pipe the output to a temporary file (e.g., `temp_output.txt`) and then read the file. **NEVER** print massive strings directly to `stdout`.

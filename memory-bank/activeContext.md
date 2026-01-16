@@ -2,30 +2,32 @@
 
 ## Current Focus
 
-**Stabilizing Agent Runtime Logic & Configuration Integrity**
+**LangGraph Server Running & Stable**
 
-- Status: **Configuration Fixed**.
-- Objective: Ensure agents execute with correct Models (Gemini, Google Voices) and logic.
-- Strategy: Start `langgraph dev`, verify runtime logs match local expectations exactly.
+- Status: **Server Operational**.
+- Objective: LangGraph development server accessible at `http://127.0.0.1:2024` via LangSmith Studio.
+- Strategy: Use PowerShell `Start-Job` for Windows process isolation. Server takes ~50s to initialize.
 
 ## Recent Changes
 
+- **LangGraph Server Stability (2026-01-15)**:
+  - **Unicode Fix**: Fixed Windows cp1252 encoding crash by replacing all emoji characters in `hub_manager.py` with ASCII-safe alternatives (`[KEY]`, `[CACHE HIT]`, `[SUCCESS]`, `[FAILED]`, `[FALLBACK]`).
+  - **Process Isolation**: Discovered that VS Code integrated terminals kill the server process on command completion. Solution: Use PowerShell `Start-Job` for background execution.
+  - **Startup Time**: Server requires ~50-65 seconds due to `google.api_core._python_version_support.check_python_version()` scanning all 1,144+ packages (~26s) plus agent initialization.
+  - **Prompt Caching**: Implemented disk cache in `hub_manager.py` at `.cache/prompts/` - all prompts now load from cache in milliseconds.
+  - **Environment Requirement**: Must set `PYTHONIOENCODING=utf-8` on Windows.
+
 - **Configuration Integrity (2026-01-15)**:
   - **Hub Sync**: Resolved conflict where the remote LangSmith Hub configuration (`deepagents-system-config`) was outdated (using `Claude-3-Haiku`) and overriding the local 'Truth' (`Gemini-2.0-Flash`).
-  - **Action**: Pushed local `DEFAULT_SYSTEM_CONFIG` to the Hub.
-  - **Voice Priority**: Updated `system_config.py` to prioritize **Google Cloud Studio Voices** (Priority 110) over XTTS/Minimax, leveraging the `Google` provider stack.
-- **Runtime Logic (2026-01-15)**:
-  - **Cinematographer**: Implemented single-pass `Reason -> Act -> Finalize` flow.
-  - **Composer**: Adopted Linear Chain execution to prevent "Echo Chamber" hallucinations.
-  - **Fail Fast Policy**: All agents raise Exceptions immediately on tool failure.
-  - **Linting**: Achieved **9.2/10 Pylint Score** across 6 core files.
+  - **Voice Priority**: Updated `system_config.py` to prioritize **Google Cloud Studio Voices** (Priority 110).
 
 ## Active Questions / Issues
 
-- **Google TTS Integration**: While configured as priority, `ComposerAgent` implementation must be monitored to ensure it correctly utilizes the `EN-US-Studio` models and doesn't silently fallback to Replicate/XTTS due to missing logic adapters.
+- **Slow Startup**: The ~50s startup time is caused by Google SDK package scanning. This is unavoidable but acceptable for development.
+- **Server Watchdog**: LangGraph CLI has internal timeouts for graph loading. Current graphs load within limits but show warnings.
 
 ## Next Steps
 
-1. **Commit & Push**: Sync repository state.
-2. **Launch Server**: `langgraph dev`.
-3. **Validate**: Check logs for `Gemini-2.0-Flash` initialization and attempts to use Google Voices.
+1. **Validate Server**: Access `https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024`. [Ready]
+2. **Test Agents**: Execute Director workflow through Studio UI.
+3. **Monitor Traces**: Check LangSmith for proper Gemini-2.0-Flash traces.

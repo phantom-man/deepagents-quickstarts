@@ -32,25 +32,34 @@ class AssetManager:
         else:
             self.base_dir = base_dir
             
-        # GCS Setup
+        # GCS Setup (Lazy Loaded)
         self.bucket_name = os.getenv("GCP_STORAGE_BUCKET")
-        self.gcs_client = None
-        if self.bucket_name:
-            try:
-                from google.cloud import storage
-                self.gcs_client = storage.Client()
-                logger.info(f"AssetManager: GCS Enabled ({self.bucket_name})")
-            except ImportError:
-                logger.warning("AssetManager: google-cloud-storage not installed. Cloud history unavailable.")
-            except Exception as e:
-                logger.error(f"AssetManager: GCS Init Failed: {e}")
+        self._gcs_client = None
+        self._gcs_enabled_check = False
 
         # Try to load System Configuration for Global/Reference paths
+
         try:
              from DeepAgents.system_config import SystemConfiguration
              self.global_config = SystemConfiguration().load_config().get("global_assets", {})
         except:
              self.global_config = {}
+
+    @property
+    def gcs_client(self):
+        """Lazy load GCS client to prevent startup blocking."""
+        if self._gcs_client is None and not self._gcs_enabled_check:
+            self._gcs_enabled_check = True
+            if self.bucket_name:
+                try:
+                    from google.cloud import storage
+                    self._gcs_client = storage.Client()
+                    logger.info(f"AssetManager: GCS Enabled ({self.bucket_name})")
+                except ImportError:
+                    logger.warning("AssetManager: google-cloud-storage not installed. Cloud history unavailable.")
+                except Exception as e:
+                    logger.error(f"AssetManager: GCS Init Failed: {e}")
+        return self._gcs_client
 
     def get_global_assets(self, asset_type: str) -> List[str]:
         """Returns list of global reference assets of a given type."""

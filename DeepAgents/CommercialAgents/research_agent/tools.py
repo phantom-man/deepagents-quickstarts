@@ -13,14 +13,33 @@ logger = logging.getLogger(__name__)
 # Initialize Tavily Search or Mock
 try:
     if not os.environ.get("TAVILY_API_KEY"):
-        raise ValueError("TAVILY_API_KEY Missing")
-    tavily_search = TavilySearchResults(max_results=5)
+        # Not required if we are using Google Grounding
+        # raise ValueError("TAVILY_API_KEY Missing")
+        # Just warn and set to Mock
+        logger.warning("TAVILY_API_KEY missing. Tavily search disabled.")
+        tavily_search = None
+    else:
+        # Check for new package
+        try:
+             from langchain_tavily import TavilySearchResults
+        except ImportError:
+             # Fallback to community
+             from langchain_community.tools.tavily_search import TavilySearchResults
+        
+        tavily_search = TavilySearchResults(max_results=5)
 except Exception:
-    # Define a mock tool if Tavily is unavailable
+    tavily_search = None
+
+# If no Tavily, we can rely on Google Grounding (which is native to the Model, not a tool)
+# But we might need a placeholder tool if the agent expects a list of tools.
+if not tavily_search:
     @tool
     def tavily_search(query: str) -> str:
-        """Mock Search Tool (Tavily not configured). Returns simulated results."""
-        return f"Simulated Search Results for: {query}\n1. [Wiki] Lord of the Rings is an epic high-fantasy novel by J.R.R. Tolkien.\n2. [Summary] The Hero's Journey (Monomyth) involves a hero going on an adventure, winning a victory, and coming home changed."
+        """
+        [DISABLED] Tavily Search is disabled. 
+        PLEASE USE YOUR NATIVE GOOGLE SEARCH GROUNDING INSTEAD.
+        """
+        return "Search Tool Disabled. Use Native Google Search."
 
 # Initialize Arxiv Search
 arxiv_search = ArxivQueryRun()

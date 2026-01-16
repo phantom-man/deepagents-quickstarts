@@ -26,17 +26,32 @@ def get_or_push_prompt(repo_name: str, default_content: str) -> str:
     
     # Debug Key State
     masked_key = f"{api_key[:5]}...{api_key[-4:]}" if api_key and len(api_key) > 10 else "None"
-    logger.info(f"HubManager: 🔑 Active Key: {masked_key} | Workspace: {ws_id}")
+    logger.info(f"HubManager: [KEY] Active Key: {masked_key} | Workspace: {ws_id}")
 
     if not ws_id:
-        logger.error("❌ LANGSMITH_WORKSPACE_ID is missing from environment variables.")
+        logger.error("[ERROR] LANGSMITH_WORKSPACE_ID is missing from environment variables.")
         logger.error("   For Organization Keys, this ID is required to define the 'Owner' context.")
         raise ValueError("LANGSMITH_WORKSPACE_ID not set. Cannot authenticate Hub requests.")
 
     # 2. Strategy: Use SIMPLE NAME. The SDK uses the Workspace ID to resolve the owner.
     target = repo_name 
     
-    logger.info(f"HubManager: 🚀 Context Active (Workspace: {ws_id})")
+    # --- CACHE LOGIC: START ---
+    cache_dir = os.path.join(os.path.dirname(__file__), ".cache", "prompts")
+    os.makedirs(cache_dir, exist_ok=True)
+    cache_file = os.path.join(cache_dir, f"{repo_name}.txt")
+
+    # If cache exists, use it to speed up startup (unless FORCE_REFRESH is set)
+    # This prevents the 60s+ startup time that causes startup timeouts.
+    if os.path.exists(cache_file) and os.getenv("FORCE_HUB_REFRESH", "false").lower() != "true":
+        logger.info(f"HubManager: [CACHE HIT] '{target}'. Loading from disk.")
+        try:
+            with open(cache_file, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            logger.warning(f"HubManager: Failed to read cache for '{target}': {e}. Falling back to network.")
+
+    logger.info(f"HubManager: [CONTEXT] Active (Workspace: {ws_id})")
     logger.info(f"HubManager: Attempting Strict Pull for '{target}'...")
     
     # Explicitly pass configuration to the Client to bypass environment variable caching/timing issues.
@@ -48,51 +63,52 @@ def get_or_push_prompt(repo_name: str, default_content: str) -> str:
         client_kwargs['workspace_id'] = ws_id
         
     client = Client(**client_kwargs)
-    
+
     try:
         # Pull Attempt
         prompt_obj = client.pull_prompt(target)
         
-        # Validation
+        # Logic to extract string content
+        content = None
         if hasattr(prompt_obj, "messages") and len(prompt_obj.messages) > 0:
              first_msg = prompt_obj.messages[0]
              if hasattr(first_msg, "prompt") and hasattr(first_msg.prompt, "template"):
-                 logger.info(f"HubManager: ✅ Success for '{target}'.")
-                 return first_msg.prompt.template
-             if hasattr(first_msg, "content"):
-                 logger.info(f"HubManager: ✅ Success for '{target}'.")
-                 return first_msg.content
+                 content = first_msg.prompt.template
+             elif hasattr(first_msg, "content"):
+                 content = first_msg.content
         
-        raise ValueError(f"Prompt '{target}' retrieved but has invalid structure.")
+        if not content and hasattr(prompt_obj, "template"):
+             content = prompt_obj.template
+             
+        if not content:
+             # Fallback string conversion
+             content = str(prompt_obj)
+
+        logger.info(f"HubManager: [SUCCESS] '{target}'. Saving to cache.")
+        
+        # Save to Cache
+        try:
+             with open(cache_file, "w", encoding="utf-8") as f:
+                 f.write(content)
+        except Exception as exc:
+             logger.warning(f"HubManager: Failed to write cache: {exc}")
+
+        return content
 
     except Exception as e:
-        logger.error(f"HubManager: ❌ Failure for '{target}'. trace: {e}")
+        logger.error(f"HubManager: [FAILED] to pull '{target}': {e}")
         
-        # Check for 404/400 to attempt Push (Self-Healing)
-        error_str = str(e).lower()
-        should_push = False
-        if "404" in error_str or "not found" in error_str:
-            should_push = True
-        elif "no prompt owner" in error_str and ws_id:
-             # If we have a workspace ID but still get this, it's very strange, but try pushing.
-             should_push = True
+        # Last Resort Fallback to Cache if available
+        if os.path.exists(cache_file):
+             logger.warning(f"HubManager: [FALLBACK] Using cache for '{target}'.")
+             with open(cache_file, "r", encoding="utf-8") as f:
+                return f.read()
 
-        if should_push:
-            logger.warning(f"HubManager: Prompt missing. Attempting PUSH to '{target}'...")
-            try:
-                prompt = ChatPromptTemplate.from_messages([
-                    ("system", default_content),
-                    ("placeholder", "{messages}")
-                ])
-                # Push to Simple Name (SDK resolves owner via Workspace ID)
-                url = client.push_prompt(target, object=prompt)
-                logger.info(f"HubManager: ✅ Push Success: {url}")
-                return default_content
-            except Exception as push_err:
-                 raise RuntimeError(f"CRITICAL: Hub Push Failed: {push_err}") from push_err
-        
-        # Raise original error if not a missing prompt
-        raise RuntimeError(f"CRITICAL: Hub Pull Failed: {e}") from e
+        if default_content:
+             logger.warning(f"HubManager: [FALLBACK] Returning local default for '{target}'.")
+             return default_content
+             
+        raise e
 
 def get_or_push_configuration(repo_name: str, default_json: str) -> str:
     """

@@ -56,14 +56,16 @@ def create_research_agent(model_name="gemini-2.0-flash-001", provider="Google"):
         )
     
     elif provider == "Google":
-        # Google Vertex AI
+        # Google Vertex AI (With Native Search Grounding)
+        logger.info("🌍 Enabling Google Search Grounding (Replacing Tavily)")
         model = ChatGoogleGenerativeAI(
             model=model_name,
             vertexai=True,
             project=os.getenv("GOOGLE_CLOUD_PROJECT"),
             location="us-central1",
             temperature=0.0, # Research needs precision
-            max_retries=1
+            max_retries=1,
+            tools=[{"google_search": {}}] # NATIVE GOOGLE SEARCH GROUNDING
         )
             
     else: 
@@ -80,9 +82,16 @@ def create_research_agent(model_name="gemini-2.0-flash-001", provider="Google"):
     # Create the Deep Agent
     # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
     
+    # Determine Tools based on Provider
+    # If Google, we use Native Grounding (No Tavily needed)
+    if provider == "Google":
+        agent_tools = [scrape_webpage, arxiv_search, submit_finding_for_review]
+    else:
+        agent_tools = [tavily_search, scrape_webpage, arxiv_search, submit_finding_for_review]
+
     agent = create_deep_agent(
         model=model,
-        tools=[tavily_search, scrape_webpage, arxiv_search, submit_finding_for_review],
+        tools=agent_tools,
         system_prompt=RESEARCHER_INSTRUCTIONS,
     )
 

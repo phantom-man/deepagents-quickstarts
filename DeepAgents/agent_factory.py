@@ -38,6 +38,37 @@ def create_deep_agent(model: BaseChatModel, tools: List[Any], system_prompt: str
         A compiled LangGraph runnable.
     """
     
+    # Create the Deep Agent
+    
+    # --- MESH NETWORK INJECTION (Level 4 Agent Architecture) ---
+    from DeepAgents.mesh_network import consult_agent_mesh
+    from DeepAgents.agency_registry import get_agent_descriptions
+    
+    # 1. Inject the Tool
+    if consult_agent_mesh not in tools:
+        # We append it to the FRONT to encourage usage
+        tools.insert(0, consult_agent_mesh)
+        
+    # 2. Inject Metacognition (System Prompt Header)
+    # We append the registry capability to the prompt so the model knows it exists.
+    # Check if not already present to avoid duplication
+    if "MESH NETWORK PROTOCOL" not in system_prompt:
+        mesh_instructions = f"""
+## MESH NETWORK PROTOCOL (ACTIVE)
+You are part of an autonomous agent mesh. You are NOT alone.
+If you lack information, expertise, or capabilities, you MUST consult the Agent Registry.
+
+**AVAILABLE PEERS:**
+{get_agent_descriptions()}
+
+**PROTOCOL:**
+1. **Self-Correction**: If you are unsure, DO NOT GUESS.
+2. **Delegation**: Use the `consult_agent_mesh` tool to ask questions or request assets from peers.
+   - Example: `consult_agent_mesh("Researcher", "Find the specs for the Sony A7S III")`
+   - Example: `consult_agent_mesh("Composer", "Generate a sad violin track")`
+"""
+        system_prompt = mesh_instructions + "\n" + system_prompt
+
     # 1. Check for Legacy/Dumb Models (No Tool Calling)
     # Replicate models generally do not support native tool binding yet.
     is_replicate = "replicate" in str(type(model)).lower()
