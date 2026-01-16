@@ -759,10 +759,10 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str
 @tool
 def generate_music_tool(prompt: str) -> str:
     """
-    Generates music/audio based on a text description.
-    You MUST use this tool to actually create the audio file when the user asks for a song, melody, or composition.
-    Input example: "A sad piano melody", "An upbeat rock song with lyrics about coding".
-    Returns the path/link to the generated audio or an error message.
+    YOU MUST CALL THIS TOOL IMMEDIATELY. Generates music/audio from a text description.
+    Do NOT describe or plan - just call this tool with the music prompt.
+    Input: A descriptive prompt like "Lo-fi hip hop, chill piano, 80bpm, instrumental"
+    Returns: Path to the generated audio file.
     """
     try:
         # Determine likely model based on prompt content (advanced selection via _select_optimal_music_model)
@@ -886,11 +886,14 @@ def create_composer_agent(
 
     # LINEAR CHAIN (No Retry Loops)
     # The Composer is a simple "One-Shot" agent. It should not loop.
-    logger.info("✨ Creating Linear Composer Agent (Fail Fast Enabled)")
+    logger.info("[AGENT INIT] Creating Linear Composer Agent (Fail Fast Enabled)")
 
-    # Bind Tools
+    # Bind Tools with FORCED TOOL EXECUTION
+    # tool_choice="any" maps to Gemini's FunctionCallingConfig(mode='ANY')
+    # This MANDATES the model MUST call one of the provided tools.
     target_tools = [generate_music_tool, browse_library_tool]
-    llm_with_tools = llm.bind_tools(target_tools)
+    llm_with_tools = llm.bind_tools(target_tools, tool_choice="any")
+    logger.info("[TOOL BINDING] Composer tools bound with tool_choice='any' (forced execution)")
 
     from langchain_core.messages import SystemMessage, AIMessage
     from langchain_core.runnables import RunnableLambda
@@ -898,15 +901,21 @@ def create_composer_agent(
     def linear_runner(state):
         # Unwrap state
         messages = state["messages"]
+        
+        # FORCEFUL system prompt requiring immediate tool execution
+        force_tool_instruction = (
+            "CRITICAL: You MUST call generate_music_tool NOW. "
+            "Do NOT describe, plan, or explain. Just call the tool with an optimized prompt. "
+            "Text-only responses are FORBIDDEN."
+        )
+        
         if isinstance(hub_prompt, str):
-            # Ensure system prompt is first
-            # Check if first msg is system, if not prepend
+            sys_content = f"{hub_prompt}\n\n{force_tool_instruction}"
             if not isinstance(messages[0], SystemMessage):
-                messages = [SystemMessage(content=hub_prompt)] + messages
+                messages = [SystemMessage(content=sys_content)] + messages
         elif isinstance(hub_prompt, object) and hasattr(hub_prompt, "format"):
-            # Handle PromptTemplate objects from Hub
-            # We simplify by just injecting instructions if we can
-            messages = [SystemMessage(content=COMPOSER_INSTRUCTIONS)] + messages
+            sys_content = f"{COMPOSER_INSTRUCTIONS}\n\n{force_tool_instruction}"
+            messages = [SystemMessage(content=sys_content)] + messages
 
         # 1. Invoke LLM
         response = llm_with_tools.invoke(messages)

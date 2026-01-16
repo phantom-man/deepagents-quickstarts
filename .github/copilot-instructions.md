@@ -73,8 +73,15 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **LangGraph Server Isolation**: On Windows, running the LangGraph server directly in VS Code integrated terminals causes premature exit. Use `Start-Job` for background isolation or run in a separate PowerShell window.
 - **LangGraph Command Pattern (CRITICAL)**: All agent nodes MUST return `Command[Literal[...]]` for dynamic routing. Do NOT use `add_conditional_edges()` or hardcoded keyword routing. Agents delegate via `HANDOFF:agent_name:directive` strings parsed from tool output. This is the "Gold Standard" mesh architecture.
 - **Inter-Agent Delegation**: Use tools from `inter_agent_comms.py` (`discover_agents`, `delegate_to_*`, `signal_task_complete`). Each agent has a curated tool set (`DIRECTOR_TOOLS`, `COMPOSER_TOOLS`, etc.).
+- **Hub/Cache Synchronization (CRITICAL)**: LangSmith Hub is the Source of Truth for system config. Local cache (`DeepAgents/.cache/prompts/`) is ONLY for startup speed. When model/config issues occur:
+  1. **CHECK HUB FIRST**: Go to LangSmith and verify the `deepagents-system-config` prompt content matches expected values.
+  2. **VERIFY CACHE**: Read `DeepAgents/.cache/prompts/deepagents-system-config.txt` and compare to Hub.
+  3. **IF MISMATCH**: Either delete cache file and restart, OR run `python push_config_fix.py` to sync local `DEFAULT_SYSTEM_CONFIG` to Hub.
+  4. **Model ID Format**: Replicate models use `provider/owner/model` format (e.g., `replicate/wan-video/wan-2.5-t2v-fast`). Parser splits on first `/` only.
+- **Tool Execution Hallucinations**: If agents output text descriptions of tool results instead of actually calling tools (empty `tool_calls: []`), add `tool_choice="any"` to `llm.bind_tools()` call to force execution.
+- **Video Model**: Primary video model is `wan-video/wan-2.5-t2v-fast` (fast, cheap, 480p). Backup is `luma/ray-flash-2-540p`. The deprecated `zeroscope-v2-xl` model was removed from Replicate.
 
-### 5. MemoriPilot Documentation & Protocols
+### 6. MemoriPilot Documentation & Protocols
 The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.
 
 **CONSTRAINT: ROLE SEPARATION**

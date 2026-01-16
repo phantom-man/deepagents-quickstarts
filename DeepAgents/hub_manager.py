@@ -41,16 +41,9 @@ def get_or_push_prompt(repo_name: str, default_content: str) -> str:
     os.makedirs(cache_dir, exist_ok=True)
     cache_file = os.path.join(cache_dir, f"{repo_name}.txt")
 
-    # If cache exists, use it to speed up startup (unless FORCE_REFRESH is set)
-    # This prevents the 60s+ startup time that causes startup timeouts.
-    if os.path.exists(cache_file) and os.getenv("FORCE_HUB_REFRESH", "false").lower() != "true":
-        logger.info(f"HubManager: [CACHE HIT] '{target}'. Loading from disk.")
-        try:
-            with open(cache_file, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"HubManager: Failed to read cache for '{target}': {e}. Falling back to network.")
-
+    # ALWAYS pull from Hub to ensure cache is synchronized with Source of Truth.
+    # The ~50s server startup time already dominates, so Hub latency is negligible.
+    # Cache is only used as fallback if Hub is unreachable.
     logger.info(f"HubManager: [CONTEXT] Active (Workspace: {ws_id})")
     logger.info(f"HubManager: Attempting Strict Pull for '{target}'...")
     

@@ -62,6 +62,7 @@ Rules:
 - **Pattern**: All agent nodes in the StateGraph return `Command[Literal[...]]` instead of plain state dictionaries.
 - **HANDOFF Protocol**: Delegation tools return `HANDOFF:agent_name:directive` strings. The node function parses these from `ToolMessage` content and routes accordingly.
 - **Implementation**:
+
   ```python
   from langgraph.types import Command
   from typing import Literal
@@ -73,6 +74,7 @@ Rules:
           return Command(update={...}, goto=handoff[0])
       return Command(update={...}, goto="__end__")
   ```
+
 - **No Conditional Edges**: Graph assembly uses ONLY `add_node()` and `set_entry_point()`. All routing decisions are made dynamically by Command returns.
 - **Agent Tool Sets**: Each agent receives a curated set of delegation tools (`DIRECTOR_TOOLS`, `COMPOSER_TOOLS`, etc.) from `inter_agent_comms.py`.
 - **Rationale**: This is the highest-maturity LangGraph pattern for multi-agent orchestration. It eliminates brittle hardcoded routing and enables true emergent agent collaboration.
@@ -97,6 +99,29 @@ Rules:
 - **Zero-Touch Logic**: Agents query the Matrix to determine implementation details (e.g., "Use `langchain_google_genai` for Gemini").
 - **Priorities**: Agents overload capabilities based on priorities defined in the Matrix.
 
+### 10. Hub/Cache Synchronization Protocol
+
+- **Hub is Truth**: LangSmith Hub configuration is the authoritative source. Local cache exists ONLY for startup speed optimization.
+- **Cache Location**: `DeepAgents/.cache/prompts/` directory stores cached Hub content.
+- **Sync Behavior**: On startup, if cache exists and `FORCE_HUB_REFRESH` is NOT set, cache is used. Otherwise, Hub is pulled and cache is updated.
+- **Debugging Protocol**: When model/config issues occur:
+  1. Check LangSmith Hub for current config version
+  2. Verify local cache matches Hub content
+  3. If mismatch, delete cache and restart OR use `push_config_fix.py` to sync local Truth to Hub
+- **Model ID Format**: Replicate models use format `provider/owner/model` (e.g., `replicate/wan-video/wan-2.5-t2v-fast`). The parser splits on first `/` only.
+
+### 11. Forced Tool Execution Pattern
+
+- **Problem**: LLM agents may "hallucinate" tool calls, outputting text descriptions of what they would do instead of actually calling tools.
+- **Solution**: Use `tool_choice="any"` when binding tools to force actual execution:
+
+  ```python
+  llm_with_tools = llm.bind_tools(tools, tool_choice="any")
+  ```
+
+- **When to Apply**: All media generation agents (Cinematographer, Composer) that MUST call external APIs.
+- **Logging**: Add `[TOOL BINDING]` log messages to confirm tool_choice is active.
+
 ### 10. Zero-Touch Prompt Management (Hub-First)
 
 - **Pattern**: "Self-Healing Hub Integration".
@@ -115,11 +140,13 @@ The system learns from failure via explicit rejection logs:
 - Agents MUST read this file during initialization to avoid repeating mistakes.
 
 ### 14. Phase-Based Prompting (Meta-Cognitive Polymer)
+
 - **Problem**: Agents hallucinate content (e.g., Lyrics in Instrumental tracks) when "Generating" and "Thinking" occur in the same pass.
 - **Solution**: Break prompts into **PHASE 1 (Audit/Classify)** and **PHASE 2 (Execute)**.
 - **Pattern**: The Agent must first output a classification (e.g., "Mode: Instrumental") which activates negative constraints for the subsequent generation block.
 
 ### 15. Native Search Grounding (Google)
+
 - **Deprecation**: `Tavily` is deprecated for Google-based agents.
 - **New Standard**: Use `google_search` tool natively embedded in `ChatGoogleGenerativeAI`.
 - **Reasoning**: Lower latency, better citation integration, and unified billing/quota with the Vertex AI stack.

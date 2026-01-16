@@ -254,9 +254,9 @@ def create_cinematographer_agent(
             return f"Error Generating Image: {e}"
         return "Error: Image Generation returned no data."
 
-    def _generate_video(prompt: str, duration: int = 4) -> str:
+    def _generate_video(prompt: str, duration: int = 5) -> str:
         """
-        Generates a video clip (2-4s) based on the prompt.
+        Generates a video clip (5-10s) based on the prompt.
         Returns local file path (and cloud link).
         """
         logger.info(f"🎥 Generating Video: {prompt[:40]}...")
@@ -264,16 +264,29 @@ def create_cinematographer_agent(
             return "Error: Only Replicate supported for video currently."
 
         try:
-            # Map common args
+            # Map common args based on model
             input_args: Dict[str, Any] = {"prompt": prompt}
-            # Add specific args if model requires (simple mapping for now)
-            if "zeroscope" in vid_model:
+            
+            # Model-specific parameters
+            if "wan" in vid_model.lower():
+                # Wan models use different parameters
+                input_args["num_frames"] = 81  # ~5 seconds at 16fps
+                input_args["resolution"] = "480p"
+                logger.info(f"🎥 Using Wan model parameters: {input_args}")
+            elif "ray" in vid_model.lower() or "luma" in vid_model.lower():
+                # Luma Ray models
+                input_args["duration"] = "5s"
+                logger.info(f"🎥 Using Luma Ray parameters: {input_args}")
+            elif "zeroscope" in vid_model.lower():
                 input_args["num_frames"] = 24
+                logger.info(f"🎥 Using Zeroscope parameters: {input_args}")
 
+            logger.info(f"🎥 Calling Replicate model: {vid_model}")
             output = replicate.run(vid_model, input=input_args)
             video_url = output[0] if isinstance(output, list) else output
 
             if video_url:
+                logger.info(f"🎥 Video generated, saving: {video_url}")
                 path = assets.save_asset(
                     str(video_url),
                     "video",
@@ -285,6 +298,7 @@ def create_cinematographer_agent(
                     return f"Saved: {path}{_get_cloud_url(path)}"
                 return "Error: Failed to save Video."
         except Exception as e:
+            logger.error(f"🎥 Video generation error: {e}")
             return f"Error Generating Video: {e}"
         return "Error: Video Generation returned no data."
 
@@ -293,18 +307,21 @@ def create_cinematographer_agent(
         StructuredTool.from_function(
             func=_generate_image,
             name="generate_image",
-            description="Generates a STATIC storyboard image. Use ONLY for planning/pre-vis. Do NOT use for final output.",
+            description="Generates a static image. Use ONLY if explicitly asked for a still/photo/picture.",
         ),
         StructuredTool.from_function(
             func=_generate_video,
             name="generate_video",
-            description="Generates a VIDEO clip. This is the PRIMARY tool for the final output. Use this unless explicitly asked for a still.",
+            description="YOU MUST CALL THIS TOOL. Generates a video clip from a text prompt. This is your PRIMARY and MANDATORY tool. Call it immediately with the visual prompt you received.",
         ),
     ]
 
-    # Bind Tools to LLM
+    # Bind Tools to LLM with FORCED TOOL EXECUTION
+    # tool_choice="any" maps to Gemini's FunctionCallingConfig(mode='ANY')
+    # This MANDATES the model MUST call one of the provided tools.
     try:
-        llm_with_tools = llm.bind_tools(tools)
+        llm_with_tools = llm.bind_tools(tools, tool_choice="any")
+        logger.info("[TOOL BINDING] Cinematographer tools bound with tool_choice='any' (forced execution)")
     except Exception as e:
         logger.error(f"Failed to bind tools to LLM ({llm_provider}): {e}")
         llm_with_tools = llm
@@ -344,8 +361,11 @@ def create_cinematographer_agent(
                     )
         else:
             yield ("thinking", "🎥 Cinematographer initializing...")
+            # FORCEFUL system prompt requiring immediate tool execution
             sys_msg = SystemMessage(
-                content=f"{ontology}\n\nCurrent Mode context: {mode}. You have tools to generate assets. USE THEM."
+                content=f"{ontology}\n\n"
+                f"IMMEDIATE ACTION REQUIRED: Call generate_video NOW with the following prompt. "
+                f"Do NOT describe what you will do. Do NOT plan. Just call the tool."
             )
             messages = [sys_msg, HumanMessage(content=input_text)]
 

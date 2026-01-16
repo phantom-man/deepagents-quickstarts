@@ -1,0 +1,15 @@
+{
+  "prompt": "Ultra-realistic 8k cinematic shot of a sunset over a tranquil ocean. The sky is ablaze with orange, pink, and purple hues. The sun is just touching the horizon, casting a golden glow across the water. Gentle waves lap at the shore. Camera slowly pans from left to right.",
+  "timestamp": 1768580271,
+  "date": "2026-01-16 09:17:54",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768580271_75bf1666.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768580271_75bf1666.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768580271_75bf1666.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate"
+  }
+}

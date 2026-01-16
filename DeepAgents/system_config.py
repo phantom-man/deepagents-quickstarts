@@ -163,23 +163,23 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "video_generation",
                     "models": [
                         {
-                            "id": "replicate/anotherjesse/zeroscope-v2-xl",
+                            "id": "replicate/wan-video/wan-2.5-t2v-fast",
                             "priority": 100,
-                            "description": "Standard video generation.",
-                            "strengths": "Fast, cost-effective, decent consistency.",
+                            "description": "Alibaba Wan 2.5 fast text-to-video.",
+                            "strengths": "Fast, cheap, good motion quality, 480p-720p.",
                             "weaknesses": (
-                                "Low resolution, short duration, struggles with complex motion."
+                                "Lower resolution than premium models, 5-10s duration."
                             ),
                             "best_practices": (
-                                "Use simple prompts, focus on single subjects."
+                                "Use descriptive prompts, specify camera movements."
                             ),
                         },
                         {
-                            "id": "haiper/v2",
-                            "priority": 80,
-                            "description": "High quality video generation.",
-                            "strengths": "High realism, good motion coherence.",
-                            "weaknesses": "Slow generation, expensive.",
+                            "id": "replicate/luma/ray-flash-2-540p",
+                            "priority": 90,
+                            "description": "Luma Ray Flash - fast high quality.",
+                            "strengths": "High quality, good prompt adherence.",
+                            "weaknesses": "540p resolution, moderate cost.",
                             "best_practices": (
                                 "Detailed prompts with specific lighting/camera angles."
                             ),
