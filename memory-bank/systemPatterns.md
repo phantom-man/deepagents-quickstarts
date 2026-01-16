@@ -156,6 +156,30 @@ The system learns from failure via explicit rejection logs:
 - **Problem**: Large text output freezes the terminal (buffer scroll-lock), requiring manual `Enter` key presses to proceed.
 - **Protocol**: When querying large datasets, logs, or search results, **ALWAYS** pipe the output to a temporary file (e.g., `temp_output.txt`) and then read the file. **NEVER** print massive strings directly to `stdout`.
 
+### 17. FFmpeg Stream Copy Pattern (Media Merging Gold Standard)
+
+- **Problem**: MoviePy re-encodes video during merging, causing quality degradation.
+- **Solution**: Use FFmpeg stream copy (`-c:v copy`) for bit-for-bit video preservation.
+- **Implementation in editor_tools.py**:
+
+  ```python
+  # Gold Standard command pattern
+  ffmpeg -y -i video.mp4 -i audio.mp3 \
+    -c:v copy -c:a aac -b:a 192k \
+    -map 0:v:0 -map 1:a:0 -shortest output.mp4
+  ```
+
+- **Fallback Chain**: FFmpeg CLI -> ffmpeg-python -> MoviePy -> Simulation
+- **Key Functions**:
+  - `merge_ffmpeg_stream_copy()`: CLI-based merge, zero quality loss
+  - `merge_ffmpeg_python()`: Pythonic API wrapper
+  - `concat_videos_ffmpeg()`: Concatenate multiple videos via concat demuxer
+  - `quick_merge()`: Simple utility for single video+audio
+- **Requirements**: FFmpeg 8.0+ on system PATH. Installed via `winget install ffmpeg`.
+- **Quality Difference**:
+  - Stream copy: Instant, zero quality loss, preserves original codec
+  - MoviePy: Always re-encodes, quality degradation, slow
+
 ### 13. Deprecation Policy (Latest & Greatest)
 
 - **Rule**: Usage of deprecated code is strictly **FORBIDDEN**.

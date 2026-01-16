@@ -49,27 +49,44 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "music_generation",
                     "models": [
                         {
-                            "id": "publishers/google/models/lyria-002",
+                            "id": "replicate/minimax/music-01",
                             "priority": 120,
                             "description": (
-                                "Google Lyria Native (Vertex AI). Primary Music Engine."
+                                "Minimax Music-01 (Replicate). Primary Music Engine."
                             ),
                             "strengths": (
-                                "Fast generation, high fidelity instrumental, "
-                                "consistent structure."
+                                "High fidelity full songs with lyrics, "
+                                "consistent structure, fast generation."
                             ),
                             "weaknesses": (
-                                "No lyrics support, max 60s clips, strict instrumental focus."
+                                "600 char lyric limit, length determined by lyrics volume."
                             ),
-                            "supports_lyrics": False,
+                            "supports_lyrics": True,
                             "supports_duration": False,
-                            "max_duration_seconds": 60,
+                            "max_duration_seconds": 240,
                         },
                         {
-                            "id": "lucataco/ace-step",
+                            "id": "replicate/meta/musicgen",
                             "priority": 110,
                             "description": (
-                                "State-of-the-art text-to-music with lyric alignment."
+                                "Meta MusicGen (Replicate). Instrumental only."
+                            ),
+                            "strengths": (
+                                "Fast, cheap, excellent instrumental quality, "
+                                "explicit duration control."
+                            ),
+                            "weaknesses": (
+                                "No lyrics support, max 30s clips."
+                            ),
+                            "supports_lyrics": False,
+                            "supports_duration": True,
+                            "max_duration_seconds": 30,
+                        },
+                        {
+                            "id": "replicate/lucataco/ace-step",
+                            "priority": 100,
+                            "description": (
+                                "ACE-Step (Replicate). Text-to-music with lyric alignment."
                             ),
                             "strengths": (
                                 "Excellent lyric synchronization, supports explicit "
@@ -83,37 +100,13 @@ DEFAULT_SYSTEM_CONFIG = {
                             "max_duration_seconds": 240,
                         },
                         {
-                            "id": "minimax/music-1.5",
-                            "priority": 100,
-                            "description": (
-                                "High fidelity instrumental and lyrical music generation."
-                            ),
-                            "strengths": (
-                                "Best-in-class full song structure, emotional range."
-                            ),
-                            "weaknesses": (
-                                "Ignores explicit duration constraints "
-                                "(length determined by lyrics/text volume)."
-                            ),
-                            "supports_lyrics": True,
-                            "supports_duration": False,
-                            "max_duration_seconds": 240,
-                        },
-                        {
-                            "id": "google/lyria-2",
+                            "id": "vertex/publishers/google/models/lyria-002",
                             "priority": 10,
                             "description": (
-                                "Google DeepMind MusicLM v2 (Replicate - Deprecated/Missing)."
+                                "Google Lyria-002 (Vertex AI - Restricted Quota)."
                             ),
                             "supports_lyrics": False,
                             "max_duration_seconds": 60,
-                        },
-                        {
-                            "id": "meta/musicgen",
-                            "priority": 50,
-                            "description": "Instrumental only music generation.",
-                            "supports_lyrics": False,
-                            "max_duration_seconds": 30,
                         },
                     ],
                 },

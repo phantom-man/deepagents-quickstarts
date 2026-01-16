@@ -80,6 +80,8 @@ These are the immutable facts of the current project state. Copilot must priorit
   4. **Model ID Format**: Replicate models use `provider/owner/model` format (e.g., `replicate/wan-video/wan-2.5-t2v-fast`). Parser splits on first `/` only.
 - **Tool Execution Hallucinations**: If agents output text descriptions of tool results instead of actually calling tools (empty `tool_calls: []`), add `tool_choice="any"` to `llm.bind_tools()` call to force execution.
 - **Video Model**: Primary video model is `wan-video/wan-2.5-t2v-fast` (fast, cheap, 480p). Backup is `luma/ray-flash-2-540p`. The deprecated `zeroscope-v2-xl` model was removed from Replicate.
+- **Editor/FFmpeg (CRITICAL)**: The Editor agent uses FFmpeg stream copy (`-c:v copy`) for maximum quality video/audio merging. FFmpeg 8.0+ is REQUIRED on the system PATH. Fallback chain: FFmpeg CLI -> ffmpeg-python -> MoviePy. Stream copy preserves bit-for-bit video quality; MoviePy always re-encodes (quality loss).
+- **Media Merging Gold Standard**: Use `quick_merge()` or `merge_video_audio_logic()` from `editor_tools.py`. Command pattern: `ffmpeg -i video.mp4 -i audio.mp3 -c:v copy -c:a aac -b:a 192k -map 0:v:0 -map 1:a:0 -shortest output.mp4`
 
 ### 6. MemoriPilot Documentation & Protocols
 The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.
@@ -176,10 +178,12 @@ I am the source of truth for the **Infrastructure**.
 
 ### A. Model Mandates (Strict)
 1. **Primary Model (LLM):** All agents MUST use **Google Gemini 2.0 Flash** (`gemini-2.0-flash-001`) via `langchain-google-genai`.
-2. **Primary Model (Video):** MUST use **Zeroscope** or comparable Replicate model. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
-3. **Primary Model (Audio):** Replicate (ACE-Step, Minimax, or MusicGen).
+2. **Primary Model (Video):** MUST use **Wan 2.5** (`wan-video/wan-2.5-t2v-fast`) via Replicate. Backup: `luma/ray-flash-2-540p`. **Google Veo Is FORBIDDEN** (Do not use due to cost/quota/deprecation).
+3. **Primary Model (Audio):** Replicate (Minimax Music-01 primary, MusicGen fallback for instrumental).
+    - *Minimax*: Full songs with lyrics (600 char limit), variable duration.
+    - *MusicGen*: Instrumental only, explicit duration control, max 30s.
 4. **No Fallbacks:** We use Fail Fast. If Google Gemini fails, the application MUST STOP. Do not fallback to other models.
-5. **Deprecated/Forbidden:** `ChatVertexAI` class, `gemini-3-pro-preview` and `google/veo` are STRICTLY FORBIDDEN.
+5. **Deprecated/Forbidden:** `ChatVertexAI` class, `gemini-3-pro-preview`, `google/veo`, and `zeroscope-v2-xl` are STRICTLY FORBIDDEN.
 6. **Error Protocol:**
     - If access to the Primary Model fails, **STOP**.
     - Do NOT guess solutions.

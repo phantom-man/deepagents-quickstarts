@@ -40,7 +40,12 @@ except ImportError:
     logging.warning("MoviePy not installed. Complex filter operations unavailable.")
 
 from langchain.tools import tool
-from DeepAgents.asset_manager import AssetManager
+
+# Import asset manager - handle both package and local imports
+try:
+    from asset_manager import AssetManager
+except ImportError:
+    from DeepAgents.asset_manager import AssetManager
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("EditorTools")
