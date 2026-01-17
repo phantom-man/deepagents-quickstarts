@@ -1,0 +1,123 @@
+{
+  "messages": [
+    {
+      "content": "# CREATIVE DIRECTIVE: Sunset Serenity\n\n## Segment 1: Sunset Over Ocean (0:00-0:10)\n*   **Vision:** A time-lapse of a vibrant sunset over a calm ocean. The sun dips below the horizon, casting golden and orange hues across the water. Gentle waves lap at the shore.\n*   **Visual Prompt:** \"Time-lapse shot of a vibrant sunset over a calm ocean. Golden and orange light reflecting on the water. Gentle waves. Camera slowly zooms out to a wide shot as the sun dips below the horizon. 4k resolution.\"\n*   **Audio/Music Prompt:** \"Calming ambient music, gentle piano melody, soft synth pads, nature sound effects (waves). Slow tempo. Peaceful and serene mood. Instrumental only.\"\n*   **Lyrics:** [None]\n*   **Continuity:** N/A - establishing shot.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash-001",
+        "safety_ratings": [],
+        "model_provider": "google_genai"
+      },
+      "type": "ai",
+      "name": null,
+      "id": "lc_run--019bc770-cf58-76d0-b3fe-8a606fef0353-0",
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 2105,
+        "output_tokens": 189,
+        "total_tokens": 2294,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "Visuals Created: ",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Audio Created: Successfully Generated: **Audio Generated (publishers/google/models/lyria-002):**\n- [Play Audio](C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Calming_ambient_music__gentle_tool_d_1768577662.wav)\n- Local: C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Audio\\Music\\Calming_ambient_music__gentle_tool_d_1768577662.mp3\n\n**(Verified Lyrics Used)**:\nN/A",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Skipping Merge: Missing Video or Audio assets.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "# CREATIVE DIRECTIVE: Sunset Serenity\n\n## Segment 1: Golden Hour (0:00-0:10)\n*   **Vision:** A tranquil sunset over a calm ocean. The sun dips below the horizon, casting warm golden light on the water. Gentle waves lap the shore.\n*   **Visual Prompt:** \"Cinematic 8k. Time-lapse of a vibrant sunset over the ocean. The sun reflects on the water's surface. Gentle waves lapping on a sandy beach. Camera slowly pans from left to right.\"\n*   **Audio/Music Prompt:** \"Calming ambient music, gentle piano chords, soft strings, nature sound effects (waves). Relaxing and peaceful mood. Purely instrumental.\"\n*   **Lyrics:** [None]\n*   **Continuity:** N/A. This is a single, continuous shot.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash-001",
+        "safety_ratings": [],
+        "model_provider": "google_genai"
+      },
+      "type": "ai",
+      "name": null,
+      "id": "lc_run--019bc771-8343-7f63-a7e5-7d1086f8412f-0",
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 2105,
+        "output_tokens": 182,
+        "total_tokens": 2287,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "Visuals Created: ",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Audio Created: Successfully Generated: **Audio Generated (publishers/google/models/lyria-002):**\n- [Play Audio](C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Calming_ambient_music__gentle_tool_d_1768577703.wav)\n- Local: C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Audio\\Music\\Calming_ambient_music__gentle_tool_d_1768577703.mp3\n\n**(Verified Lyrics Used)**:\nN/A",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Skipping Merge: Missing Video or Audio assets.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    }
+  ],
+  "directive": "Create a short 10-second video of a sunset over the ocean with calming ambient music.",
+  "director_plan": "Create a short 10-second video of a sunset over the ocean with calming ambient music.\n# CREATIVE DIRECTIVE: Sunset Serenity\n\n## Segment 1: Golden Hour (0:00-0:10)\n*   **Vision:** A tranquil sunset over a calm ocean. The sun dips below the horizon, casting warm golden light on the water. Gentle waves lap the shore.\n*   **Visual Prompt:** \"Cinematic 8k. Time-lapse of a vibrant sunset over the ocean. The sun reflects on the water's surface. Gentle waves lapping on a sandy beach. Camera slowly pans from left to right.\"\n*   **Audio/Music Prompt:** \"Calming ambient music, gentle piano chords, soft strings, nature sound effects (waves). Relaxing and peaceful mood. Purely instrumental.\"\n*   **Lyrics:** [None]\n*   **Continuity:** N/A. This is a single, continuous shot.",
+  "video_assets": [],
+  "audio_assets": [
+    "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Calming_ambient_music__gentle_tool_d_1768577662.wav",
+    "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Calming_ambient_music__gentle_tool_d_1768577703.wav"
+  ]
+}

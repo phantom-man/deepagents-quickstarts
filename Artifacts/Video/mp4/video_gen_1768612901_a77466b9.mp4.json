@@ -1,0 +1,16 @@
+{
+  "prompt": "Cinematic 4k. Extreme close-up of a spark igniting. Slow motion. Macro lens. The spark glows intensely. Then, a wide shot reveals a barren desert landscape. Camera slowly zooms out.",
+  "timestamp": 1768612901,
+  "date": "2026-01-16 18:21:44",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768612901_a77466b9.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768612901_a77466b9.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768612901_a77466b9.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Cinematic 4k. Extreme close-up of a spark igniting. Slow motion. Macro lens. The spark glows intensely. Then, a wide shot reveals a barren desert landscape. Camera slowly zooms out."
+  }
+}

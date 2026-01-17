@@ -1,0 +1,16 @@
+{
+  "prompt": "Rapid montage. Grainy footage of a young musician playing in small clubs, intercut with social media posts gaining traction. Build to concert footage of massive stadium shows with cheering crowds, pyrotechnics, and dynamic lighting. Use handheld camera style for early scenes, transition to sweeping drone shots for stadium scenes. Fast cuts, energetic editing.",
+  "timestamp": 1768652030,
+  "date": "2026-01-17 05:13:54",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768652030_29d9361d.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768652030_29d9361d.mp4",
+  "cloud_url": null,
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "\"Sweeping drone shot of a massive stadium concert. A single musician stands center stage bathed in dynamic, vibrant lighting and pyrotechnics. Cheering crowds fill the stadium. Focus on the spectacle and energy of the performance. Smooth camera motion, cinematic quality.\""
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create a short 5-second video of a sunset over the ocean. No audio needed, just the video."
+    },
+    {
+      "content": "# CREATIVE DIRECTIVE: Sunset Over Ocean\n\n## Segment 1: Golden Hour (0:00-0:05)\n*   **Vision:** A beautiful sunset over a calm ocean. The sun dips below the horizon, casting golden light across the water and sky.\n*   **Visual Prompt:** \"Cinematic 8k. Time-lapse of a sunset over the ocean. The sun is a fiery orange, and the sky is filled with vibrant colors. The ocean is calm and reflective. Drone shot, slowly descending.\"\n*   **Audio/Music Prompt:** [None]\n*   **Lyrics:** [None]\n*   **Continuity:** N/A",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash-001",
+        "safety_ratings": [],
+        "model_provider": "google_genai"
+      },
+      "type": "ai",
+      "name": null,
+      "id": "lc_run--019bc793-df30-7f23-a8fd-f76eea85ad40-0",
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 2108,
+        "output_tokens": 143,
+        "total_tokens": 2251,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "Visuals Created: ",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Audio Created: Successfully Generated: Generation failed: No URL returned.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Skipping Merge: Missing Video or Audio assets.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    }
+  ],
+  "directive": "Create a short 5-second video of a sunset over the ocean. No audio needed, just the video.",
+  "director_plan": "Create a short 5-second video of a sunset over the ocean. No audio needed, just the video.\n# CREATIVE DIRECTIVE: Sunset Over Ocean\n\n## Segment 1: Golden Hour (0:00-0:05)\n*   **Vision:** A beautiful sunset over a calm ocean. The sun dips below the horizon, casting golden light across the water and sky.\n*   **Visual Prompt:** \"Cinematic 8k. Time-lapse of a sunset over the ocean. The sun is a fiery orange, and the sky is filled with vibrant colors. The ocean is calm and reflective. Drone shot, slowly descending.\"\n*   **Audio/Music Prompt:** [None]\n*   **Lyrics:** [None]\n*   **Continuity:** N/A",
+  "video_assets": [],
+  "audio_assets": []
+}

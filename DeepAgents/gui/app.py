@@ -197,13 +197,18 @@ with tab_agency:
     if AGENCY_SECTIONS_AVAILABLE:
         # Two-column layout for Cinematographer and Composer
         col_cinema, col_composer = st.columns(2)
-        
+
         with col_cinema:
             cinema_config = render_cinematographer_section()
-        
+
         with col_composer:
             composer_config = render_composer_section()
-        
+
+        # Cost estimate panel
+        st.divider()
+        from DeepAgents.gui.agency_sections import render_cost_estimate
+        render_cost_estimate()
+
         st.divider()
     
     # ─────────────────────────────────────────────────────────────────────────

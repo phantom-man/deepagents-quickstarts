@@ -1,0 +1,12 @@
+{
+  "prompt": "GCS integration test video",
+  "timestamp": 1768593747,
+  "date": "2026-01-16 13:02:29",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768593747_691277d7.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768593747_691277d7.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768593747_691277d7.mp4",
+  "session_id": "test_session_001",
+  "metadata": {}
+}

@@ -1,0 +1,16 @@
+{
+  "prompt": "Extreme close-up shot of a match being struck and igniting in slow motion. Focus on the dancing flame. Dark background. High contrast lighting. Macro lens. 4k cinematic.",
+  "timestamp": 1768615856,
+  "date": "2026-01-16 19:11:00",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768615856_7b61744c.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768615856_7b61744c.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768615856_7b61744c.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Extreme close-up shot of a match being struck and igniting in slow motion. Focus on the dancing flame. Dark background. High contrast lighting. Macro lens. 4k cinematic."
+  }
+}

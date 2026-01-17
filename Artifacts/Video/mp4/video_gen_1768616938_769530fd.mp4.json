@@ -1,0 +1,16 @@
+{
+  "prompt": "Close up macro shot of a single spark igniting in complete darkness. High resolution. Slow motion. Focus on the intricate details of the flame. Dramatic lighting. Camera slowly zooms out to reveal embers.",
+  "timestamp": 1768616938,
+  "date": "2026-01-16 19:29:02",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768616938_769530fd.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768616938_769530fd.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768616938_769530fd.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Close up macro shot of a single spark igniting in complete darkness. High resolution. Slow motion. Focus on the intricate details of the flame. Dramatic lighting. Camera slowly zooms out to reveal embers."
+  }
+}

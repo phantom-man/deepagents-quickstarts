@@ -17,6 +17,7 @@ from DeepAgents.services.model_registry import (
     ModelRegistry,
     ModelInfo,
     ModelCategory,
+    ModelProvider,
     InputRequirement,
     get_model_registry,
     get_video_model_options,
@@ -143,36 +144,44 @@ def render_cinematographer_section() -> Dict[str, Any]:
     st.session_state.cinematographer_model = model_id
     config["model_id"] = model_id
 
-    # Model info
+    # Model info with cost
     model_info = registry.get(model_id)
     if model_info:
-        st.caption(f"{model_info.description} | Tier: {model_info.tier.upper()}")
+        cost_str = f"${model_info.cost_per_run:.3f}/run" if model_info.cost_per_run else "Cost N/A"
+        st.caption(f"{model_info.description}")
+        st.markdown(f"**Tier:** {model_info.tier.upper()} | **Cost:** {cost_str}")
 
-    # Dynamic Parameters from Schema
+    # Dynamic Parameters from Schema (only for Replicate models)
     with st.expander("⚙️ Video Model Parameters", expanded=False):
-        try:
-            schema = schema_service.get_schema(model_id)
-            st.session_state.cinematographer_schema = schema
+        # Check if model supports schema fetching
+        if model_info and model_info.provider != ModelProvider.REPLICATE:
+            st.info(f"🔧 {model_info.name} uses Vertex AI. Default parameters will be used.")
+            st.session_state.cinematographer_params = {}
+            config["params"] = {}
+        else:
+            try:
+                schema = schema_service.get_schema(model_id)
+                st.session_state.cinematographer_schema = schema
 
-            # Generate UI controls
-            ui_generator = DynamicUIGenerator(key_prefix="cinema")
+                # Generate UI controls
+                ui_generator = DynamicUIGenerator(key_prefix="cinema")
 
-            # Exclude prompt since Director provides it
-            exclude = ["prompt", "text", "caption", "input"]
+                # Exclude prompt since Director provides it
+                exclude = ["prompt", "text", "caption", "input"]
 
-            params = ui_generator.render_controls(
-                schema,
-                current_values=st.session_state.cinematographer_params,
-                exclude_params=exclude,
-                columns=2
-            )
+                params = ui_generator.render_controls(
+                    schema,
+                    current_values=st.session_state.cinematographer_params,
+                    exclude_params=exclude,
+                    columns=2
+                )
 
-            st.session_state.cinematographer_params = params
-            config["params"] = params
+                st.session_state.cinematographer_params = params
+                config["params"] = params
 
-        except ValueError as e:
-            st.warning(f"Could not load schema: {e}")
-            st.info("Using default parameters. The model may still work.")
+            except ValueError as e:
+                st.warning(f"Could not load schema: {e}")
+                st.info("Using default parameters. The model may still work.")
 
     st.divider()
 
@@ -316,7 +325,9 @@ def render_composer_section() -> Dict[str, Any]:
         if model_info.max_duration:
             caps.append(f"⏱️ Max {model_info.max_duration}s")
 
+        cost_str = f"${model_info.cost_per_run:.3f}/run" if model_info.cost_per_run else "Cost N/A"
         st.caption(f"{model_info.description}")
+        st.markdown(f"**Cost:** {cost_str}")
         if caps:
             st.markdown(" | ".join(caps))
 
@@ -355,7 +366,8 @@ def render_composer_section() -> Dict[str, Any]:
 
             voice_info = registry.get(voice_model_id)
             if voice_info:
-                st.caption(voice_info.description)
+                cost_str = f"${voice_info.cost_per_run:.3f}/run" if voice_info.cost_per_run else ""
+                st.caption(f"{voice_info.description} {cost_str}")
 
             st.success("✓ Voice will be generated before music")
 
@@ -417,31 +429,37 @@ def render_composer_section() -> Dict[str, Any]:
                 st.info(f"No voice files found in {voice_dir}")
                 st.markdown("Upload a voice file instead.")
 
-    # Dynamic Parameters from Schema
+    # Dynamic Parameters from Schema (only for Replicate models)
     with st.expander("⚙️ Music Model Parameters", expanded=False):
-        try:
-            schema = schema_service.get_schema(model_id)
-            st.session_state.composer_schema = schema
+        # Check if model supports schema fetching
+        if model_info and model_info.provider != ModelProvider.REPLICATE:
+            st.info(f"🔧 {model_info.name} uses Vertex AI. Default parameters will be used.")
+            st.session_state.composer_params = {}
+            config["params"] = {}
+        else:
+            try:
+                schema = schema_service.get_schema(model_id)
+                st.session_state.composer_schema = schema
 
-            # Generate UI controls
-            ui_generator = DynamicUIGenerator(key_prefix="composer")
+                # Generate UI controls
+                ui_generator = DynamicUIGenerator(key_prefix="composer")
 
-            # Exclude prompt and voice (handled separately)
-            exclude = ["prompt", "text", "lyrics", "voice", "voice_file", "reference_audio"]
+                # Exclude prompt and voice (handled separately)
+                exclude = ["prompt", "text", "lyrics", "voice", "voice_file", "reference_audio"]
 
-            params = ui_generator.render_controls(
-                schema,
-                current_values=st.session_state.composer_params,
-                exclude_params=exclude,
-                columns=2
-            )
+                params = ui_generator.render_controls(
+                    schema,
+                    current_values=st.session_state.composer_params,
+                    exclude_params=exclude,
+                    columns=2
+                )
 
-            st.session_state.composer_params = params
-            config["params"] = params
+                st.session_state.composer_params = params
+                config["params"] = params
 
-        except ValueError as e:
-            st.warning(f"Could not load schema: {e}")
-            st.info("Using default parameters.")
+            except ValueError as e:
+                st.warning(f"Could not load schema: {e}")
+                st.info("Using default parameters.")
 
     return config
 
@@ -472,6 +490,89 @@ def get_agency_config() -> Dict[str, Any]:
             "voice_model_id": st.session_state.get("composer_voice_model"),
         }
     }
+
+
+def calculate_cost_estimate(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Calculate estimated cost based on current model selections.
+
+    Args:
+        config: Agency config from get_agency_config()
+
+    Returns:
+        Dict with cost breakdown and total
+    """
+    registry = get_model_registry()
+    costs = {
+        "video": None,
+        "storyboard": None,
+        "music": None,
+        "voice": None,
+        "total": 0.0,
+        "details": []
+    }
+
+    cinema = config.get("cinematographer", {})
+    composer = config.get("composer", {})
+
+    # Video cost
+    if cinema.get("active") and cinema.get("model_id"):
+        model = registry.get(cinema["model_id"])
+        if model and model.cost_per_run:
+            costs["video"] = model.cost_per_run
+            costs["total"] += model.cost_per_run
+            costs["details"].append(f"Video ({model.name}): ${model.cost_per_run:.3f}")
+
+    # Storyboard cost (image model)
+    if cinema.get("storyboard_active") and cinema.get("storyboard_model_id"):
+        model = registry.get(cinema["storyboard_model_id"])
+        if model and model.cost_per_run:
+            costs["storyboard"] = model.cost_per_run
+            costs["total"] += model.cost_per_run
+            costs["details"].append(f"Storyboard ({model.name}): ${model.cost_per_run:.3f}")
+
+    # Music cost
+    if composer.get("active") and composer.get("model_id"):
+        model = registry.get(composer["model_id"])
+        if model and model.cost_per_run:
+            costs["music"] = model.cost_per_run
+            costs["total"] += model.cost_per_run
+            costs["details"].append(f"Music ({model.name}): ${model.cost_per_run:.3f}")
+
+    # Voice generation cost
+    if composer.get("voice_source") == "generate" and composer.get("voice_model_id"):
+        model = registry.get(composer["voice_model_id"])
+        if model and model.cost_per_run:
+            costs["voice"] = model.cost_per_run
+            costs["total"] += model.cost_per_run
+            costs["details"].append(f"Voice ({model.name}): ${model.cost_per_run:.3f}")
+
+    return costs
+
+
+def render_cost_estimate():
+    """
+    Render a cost estimate panel in the sidebar or main area.
+    Updates dynamically as selections change.
+    """
+    config = get_agency_config()
+    costs = calculate_cost_estimate(config)
+
+    st.markdown("### 💰 Estimated Cost")
+
+    if costs["total"] == 0:
+        st.info("Enable agents and select models to see cost estimate")
+        return
+
+    # Cost breakdown
+    for detail in costs["details"]:
+        st.text(detail)
+
+    st.markdown("---")
+    st.markdown(f"**Total: ${costs['total']:.3f}**")
+
+    # Tier note
+    st.caption("💡 Costs are estimates and may vary based on duration and complexity")
 
 
 def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:

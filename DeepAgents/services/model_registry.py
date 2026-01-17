@@ -42,14 +42,24 @@ class InputRequirement(Enum):
     VIDEO = "video"
 
 
+class ModelProvider(Enum):
+    """Provider/host for the model."""
+    REPLICATE = "replicate"
+    VERTEX_AI = "vertex-ai"
+    GOOGLE_GENAI = "google-genai"
+
+
 @dataclass
 class ModelInfo:
     """Information about a specific model."""
-    id: str  # Replicate model ID (owner/name)
+    id: str  # Model ID (format depends on provider)
     name: str  # Display name
     category: ModelCategory
     output_type: OutputType
     description: str = ""
+
+    # Provider (determines how to fetch schema and call API)
+    provider: ModelProvider = ModelProvider.REPLICATE
 
     # Input requirements
     required_inputs: List[InputRequirement] = field(default_factory=list)
@@ -63,14 +73,25 @@ class ModelInfo:
     # Quality/Speed tier
     tier: str = "standard"  # fast, standard, premium
 
+    # Cost information
+    cost_per_run: Optional[float] = None  # Estimated cost in USD per run
+    cost_unit: str = "run"  # "run", "second", "minute"
+
     # Additional metadata
     tags: Set[str] = field(default_factory=set)
     deprecated: bool = False
 
     @property
-    def replicate_url(self) -> str:
-        """Get Replicate model URL."""
-        return f"https://replicate.com/{self.id}"
+    def replicate_url(self) -> Optional[str]:
+        """Get Replicate model URL (only for Replicate models)."""
+        if self.provider == ModelProvider.REPLICATE:
+            return f"https://replicate.com/{self.id}"
+        return None
+
+    @property
+    def is_replicate(self) -> bool:
+        """Check if this is a Replicate-hosted model."""
+        return self.provider == ModelProvider.REPLICATE
 
     def requires_asset(self, asset_type: InputRequirement) -> bool:
         """Check if model requires specific asset type."""
@@ -103,7 +124,8 @@ class ModelRegistry:
             description="Fast text-to-video generation at 480p. Good for quick iterations.",
             max_duration=5.0,
             tier="fast",
-            tags={"text-to-video", "480p"}
+            tags={"text-to-video", "480p"},
+            cost_per_run=0.035
         ))
 
         self.register(ModelInfo(
@@ -114,7 +136,8 @@ class ModelRegistry:
             description="High-quality video generation at 540p from Luma AI.",
             max_duration=5.0,
             tier="standard",
-            tags={"text-to-video", "540p"}
+            tags={"text-to-video", "540p"},
+            cost_per_run=0.25
         ))
 
         self.register(ModelInfo(
@@ -125,7 +148,36 @@ class ModelRegistry:
             description="Premium video generation from Minimax.",
             max_duration=6.0,
             tier="premium",
-            tags={"text-to-video", "premium"}
+            tags={"text-to-video", "premium"},
+            cost_per_run=0.50
+        ))
+
+        self.register(ModelInfo(
+            id="veo-3.1-fast-generate-001",
+            name="Veo 3.1 Fast (Google)",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="Google Vertex AI video generation. Fast mode, 720p/1080p. $0.10/sec.",
+            provider=ModelProvider.VERTEX_AI,
+            max_duration=8.0,
+            tier="fast",
+            tags={"text-to-video", "google", "vertex-ai", "720p", "1080p"},
+            cost_per_run=0.80,  # ~8 sec * $0.10/sec
+            cost_unit="second"
+        ))
+
+        self.register(ModelInfo(
+            id="veo-3.1-generate-001",
+            name="Veo 3.1 (Google)",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="Google Vertex AI premium video. 720p/1080p/4K. $0.20-$0.40/sec.",
+            provider=ModelProvider.VERTEX_AI,
+            max_duration=8.0,
+            tier="premium",
+            tags={"text-to-video", "google", "vertex-ai", "4k"},
+            cost_per_run=1.60,  # ~8 sec * $0.20/sec
+            cost_unit="second"
         ))
 
         # ===================
@@ -133,16 +185,17 @@ class ModelRegistry:
         # ===================
 
         self.register(ModelInfo(
-            id="google-deepmind/lyria-2",
-            name="Lyria-002 (Google)",
+            id="google/lyria-2",
+            name="Lyria-2 (Google)",
             category=ModelCategory.AUDIO_MUSIC,
             output_type=OutputType.AUDIO_FILE,
-            description="Google DeepMind's music generation model. High-fidelity music with optional lyrics.",
+            description="Google's music generation model. 30-sec clips, supports genres from classical to electronic.",
             supports_lyrics=True,
             supports_instrumental=True,
-            max_duration=60.0,
+            max_duration=30.0,
             tier="premium",
-            tags={"music", "lyrics", "instrumental", "google"}
+            tags={"music", "lyrics", "instrumental", "google"},
+            cost_per_run=0.05
         ))
 
         self.register(ModelInfo(
@@ -156,33 +209,36 @@ class ModelRegistry:
             supports_instrumental=False,
             max_duration=300.0,
             tier="premium",
-            tags={"music", "lyrics", "voice-clone"}
+            tags={"music", "lyrics", "voice-clone"},
+            cost_per_run=0.15
         ))
 
         self.register(ModelInfo(
-            id="facebookresearch/musicgen",
+            id="meta/musicgen",
             name="MusicGen (Meta)",
             category=ModelCategory.AUDIO_MUSIC,
             output_type=OutputType.AUDIO_FILE,
-            description="Instrumental music generation. Good for background tracks.",
+            description="Instrumental music generation from text prompts. Good for background tracks.",
             supports_lyrics=False,
             supports_instrumental=True,
-            max_duration=30.0,
+            max_duration=60.0,
             tier="standard",
-            tags={"music", "instrumental", "meta"}
+            tags={"music", "instrumental", "meta"},
+            cost_per_run=0.097
         ))
 
         self.register(ModelInfo(
-            id="ace-step/ace-step-v1-3-5b",
-            name="ACE-Step v1.3",
+            id="lucataco/ace-step",
+            name="ACE-Step",
             category=ModelCategory.AUDIO_MUSIC,
             output_type=OutputType.AUDIO_FILE,
-            description="Advanced music generation with fine control. Supports lyrics and instrumental.",
+            description="Music+vocals from text tags and lyrics. Supports [verse], [chorus], [bridge] structure.",
             supports_lyrics=True,
             supports_instrumental=True,
-            max_duration=120.0,
-            tier="premium",
-            tags={"music", "lyrics", "instrumental", "advanced"}
+            max_duration=240.0,
+            tier="standard",
+            tags={"music", "lyrics", "instrumental", "vocals"},
+            cost_per_run=0.10
         ))
 
         # ===================
@@ -198,7 +254,8 @@ class ModelRegistry:
             optional_inputs=[InputRequirement.AUDIO_VOICE],
             max_duration=60.0,
             tier="premium",
-            tags={"tts", "voice-clone"}
+            tags={"tts", "voice-clone"},
+            cost_per_run=0.02
         ))
 
         self.register(ModelInfo(
@@ -210,7 +267,8 @@ class ModelRegistry:
             optional_inputs=[InputRequirement.AUDIO_VOICE],
             max_duration=30.0,
             tier="standard",
-            tags={"tts", "voice-clone", "coqui"}
+            tags={"tts", "voice-clone", "coqui"},
+            cost_per_run=0.01
         ))
 
         self.register(ModelInfo(
@@ -221,7 +279,8 @@ class ModelRegistry:
             description="Lightweight TTS model. Fast and efficient.",
             max_duration=30.0,
             tier="fast",
-            tags={"tts", "lightweight"}
+            tags={"tts", "lightweight"},
+            cost_per_run=0.005
         ))
 
         # ===================

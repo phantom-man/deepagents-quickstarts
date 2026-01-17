@@ -1,0 +1,195 @@
+[
+  {
+    "thread_id": "ca61410e-b89d-46a2-b3d7-2a46bf57c030",
+    "created_at": "2026-01-16T07:50:45.355668-07:00",
+    "updated_at": "2026-01-16T07:51:16.831818-07:00",
+    "metadata": {
+      "graph_id": "agency",
+      "assistant_id": "9130987b-4511-59f7-8b4c-4d8486e2297c"
+    },
+    "status": "idle",
+    "config": {
+      "configurable": {}
+    },
+    "values": {
+      "messages": [
+        {
+          "content": "create an instrumental music video about dancing in the fire of life in the style of Alanis Morisette.",
+          "type": "human"
+        },
+        {
+          "content": "# CREATIVE DIRECTIVE: Dancing in the Fire\n\n## Segment 1: The Spark (0:00-0:15)\n*   **Vision:** Close-up on bare feet stepping onto cracked earth. A single ember glows.\n*   **Visual Prompt:** \"Extreme close-up, bare feet step tentatively onto dry, cracked earth. A single, glowing ember rests on the ground. Dark, desaturated color palette. Shallow depth of field. Macro lens. Focus on the texture of the earth and the ember's light.\"\n*   **Audio/Music Prompt:** \"Acoustic guitar intro, slow tempo, minor key. Start with a single, sustained note. Haunting and melancholic mood.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Establish the bare feet as belonging to our main character.\n\n## Segment 2: The Kindling (0:15-0:30)\n*   **Vision:** The character begins a slow, deliberate dance. Small flames begin to flicker around her feet.\n*   **Visual Prompt:** \"Mid-shot. A barefoot woman begins a slow, expressive dance on cracked earth. Small flames begin to flicker around her feet, illuminated by the growing fire. Earthy, natural color palette with the orange glow of the fire. Camera slowly pans up to reveal her face – a look of intense concentration.\"\n*   **Audio/Music Prompt:** \"Acoustic drums and bass enter. Tempo gradually increases. Add subtle synth textures. Alanis Morissette-inspired instrumental rock. Building intensity.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The woman's clothing should be simple and flowing, in earth tones. Maintain the same cracked earth environment.\n\n## Segment 3: The Blaze (0:30-0:45)\n*   **Vision:** The fire intensifies. The woman's dance becomes more passionate and energetic.\n*   **Visual Prompt:** \"Full shot. The woman dances with abandon amidst a roaring fire. Flames engulf the frame. Dramatic lighting. Fast cuts between different angles, capturing the energy of the dance and the intensity of the fire. Use slow-motion shots intercut with real-time movement.\"\n*   **Audio/Music Prompt:** \"Full band enters. Electric guitars, powerful drums, driving bassline. Tempo reaches its peak. Grunge and alternative rock influences. Distorted guitar riffs.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The fire should appear natural and uncontrolled, but contained within a defined area.\n\n## Segment 4: The Revelation (0:45-1:00)\n*   **Vision:** Close-up on the woman's face. She is smiling, eyes closed, completely immersed in the dance.\n*   **Visual Prompt:** \"Extreme close-up on the woman's face. She is smiling, eyes closed, completely immersed in the dance. The fire reflects in her eyes. Soft, diffused lighting. Camera slowly zooms in to emphasize her expression.\"\n*   **Audio/Music Prompt:** \"Music softens slightly. The electric guitars become more melodic. Reduce the tempo a bit. Add a layer of ethereal synth pads. A feeling of catharsis and release.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Her face should show signs of the heat and intensity of the dance, but also a sense of peace.\n\n## Segment 5: The Embers (1:00-1:15)\n*   **Vision:** The fire begins to die down. The woman slows her dance, her movements becoming more fluid and graceful.\n*   **Visual Prompt:** \"Mid-shot. The woman slows her dance as the fire begins to die down. The flames are now embers, casting a warm glow. The camera circles her slowly, capturing the beauty of her movement and the peaceful atmosphere.\"\n*   **Audio/Music Prompt:** \"The music becomes quieter and more introspective. Acoustic guitar returns as the main instrument. The drums fade out. Ambient sound effects of crackling embers.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The woman's clothing should remain consistent throughout the video.\n\n## Segment 6: The Afterglow (1:15-1:30)\n*   **Vision:** The woman stands still, surrounded by glowing embers. She looks directly at the camera with a knowing smile.\n*   **Visual Prompt:** \"Full shot. The woman stands still, surrounded by glowing embers. She looks directly at the camera with a knowing smile. The background is dark and out of focus. The focus is on her face and the embers. A single tear runs down her cheek.\"\n*   **Audio/Music Prompt:** \"Music fades out completely. Only the sound of crackling embers remains. A feeling of quiet strength and resilience.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Maintain the same overall aesthetic and color palette.\n",
+          "additional_kwargs": {},
+          "response_metadata": {
+            "safety_ratings": [],
+            "finish_reason": "STOP",
+            "model_name": "gemini-2.0-flash-001",
+            "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": null,
+          "id": "lc_run--019bc749-9841-7471-b8da-1e26c2ff31aa",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": {
+            "input_tokens": 2106,
+            "output_tokens": 1054,
+            "total_tokens": 3160,
+            "input_token_details": {
+              "cache_read": 0
+            }
+          }
+        },
+        {
+          "content": "Visuals Created: I encountered an error. Let me try again.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "5f2e7f4c-e4d2-40ed-a093-4a9cd79e835d",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        },
+        {
+          "content": "Audio Created: Successfully Generated: Generation failed: No URL returned.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "572d807e-a4ed-42cd-b1eb-fcdaac03ad94",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        },
+        {
+          "content": "Skipping Merge: Missing Video or Audio assets.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "fe7baf04-e57b-41a7-9c34-72970e1e7d5a",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        }
+      ],
+      "directive": "create an instrumental music video about dancing in the fire of life in the style of Alanis Morisette.",
+      "director_plan": "create an instrumental music video about dancing in the fire of life in the style of Alanis Morisette.\n# CREATIVE DIRECTIVE: Dancing in the Fire\n\n## Segment 1: The Spark (0:00-0:15)\n*   **Vision:** Close-up on bare feet stepping onto cracked earth. A single ember glows.\n*   **Visual Prompt:** \"Extreme close-up, bare feet step tentatively onto dry, cracked earth. A single, glowing ember rests on the ground. Dark, desaturated color palette. Shallow depth of field. Macro lens. Focus on the texture of the earth and the ember's light.\"\n*   **Audio/Music Prompt:** \"Acoustic guitar intro, slow tempo, minor key. Start with a single, sustained note. Haunting and melancholic mood.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Establish the bare feet as belonging to our main character.\n\n## Segment 2: The Kindling (0:15-0:30)\n*   **Vision:** The character begins a slow, deliberate dance. Small flames begin to flicker around her feet.\n*   **Visual Prompt:** \"Mid-shot. A barefoot woman begins a slow, expressive dance on cracked earth. Small flames begin to flicker around her feet, illuminated by the growing fire. Earthy, natural color palette with the orange glow of the fire. Camera slowly pans up to reveal her face – a look of intense concentration.\"\n*   **Audio/Music Prompt:** \"Acoustic drums and bass enter. Tempo gradually increases. Add subtle synth textures. Alanis Morissette-inspired instrumental rock. Building intensity.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The woman's clothing should be simple and flowing, in earth tones. Maintain the same cracked earth environment.\n\n## Segment 3: The Blaze (0:30-0:45)\n*   **Vision:** The fire intensifies. The woman's dance becomes more passionate and energetic.\n*   **Visual Prompt:** \"Full shot. The woman dances with abandon amidst a roaring fire. Flames engulf the frame. Dramatic lighting. Fast cuts between different angles, capturing the energy of the dance and the intensity of the fire. Use slow-motion shots intercut with real-time movement.\"\n*   **Audio/Music Prompt:** \"Full band enters. Electric guitars, powerful drums, driving bassline. Tempo reaches its peak. Grunge and alternative rock influences. Distorted guitar riffs.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The fire should appear natural and uncontrolled, but contained within a defined area.\n\n## Segment 4: The Revelation (0:45-1:00)\n*   **Vision:** Close-up on the woman's face. She is smiling, eyes closed, completely immersed in the dance.\n*   **Visual Prompt:** \"Extreme close-up on the woman's face. She is smiling, eyes closed, completely immersed in the dance. The fire reflects in her eyes. Soft, diffused lighting. Camera slowly zooms in to emphasize her expression.\"\n*   **Audio/Music Prompt:** \"Music softens slightly. The electric guitars become more melodic. Reduce the tempo a bit. Add a layer of ethereal synth pads. A feeling of catharsis and release.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Her face should show signs of the heat and intensity of the dance, but also a sense of peace.\n\n## Segment 5: The Embers (1:00-1:15)\n*   **Vision:** The fire begins to die down. The woman slows her dance, her movements becoming more fluid and graceful.\n*   **Visual Prompt:** \"Mid-shot. The woman slows her dance as the fire begins to die down. The flames are now embers, casting a warm glow. The camera circles her slowly, capturing the beauty of her movement and the peaceful atmosphere.\"\n*   **Audio/Music Prompt:** \"The music becomes quieter and more introspective. Acoustic guitar returns as the main instrument. The drums fade out. Ambient sound effects of crackling embers.\"\n*   **Lyrics:** [None]\n*   **Continuity:** The woman's clothing should remain consistent throughout the video.\n\n## Segment 6: The Afterglow (1:15-1:30)\n*   **Vision:** The woman stands still, surrounded by glowing embers. She looks directly at the camera with a knowing smile.\n*   **Visual Prompt:** \"Full shot. The woman stands still, surrounded by glowing embers. She looks directly at the camera with a knowing smile. The background is dark and out of focus. The focus is on her face and the embers. A single tear runs down her cheek.\"\n*   **Audio/Music Prompt:** \"Music fades out completely. Only the sound of crackling embers remains. A feeling of quiet strength and resilience.\"\n*   **Lyrics:** [None]\n*   **Continuity:** Maintain the same overall aesthetic and color palette.\n",
+      "video_assets": [],
+      "audio_assets": []
+    },
+    "interrupts": {},
+    "error": null
+  },
+  {
+    "thread_id": "23e3e478-d1c9-4415-9bc2-96a0fa5cabd9",
+    "created_at": "2026-01-15T12:32:05.213724-07:00",
+    "updated_at": "2026-01-15T12:32:51.325149-07:00",
+    "metadata": {
+      "graph_id": "agency",
+      "assistant_id": "9130987b-4511-59f7-8b4c-4d8486e2297c"
+    },
+    "status": "idle",
+    "config": {
+      "configurable": {}
+    },
+    "values": {
+      "messages": [
+        {
+          "content": "create a instrumental music video about surviving the flames of life in the style of alanis morisette.",
+          "type": "human"
+        },
+        {
+          "content": "Okay, I understand. An instrumental music video, Alanis Morissette-inspired, about surviving life's flames. I'll structure this by Verse/Chorus/Bridge, focusing on emotional progression and natural imagery.\n\n## Music Video Concept: \"Emberglow\" - An Instrumental Journey Through Resilience\n\n**OVERALL CONTINUITY STRATEGY:** The central visual metaphor is a single, resilient tree. Throughout the video, this tree endures fire, wind, and storm, but ultimately blossoms. Use **[Tree Reference Image]** to maintain consistency of the tree's appearance.\n\n## Verse 1: The Kindling (0:00-0:30)\n*   **Vision:** Establish the tree in a peaceful, idyllic setting. Hint at underlying tension.\n*   **Visual Prompt:** \"Cinematic 4k. Golden hour sunlight filters through the leaves of a lone tree in a meadow. Gentle breeze. Camera slowly pans up the trunk, revealing the intricate bark. Focus on the beauty and tranquility. Soft focus.\"\n*   **Audio/Music Prompt:** \"Acoustic guitar intro, gentle piano chords, nature soundscape (birds chirping, distant stream). Ethereal and hopeful mood. Build slowly in intensity.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Verse 2: The Spark (0:30-1:00)\n*   **Vision:** Introduce the first signs of \"flames\" - symbolic challenges.\n*   **Visual Prompt:** \"Time-lapse. Clouds gather ominously. The wind picks up. The tree sways violently. Close-up shots of leaves being torn from branches. Darkening sky. Camera zooms out to show the tree isolated against the storm.\"\n*   **Audio/Music Prompt:** \"Distorted electric guitar enters subtly. Drums begin a slow, driving rhythm. Strings swell with dissonance. The mood shifts to anxious and foreboding. Wind sound effects become prominent.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Chorus 1: The Inferno (1:00-1:30)\n*   **Vision:** The full force of the \"flames\" – a raging wildfire engulfs the surrounding area.\n*   **Visual Prompt:** \"Dramatic slow motion. A controlled burn rages around the base of the tree. Embers fly through the air. The tree appears to be burning, but its core remains intact. Intense orange and red hues. Drone shot circles the scene.\"\n*   **Audio/Music Prompt:** \"Full band arrangement. Heavy distorted guitars, powerful drums, soaring strings. Chaotic and intense energy. Fire crackling sound effects. A sense of struggle and urgency.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Ensure the tree survives the fire visually.\n\n## Verse 3: The Ashes (1:30-2:00)\n*   **Vision:** The aftermath of the fire. A desolate landscape. The tree stands scarred, but still alive.\n*   **Visual Prompt:** \"Desaturated color palette. Wide shot of the burned landscape. The tree stands alone, blackened but unbroken. Close-up of charred bark. Rain begins to fall. Camera focuses on the resilience of the tree.\"\n*   **Audio/Music Prompt:** \"Music softens. Acoustic guitar returns, but with a melancholic tone. Piano plays a somber melody. Rain sound effects are prominent. A feeling of loss and reflection.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Show the tree with visible fire damage.\n\n## Chorus 2: The Rebirth (2:00-2:30)\n*   **Vision:** Signs of new life emerge. Small green shoots appear on the tree.\n*   **Visual Prompt:** \"Time-lapse. Over several weeks, small green shoots emerge from the charred branches of the tree. Sunlight returns. The landscape slowly begins to recover. Focus on the resilience and hope.\"\n*   **Audio/Music Prompt:** \"Music builds in intensity again. Strings become more hopeful. Drums add a driving rhythm. A sense of renewal and optimism. Birdsong returns.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Show the tree regrowing.\n\n## Bridge: The Acceptance (2:30-3:00)\n*   **Vision:** The tree stands tall and strong, having weathered the storm. It is now part of the landscape, accepting its scars.\n*   **Visual Prompt:** \"Wide shot of the tree in full bloom. The surrounding landscape is lush and green. The tree's charred bark is visible, but it adds to its character. The sun sets, casting a warm glow. Camera slowly zooms out.\"\n*   **Audio/Music Prompt:** \"Music reaches a crescendo. Full band arrangement with soaring strings and powerful drums. A sense of triumph and peace. The melody becomes more uplifting and inspirational.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Chorus 3: The Emberglow (3:00-3:30)\n*   **Vision:** Final shot emphasizing the tree's strength and beauty.\n*   **Visual Prompt:** \"Close up of the tree's leaves, glistening in the sunlight. The camera pulls back to show the entire tree, silhouetted against the setting sun. A gentle breeze rustles the leaves. Fade to black.\"\n*   **Audio/Music Prompt:** \"Music fades out slowly. Acoustic guitar and piano play a final, peaceful melody. Nature sounds fade in. A sense of closure and serenity.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\nThis structure should give your team a clear vision for creating a powerful and emotionally resonant instrumental music video. Remember to emphasize the Alanis Morissette-inspired themes of resilience, vulnerability, and ultimately, hope. Good luck!\n",
+          "additional_kwargs": {},
+          "response_metadata": {
+            "safety_ratings": [],
+            "finish_reason": "STOP",
+            "model_name": "gemini-2.0-flash-001",
+            "model_provider": "google_genai"
+          },
+          "type": "ai",
+          "name": null,
+          "id": "lc_run--019bc324-cfca-7c52-b349-315c3e81e0ae",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": {
+            "input_tokens": 631,
+            "output_tokens": 1246,
+            "total_tokens": 1877,
+            "input_token_details": {
+              "cache_read": 0
+            }
+          }
+        },
+        {
+          "content": "Visuals Created: Okay, I will use Stable Video Diffusion instead.\n",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "90fa8817-acdd-495e-b082-7bda68250887",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        },
+        {
+          "content": "Audio Created: Successfully Generated: Generation failed: No URL returned.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "5b980c10-0e2e-4693-aeaa-f3f71a1b60e3",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        },
+        {
+          "content": "Skipping Merge: Missing Video or Audio assets.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "ai",
+          "name": null,
+          "id": "312bb2c3-cf81-497c-901b-3f3b09fe7aa0",
+          "tool_calls": [],
+          "invalid_tool_calls": [],
+          "usage_metadata": null
+        }
+      ],
+      "directive": "create a instrumental music video about surviving the flames of life in the style of alanis morisette.",
+      "director_plan": "Okay, I understand. An instrumental music video, Alanis Morissette-inspired, about surviving life's flames. I'll structure this by Verse/Chorus/Bridge, focusing on emotional progression and natural imagery.\n\n## Music Video Concept: \"Emberglow\" - An Instrumental Journey Through Resilience\n\n**OVERALL CONTINUITY STRATEGY:** The central visual metaphor is a single, resilient tree. Throughout the video, this tree endures fire, wind, and storm, but ultimately blossoms. Use **[Tree Reference Image]** to maintain consistency of the tree's appearance.\n\n## Verse 1: The Kindling (0:00-0:30)\n*   **Vision:** Establish the tree in a peaceful, idyllic setting. Hint at underlying tension.\n*   **Visual Prompt:** \"Cinematic 4k. Golden hour sunlight filters through the leaves of a lone tree in a meadow. Gentle breeze. Camera slowly pans up the trunk, revealing the intricate bark. Focus on the beauty and tranquility. Soft focus.\"\n*   **Audio/Music Prompt:** \"Acoustic guitar intro, gentle piano chords, nature soundscape (birds chirping, distant stream). Ethereal and hopeful mood. Build slowly in intensity.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Verse 2: The Spark (0:30-1:00)\n*   **Vision:** Introduce the first signs of \"flames\" - symbolic challenges.\n*   **Visual Prompt:** \"Time-lapse. Clouds gather ominously. The wind picks up. The tree sways violently. Close-up shots of leaves being torn from branches. Darkening sky. Camera zooms out to show the tree isolated against the storm.\"\n*   **Audio/Music Prompt:** \"Distorted electric guitar enters subtly. Drums begin a slow, driving rhythm. Strings swell with dissonance. The mood shifts to anxious and foreboding. Wind sound effects become prominent.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Chorus 1: The Inferno (1:00-1:30)\n*   **Vision:** The full force of the \"flames\" – a raging wildfire engulfs the surrounding area.\n*   **Visual Prompt:** \"Dramatic slow motion. A controlled burn rages around the base of the tree. Embers fly through the air. The tree appears to be burning, but its core remains intact. Intense orange and red hues. Drone shot circles the scene.\"\n*   **Audio/Music Prompt:** \"Full band arrangement. Heavy distorted guitars, powerful drums, soaring strings. Chaotic and intense energy. Fire crackling sound effects. A sense of struggle and urgency.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Ensure the tree survives the fire visually.\n\n## Verse 3: The Ashes (1:30-2:00)\n*   **Vision:** The aftermath of the fire. A desolate landscape. The tree stands scarred, but still alive.\n*   **Visual Prompt:** \"Desaturated color palette. Wide shot of the burned landscape. The tree stands alone, blackened but unbroken. Close-up of charred bark. Rain begins to fall. Camera focuses on the resilience of the tree.\"\n*   **Audio/Music Prompt:** \"Music softens. Acoustic guitar returns, but with a melancholic tone. Piano plays a somber melody. Rain sound effects are prominent. A feeling of loss and reflection.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Show the tree with visible fire damage.\n\n## Chorus 2: The Rebirth (2:00-2:30)\n*   **Vision:** Signs of new life emerge. Small green shoots appear on the tree.\n*   **Visual Prompt:** \"Time-lapse. Over several weeks, small green shoots emerge from the charred branches of the tree. Sunlight returns. The landscape slowly begins to recover. Focus on the resilience and hope.\"\n*   **Audio/Music Prompt:** \"Music builds in intensity again. Strings become more hopeful. Drums add a driving rhythm. A sense of renewal and optimism. Birdsong returns.\"\n*   **Continuity:** Use **[Tree Reference Image]**. Show the tree regrowing.\n\n## Bridge: The Acceptance (2:30-3:00)\n*   **Vision:** The tree stands tall and strong, having weathered the storm. It is now part of the landscape, accepting its scars.\n*   **Visual Prompt:** \"Wide shot of the tree in full bloom. The surrounding landscape is lush and green. The tree's charred bark is visible, but it adds to its character. The sun sets, casting a warm glow. Camera slowly zooms out.\"\n*   **Audio/Music Prompt:** \"Music reaches a crescendo. Full band arrangement with soaring strings and powerful drums. A sense of triumph and peace. The melody becomes more uplifting and inspirational.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\n## Chorus 3: The Emberglow (3:00-3:30)\n*   **Vision:** Final shot emphasizing the tree's strength and beauty.\n*   **Visual Prompt:** \"Close up of the tree's leaves, glistening in the sunlight. The camera pulls back to show the entire tree, silhouetted against the setting sun. A gentle breeze rustles the leaves. Fade to black.\"\n*   **Audio/Music Prompt:** \"Music fades out slowly. Acoustic guitar and piano play a final, peaceful melody. Nature sounds fade in. A sense of closure and serenity.\"\n*   **Continuity:** Use **[Tree Reference Image]**.\n\nThis structure should give your team a clear vision for creating a powerful and emotionally resonant instrumental music video. Remember to emphasize the Alanis Morissette-inspired themes of resilience, vulnerability, and ultimately, hope. Good luck!\n",
+      "video_assets": [],
+      "audio_assets": []
+    },
+    "interrupts": {},
+    "error": null
+  },
+  {
+    "thread_id": "87768b67-e946-4725-8c12-ef0a86eb8f87",
+    "created_at": "2026-01-15T12:24:59.708036-07:00",
+    "updated_at": "2026-01-15T12:28:53.379704-07:00",
+    "metadata": {
+      "graph_id": "agency",
+      "assistant_id": "9130987b-4511-59f7-8b4c-4d8486e2297c"
+    },
+    "status": "interrupted",
+    "config": {
+      "configurable": {}
+    },
+    "values": {
+      "messages": [
+        {
+          "content": "create an instrumental music video about surving the flames of life in the style of alanis morisette.",
+          "additional_kwargs": {},
+          "response_metadata": {},
+          "type": "human",
+          "name": null,
+          "id": "13db7674-49f6-4858-a5d4-438e5e46eb27"
+        }
+      ]
+    },
+    "interrupts": {},
+    "error": "eyJlcnJvciI6IlVzZXJJbnRlcnJ1cHQiLCJtZXNzYWdlIjoiVXNlciBpbnRlcnJ1cHRlZCB0aGUgcnVuIn0="
+  }
+]

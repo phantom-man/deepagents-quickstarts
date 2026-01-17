@@ -1,0 +1,16 @@
+{
+  "prompt": "Close-up shot of a glowing ember in complete darkness. The ember slowly pulsates and brightens, revealing intricate details of its burning surface. Macro lens, cinematic lighting.",
+  "timestamp": 1768619216,
+  "date": "2026-01-16 20:07:00",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768619216_1528444e.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768619216_1528444e.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768619216_1528444e.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Close-up shot of a glowing ember in complete darkness. The ember slowly pulsates and brightens, revealing intricate details of its burning surface. Macro lens, cinematic lighting."
+  }
+}

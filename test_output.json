@@ -1,0 +1,23 @@
+{
+  "messages": [
+    {
+      "content": "Generate a video of a golden retriever running through a sunlit meadow",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "d8b99142-23c9-483f-a4c0-fe74216754e1"
+    },
+    {
+      "content": "**Asset Pending Review**: https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768582452_d5feac1c.mp4",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": "eaf7a6cf-4156-4d0a-9e9f-bae38f9311bc",
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Create a 5-second video of a beautiful sunset over the ocean. Video only, no audio."
+    },
+    {
+      "content": "# CREATIVE DIRECTIVE: Sunset Over Ocean\n\n## Segment 1: Golden Hour (0:00-0:05)\n*   **Vision:** A serene and breathtaking sunset over a calm ocean. Focus on the vibrant colors and the reflection on the water.\n*   **Visual Prompt:** \"Ultra-realistic 8k cinematic shot of a sunset over a tranquil ocean. The sky is ablaze with orange, pink, and purple hues. The sun is just touching the horizon, casting a golden glow across the water. Gentle waves lap at the shore. Camera slowly pans from left to right.\"\n*   **Audio/Music Prompt:** [None]\n*   **Lyrics:** [None]\n*   **Continuity:** N/A. This is a single establishing shot.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash-001",
+        "safety_ratings": [],
+        "model_provider": "google_genai"
+      },
+      "type": "ai",
+      "name": null,
+      "id": "lc_run--019bc797-3573-7ac3-9fd0-05abd11dec91-0",
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 2106,
+        "output_tokens": 164,
+        "total_tokens": 2270,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "Visuals Created: Visual Asset Created: https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768580271_75bf1666.mp4",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "Audio Created: Successfully Generated: **Audio Generated (publishers/google/models/lyria-002):**\n- [Play Audio](C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Ultra_realistic_8k_cinematic_s_tool_d_1768580306.wav)\n- Local: C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Audio\\Music\\Ultra_realistic_8k_cinematic_s_tool_d_1768580306.mp3\n\n**(Verified Lyrics Used)**:\nN/A",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    },
+    {
+      "content": "FINAL CUT: Error: File not found https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768580271_75bf1666.mp4",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "ai",
+      "name": null,
+      "id": null,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": null
+    }
+  ],
+  "directive": "Create a 5-second video of a beautiful sunset over the ocean. Video only, no audio.",
+  "director_plan": "Create a 5-second video of a beautiful sunset over the ocean. Video only, no audio.\n# CREATIVE DIRECTIVE: Sunset Over Ocean\n\n## Segment 1: Golden Hour (0:00-0:05)\n*   **Vision:** A serene and breathtaking sunset over a calm ocean. Focus on the vibrant colors and the reflection on the water.\n*   **Visual Prompt:** \"Ultra-realistic 8k cinematic shot of a sunset over a tranquil ocean. The sky is ablaze with orange, pink, and purple hues. The sun is just touching the horizon, casting a golden glow across the water. Gentle waves lap at the shore. Camera slowly pans from left to right.\"\n*   **Audio/Music Prompt:** [None]\n*   **Lyrics:** [None]\n*   **Continuity:** N/A. This is a single establishing shot.",
+  "video_assets": [
+    "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768580271_75bf1666.mp4"
+  ],
+  "audio_assets": [
+    "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\Ultra_realistic_8k_cinematic_s_tool_d_1768580306.wav"
+  ],
+  "final_output": "Error: File not found https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768580271_75bf1666.mp4"
+}

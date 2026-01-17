@@ -117,11 +117,16 @@ class AssetManager:
         os.makedirs(full_path, exist_ok=True)
         return full_path
 
-    def _upload_to_gcs(self, local_path: str, filename: str) -> str:
-        """Uploads file to GCS and returns the GCS URL.
+    def _upload_to_gcs(self, local_path: str, filename: str, make_public: bool = True) -> str:
+        """Uploads file to GCS and returns the public GCS URL.
         
-        Note: URL may require authentication to download. Use the GCS client
-        in editor_tools.download_if_url() for authenticated downloads.
+        Args:
+            local_path: Path to local file to upload
+            filename: Name for the file in GCS
+            make_public: If True, makes the file publicly accessible (default: True)
+            
+        Returns:
+            Public URL that anyone can access without authentication
         """
         if not self.gcs_client or not self.bucket_name:
             return None
@@ -133,9 +138,16 @@ class AssetManager:
             blob = bucket.blob(blob_name)
             blob.upload_from_filename(local_path)
             
-            # Return the standard GCS URL - download will be authenticated by editor_tools
-            gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
-            logger.info(f"GCS Upload Success: {blob_name}")
+            # Make the blob publicly accessible so anyone can download
+            if make_public:
+                blob.make_public()
+                gcs_url = blob.public_url
+                logger.info(f"GCS Upload Success (PUBLIC): {blob_name}")
+            else:
+                # Return authenticated URL (requires GCS auth to download)
+                gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
+                logger.info(f"GCS Upload Success (PRIVATE): {blob_name}")
+            
             return gcs_url
         except Exception as e:
             logger.error(f"GCS Upload Failed: {e}")

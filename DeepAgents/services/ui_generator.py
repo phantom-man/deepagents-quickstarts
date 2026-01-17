@@ -84,38 +84,63 @@ class DynamicUIGenerator:
             )
 
         elif control.control_type == ControlType.NUMBER:
-            # Determine if integer or float
-            is_int = control.step == 1 or (control.minimum is not None and isinstance(control.minimum, int))
+            # Determine if integer or float based on step and bounds
+            # Must ensure ALL numeric args are same type (int or float)
+            step_val = control.step if control.step is not None else 1
+            is_int = (isinstance(step_val, int) or step_val == int(step_val)) and step_val >= 1
+
+            if is_int:
+                # All values must be int
+                val = int(default) if default is not None else 0
+                min_v = int(control.minimum) if control.minimum is not None else None
+                max_v = int(control.maximum) if control.maximum is not None else None
+                step_v = int(step_val)
+            else:
+                # All values must be float
+                val = float(default) if default is not None else 0.0
+                min_v = float(control.minimum) if control.minimum is not None else None
+                max_v = float(control.maximum) if control.maximum is not None else None
+                step_v = float(step_val)
+
             return st.number_input(
                 control.label,
-                value=int(default) if is_int and default else float(default) if default else 0,
-                min_value=int(control.minimum) if is_int and control.minimum else control.minimum,
-                max_value=int(control.maximum) if is_int and control.maximum else control.maximum,
-                step=int(control.step) if is_int and control.step else control.step or 1.0,
+                value=val,
+                min_value=min_v,
+                max_value=max_v,
+                step=step_v,
                 key=key,
                 help=help_text
             )
 
         elif control.control_type == ControlType.SLIDER:
-            min_val = control.minimum if control.minimum is not None else 0.0
-            max_val = control.maximum if control.maximum is not None else 100.0
-            default_val = default if default is not None else min_val
+            # Get raw values with defaults
+            raw_min = control.minimum if control.minimum is not None else 0
+            raw_max = control.maximum if control.maximum is not None else 100
+            raw_default = default if default is not None else raw_min
+            raw_step = control.step if control.step is not None else 1
 
-            # Clamp default to range
-            default_val = max(min_val, min(max_val, default_val))
+            # Determine if integer based on step
+            is_int = (isinstance(raw_step, int) or raw_step == int(raw_step)) and raw_step >= 1
 
-            # Determine step
-            step = control.step or ((max_val - min_val) / 100)
-
-            # Determine if integer
-            is_int = control.step == 1 or (isinstance(min_val, int) and isinstance(max_val, int))
+            if is_int:
+                # All values must be int
+                min_val = int(raw_min)
+                max_val = int(raw_max)
+                step_val = int(raw_step)
+                default_val = int(max(min_val, min(max_val, raw_default)))
+            else:
+                # All values must be float
+                min_val = float(raw_min)
+                max_val = float(raw_max)
+                step_val = float(raw_step)
+                default_val = float(max(min_val, min(max_val, raw_default)))
 
             return st.slider(
                 control.label,
-                min_value=int(min_val) if is_int else float(min_val),
-                max_value=int(max_val) if is_int else float(max_val),
-                value=int(default_val) if is_int else float(default_val),
-                step=int(step) if is_int else float(step),
+                min_value=min_val,
+                max_value=max_val,
+                value=default_val,
+                step=step_val,
                 key=key,
                 help=help_text
             )

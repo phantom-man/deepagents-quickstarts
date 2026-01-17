@@ -1,0 +1,16 @@
+{
+  "prompt": "Extreme close-up, slow motion shot of a match being struck. Dark background. Focus on the flame igniting and the wood grain of the match. High contrast, cinematic lighting.",
+  "timestamp": 1768601733,
+  "date": "2026-01-16 15:15:36",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768601733_8b04bd17.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768601733_8b04bd17.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768601733_8b04bd17.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Extreme close-up, slow motion shot of a match being struck. Dark background. Focus on the flame igniting and the wood grain of the match. High contrast, cinematic lighting."
+  }
+}
