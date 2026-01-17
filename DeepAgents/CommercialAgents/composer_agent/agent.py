@@ -430,6 +430,44 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 duration_sec = min(val, 300)
             logger.info(f"   Duration parsed: {duration_sec}s")
 
+        # FIX: Sanitize prompt for Lyria - remove artist/band name references
+        # Google Lyria rejects prompts with specific artist names due to copyright
+        def sanitize_prompt_for_lyria(prompt: str) -> str:
+            """Remove artist names and replace with descriptive style terms."""
+            # Common pattern: "in the style of X" or "X style"
+            import re as re_inner
+            # Remove "in the style of [Artist]" patterns
+            sanitized = re_inner.sub(
+                r"in the style of [A-Z][a-zA-Z\s]+(?:,|\.|\s|$)",
+                "with emotional intensity, ",
+                prompt,
+                flags=re_inner.IGNORECASE
+            )
+            # Remove "[Artist] style" patterns  
+            sanitized = re_inner.sub(
+                r"[A-Z][a-zA-Z]+(?:\s[A-Z][a-zA-Z]+)?\s+style",
+                "90s alternative rock style",
+                sanitized,
+                flags=re_inner.IGNORECASE
+            )
+            # Remove specific known problematic artist names
+            problematic_artists = [
+                "Alanis Morissette", "Taylor Swift", "Beyonce", "Drake", 
+                "Ed Sheeran", "Adele", "Coldplay", "Radiohead", "Nirvana",
+                "Beatles", "Rolling Stones", "Pink Floyd", "Led Zeppelin"
+            ]
+            for artist in problematic_artists:
+                sanitized = re_inner.sub(
+                    rf"\b{re_inner.escape(artist)}\b",
+                    "",
+                    sanitized,
+                    flags=re_inner.IGNORECASE
+                )
+            # Clean up extra spaces/commas
+            sanitized = re_inner.sub(r"\s+", " ", sanitized).strip()
+            sanitized = re_inner.sub(r",\s*,", ",", sanitized)
+            return sanitized
+
         # Case: Native Google Lyria
         if "lyria-002" in target_model or (
             "lyria" in target_model
@@ -437,6 +475,10 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             and "002" in target_model
         ):
             logger.info("🎵 Generating with Native Google Lyria-2 (Vertex Predict)...")
+            
+            # Sanitize prompt to remove artist references
+            lyria_prompt = sanitize_prompt_for_lyria(input_text)
+            logger.info(f"   Sanitized prompt: {lyria_prompt[:100]}...")
 
             # Auth & Call (Lines omitted)
             credentials, project_id = google.auth.default()
@@ -454,7 +496,7 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             payload = {
                 "instances": [
                     {
-                        "prompt": input_text,
+                        "prompt": lyria_prompt,  # Use sanitized prompt without artist names
                     }
                 ],
                 "parameters": {"sampleCount": 1},
@@ -472,13 +514,37 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                         b64_data = pred["bytesBase64Encoded"]
                         audio_bytes = base64.b64decode(b64_data)
 
-                        fname = _generate_descriptive_filename(
-                            input_text, session_id, ext="wav"
+                        # Use AssetManager for proper storage and GCS upload
+                        lyria_final_path = assets.save_asset(
+                            data=audio_bytes,
+                            asset_type="audio",
+                            session_id=session_id,
+                            prompt=input_text[:100],
+                            subtype="music",
+                            extension="wav"
                         )
-                        temp_path = os.path.abspath(fname)
-                        with open(temp_path, "wb") as f:
-                            f.write(audio_bytes)
-                        final_url = temp_path
+                        
+                        if lyria_final_path:
+                            # Get the cloud URL from metadata
+                            cloud_url = ""
+                            meta_path = lyria_final_path + ".json"
+                            if os.path.exists(meta_path):
+                                import json
+                                with open(meta_path, "r", encoding="utf-8") as mf:
+                                    meta = json.load(mf)
+                                    cloud_url = meta.get("cloud_url", "")
+                            
+                            logger.info(f"🎉 Final Asset Ready (Lyria Native): {lyria_final_path}")
+                            if cloud_url:
+                                logger.info(f"   Cloud URL: {cloud_url}")
+                            
+                            # Return with both local and cloud URL
+                            result = f"**Audio Generated ({current_model_used}):**\n- Local: {lyria_final_path}"
+                            if cloud_url:
+                                result += f"\n- Cloud: {cloud_url}"
+                            return result
+                        else:
+                            raise ValueError("Failed to save audio via AssetManager")
                     else:
                         raise ValueError(
                             f"Unexpected Lyria Response Keys: {pred.keys()}"
@@ -489,7 +555,13 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
                 logger.error(
                     f"Lyria 002 Native Failed {response.status_code}: {response.text}"
                 )
-                target_model = "meta/musicgen"
+                # FIX: Lyria failed - fallback to MusicGen and ACTUALLY run it
+                logger.warning("🚨 Lyria-002 failed. Falling back to MusicGen...")
+                mg_out = _safe_replicate_run(
+                    "meta/musicgen", input_data={"prompt": input_text, "duration": 20}
+                )
+                final_url = _extract_replicate_url(mg_out)
+                current_model_used = "meta/musicgen (fallback)"
 
         # Case: ACE-Step (Optimized Configuration)
         elif "ace-step" in target_model:
@@ -576,31 +648,48 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             )
             final_url = _extract_replicate_url(mg_out)
 
-        # C. Save & Rename
+        # C. Save & Rename - Use AssetManager for proper GCS upload
         if final_url:
-            fname = _generate_descriptive_filename(input_text, session_id)
-            local_path = _download_and_validate_asset(
-                final_url, session_id, prefix="final"
+            # Use AssetManager to save with proper directory structure AND GCS upload
+            final_path = assets.save_asset(
+                data=final_url,  # AssetManager handles URL downloads
+                asset_type="audio",
+                session_id=session_id,
+                prompt=input_text[:100],
+                subtype="music",
+                extension="mp3"
             )
 
-            if local_path:
-                # FIX: Ensure we use the AssetManager's directory structure
-                # We want Artifacts/Audio/Music/
-                target_dir = os.path.join(assets.base_dir, "Audio", "Music")
-                os.makedirs(target_dir, exist_ok=True)
-
-                final_path = os.path.join(target_dir, fname)
-
-                # Move from temp (CWD) to Target
-                shutil.move(local_path, final_path)
+            if final_path:
+                # Get the cloud URL from metadata
+                cloud_url = ""
+                meta_path = final_path + ".json"
+                if os.path.exists(meta_path):
+                    import json as json_mod
+                    with open(meta_path, "r", encoding="utf-8") as mf:
+                        meta = json_mod.load(mf)
+                        cloud_url = meta.get("cloud_url", "")
+                
                 logger.info(f"🎉 Final Asset Ready: {final_path}")
+                if cloud_url:
+                    logger.info(f"   Cloud URL (PUBLIC): {cloud_url}")
 
                 # Retrieve used lyrics for display
                 used_lyrics = locals().get("lyrics", locals().get("lyrics_text", "N/A"))
 
-                return f"**Audio Generated ({current_model_used}):**\n- [Play Audio]({final_url})\n- Local: {final_path}\n\n**(Verified Lyrics Used)**:\n{used_lyrics}"
+                result = f"**Audio Generated ({current_model_used}):**\n- Local: {final_path}"
+                if cloud_url:
+                    result += f"\n- Cloud: {cloud_url}"
+                result += f"\n\n**(Verified Lyrics Used)**:\n{used_lyrics}"
+                return result
+            else:
+                # FIX: URL was returned but download failed
+                logger.error(f"Download failed for URL: {final_url}")
+                return f"**Generation Error:** Audio URL was generated but download/validation failed. URL: {final_url}"
 
-        return "Generation failed: No URL returned."
+        # FIX: Clear error message (not prefixed with 'Successfully Generated')
+        logger.error("No audio URL returned from model")
+        return "**Generation Error:** No audio URL returned from the model. The API call may have failed or the model returned an empty response."
 
     except Exception as e:
         logger.error(f"Replicate Pipeline Failure: {e}")
@@ -954,11 +1043,16 @@ def create_composer_agent(
 
                     # Return the tool result directly as the "Answer"
                     # We do NOT loop back to LLM to summarize, to avoid "Echo Chamber"
-                    return {
-                        "messages": [
-                            AIMessage(content=f"Successfully Generated: {res}")
-                        ]
-                    }
+                    # FIX: Don't prefix error results with "Successfully Generated"
+                    res_str = str(res)
+                    if "Error" in res_str or "failed" in res_str.lower():
+                        return {"messages": [AIMessage(content=res_str)]}
+                    else:
+                        return {
+                            "messages": [
+                                AIMessage(content=f"Successfully Generated: {res}")
+                            ]
+                        }
                 except Exception as e:
                     logger.error(f"❌ Tool Execution Failed: {e}")
                     raise e  # Fail Fast
@@ -973,16 +1067,41 @@ def create_composer_agent(
     return agent
 
 
-def run_composer_task(request_description: str) -> str:
+def run_composer_task(
+    request_description: str,
+    model_id: str = None,
+    model_params: dict = None,
+    voice_source: str = None,
+    voice_file: any = None,
+    voice_model_id: str = None
+) -> str:
     """
     Synchronous entry point for the Director to consult the Composer.
     Handles HITL via ApprovalManager.
+    
+    Args:
+        request_description: The audio directive/plan from Director
+        model_id: Optional model ID from GUI (e.g., "google-deepmind/lyria-2")
+        model_params: Optional dict of model parameters from GUI schema
+        voice_source: 'generate', 'upload', or 'local' (for models requiring voice)
+        voice_file: Uploaded file or local path for voice reference
+        voice_model_id: Model ID for voice generation if voice_source='generate'
     """
-    logger.info(f"🎻 Composer Consulted: {request_description}")
+    logger.info(f"[COMPOSER] Composer Consulted: {request_description}")
+    
+    # Log model configuration if provided
+    if model_id:
+        logger.info(f"[COMPOSER] Using model from GUI: {model_id}")
+    if model_params:
+        logger.info(f"[COMPOSER] Model params: {model_params}")
+    if voice_source:
+        logger.info(f"[COMPOSER] Voice source: {voice_source}, file: {voice_file}, model: {voice_model_id}")
+    
     try:
         from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
 
-        # Create a fresh agent instance
+        # TODO: Pass model_id, model_params, and voice config to the agent/tools
+        # For now, the agent uses system config. Future: override with GUI config.
         agent = create_composer_agent()
 
         # Format input

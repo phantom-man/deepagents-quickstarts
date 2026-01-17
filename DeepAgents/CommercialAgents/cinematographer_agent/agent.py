@@ -511,15 +511,33 @@ def create_cinematographer_agent(
     return run_agent
 
 
-def run_cinematographer_task(request_description: str) -> str:
+def run_cinematographer_task(
+    request_description: str,
+    model_id: str = None,
+    model_params: dict = None
+) -> str:
     """
     Synchronous entry point for external agents (Director).
     Handles HITL via ApprovalManager.
+    
+    Args:
+        request_description: The visual directive/plan from Director
+        model_id: Optional model ID from GUI (e.g., "wan-video/wan-2.5-t2v-fast")
+        model_params: Optional dict of model parameters from GUI schema
     """
-    logger.info("🎬 Cinematographer Consulted: %s", request_description)
+    logger.info("[CINEMA] Cinematographer Consulted: %s", request_description)
+    
+    # Log model configuration if provided
+    if model_id:
+        logger.info("[CINEMA] Using model from GUI: %s", model_id)
+    if model_params:
+        logger.info("[CINEMA] Model params: %s", model_params)
+    
     try:
         from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
 
+        # TODO: Pass model_id and model_params to the agent/tools
+        # For now, the agent uses system config. Future: override with GUI config.
         agent_gen = create_cinematographer_agent()
 
         final_output = ""

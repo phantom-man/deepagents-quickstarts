@@ -46,10 +46,30 @@ from DeepAgents.CommercialAgents.composer_agent.agent import (
 from DeepAgents.editor_tools import merge_video_audio_logic
 
 from DeepAgents.system_config import SystemConfiguration
+from DeepAgents.agent_brain import AgentComms
 
 # Setup Logger
 logger = logging.getLogger("DeepGraph")
 sys_conf = SystemConfiguration()
+
+# Global AgentComms for progress updates
+_graph_comms = None
+
+def _get_comms() -> AgentComms:
+    """Get or create AgentComms instance for progress updates."""
+    global _graph_comms
+    if _graph_comms is None:
+        _graph_comms = AgentComms()
+        _graph_comms.connect()
+    return _graph_comms
+
+def _emit_progress(agent_name: str, status: str):
+    """Emit progress update via AgentComms for GUI polling."""
+    try:
+        comms = _get_comms()
+        comms.send_message(agent_name, "GUI", status)
+    except Exception:
+        pass  # Non-critical, don't fail if comms unavailable
 
 
 # --- 1. The State (Shared Memory) ---
@@ -182,6 +202,7 @@ async def director_node(
     Uses Command for dynamic routing based on tool calls.
     """
     logger.info("🎬 NODE: Director")
+    _emit_progress("Director", "Starting creative planning...")
 
     conf = config.get("configurable", {})
     sys_prov, sys_model = sys_conf.get_agent_params("Director")
@@ -243,6 +264,7 @@ async def researcher_node(
     Uses Command for dynamic routing.
     """
     logger.info("🔎 NODE: Researcher")
+    _emit_progress("Researcher", "Researching and verifying facts...")
     plan = state.get("director_plan", "")
 
     research_query = (
@@ -319,6 +341,7 @@ async def validator_node(
     Uses Command for dynamic routing based on approval/rejection.
     """
     logger.info("⚖️ NODE: Validator")
+    _emit_progress("Confidence", "Validating plan quality...")
 
     conf = config.get("configurable", {})
     max_revs = conf.get("max_revisions", 3)
@@ -383,8 +406,22 @@ async def cinematographer_node(
     """
     Executes the Visual Directive.
     Uses Command for dynamic routing.
+    Respects GUI configuration for model selection and parameters.
     """
-    logger.info("🎥 NODE: Cinematographer")
+    logger.info("[CINEMA] NODE: Cinematographer")
+    
+    # Check if cinematographer is enabled in config
+    conf = config.get("configurable", {})
+    if not conf.get("cinematographer_active", True):
+        logger.info("[CINEMA] Skipped by configuration (inactive)")
+        state_update = {
+            "messages": [AIMessage(content="Cinematographer skipped (disabled in configuration)")]
+        }
+        # Skip to composer or editor
+        composer_active = conf.get("composer_active", True)
+        return _route_from_handoffs([], state_update, "composer" if composer_active else "editor", "Cinematographer")
+    
+    _emit_progress("Cinematographer", "Generating video assets...")
     plan = state.get("director_plan", "")
 
     # Safety: Ensure plan is string
@@ -394,12 +431,21 @@ async def cinematographer_node(
         else:
             plan = str(plan)
 
+    # Get model configuration from GUI
+    model_id = conf.get("cinematographer_model")
+    model_params = conf.get("cinematographer_params", {})
+    
     try:
         from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
             run_cinematographer_task,
         )
 
-        result = run_cinematographer_task(plan)
+        # Pass model configuration to the task
+        result = run_cinematographer_task(
+            plan, 
+            model_id=model_id,
+            model_params=model_params
+        )
 
         # Extract path
         path = (
@@ -425,14 +471,17 @@ async def cinematographer_node(
             "video_assets": assets,
         }
         
-        # Default: After visuals, go to composer for audio
-        return _route_from_handoffs([], state_update, "composer", "Cinematographer")
+        # Route based on composer activation
+        composer_active = conf.get("composer_active", True)
+        next_node = "composer" if composer_active else "editor"
+        return _route_from_handoffs([], state_update, next_node, "Cinematographer")
         
     except Exception as e:
         logger.error("Cinematography Failed: %s", e)
         state_update = {"messages": [AIMessage(content=f"Visual Error: {e}")]}
-        # On error, still try to continue to composer
-        return _route_from_handoffs([], state_update, "composer", "Cinematographer")
+        # On error, still try to continue
+        composer_active = conf.get("composer_active", True)
+        return _route_from_handoffs([], state_update, "composer" if composer_active else "editor", "Cinematographer")
 
 
 async def composer_node(
@@ -441,8 +490,20 @@ async def composer_node(
     """
     Executes the Audio Directive.
     Uses Command for dynamic routing.
+    Respects GUI configuration for model selection and parameters.
     """
-    logger.info("🎻 NODE: Composer")
+    logger.info("[COMPOSER] NODE: Composer")
+    
+    # Check if composer is enabled in config
+    conf = config.get("configurable", {})
+    if not conf.get("composer_active", True):
+        logger.info("[COMPOSER] Skipped by configuration (inactive)")
+        state_update = {
+            "messages": [AIMessage(content="Composer skipped (disabled in configuration)")]
+        }
+        return _route_from_handoffs([], state_update, "editor", "Composer")
+    
+    _emit_progress("Composer", "Generating audio/music...")
     plan = state.get("director_plan", "")
 
     # Safety: Ensure plan is string
@@ -452,17 +513,37 @@ async def composer_node(
         else:
             plan = str(plan)
 
+    # Get model configuration from GUI
+    model_id = conf.get("composer_model")
+    model_params = conf.get("composer_params", {})
+    voice_source = conf.get("composer_voice_source")
+    voice_file = conf.get("composer_voice_file")
+    voice_model_id = conf.get("composer_voice_model")
+
     try:
-        result = run_composer_task(plan)
+        # Pass model configuration to the task
+        result = run_composer_task(
+            plan,
+            model_id=model_id,
+            model_params=model_params,
+            voice_source=voice_source,
+            voice_file=voice_file,
+            voice_model_id=voice_model_id
+        )
         result = str(result)
         assets = []
         
+        # Extract audio file path - look for common audio extensions and paths
         match = re.search(
-            r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
+            r"(https?://[^\s\)]+\.(?:wav|mp3|m4a|aac)|[A-Za-z]:\\[^\s\)]+\.(?:wav|mp3|m4a|aac)|/[^\s\)]+\.(?:wav|mp3|m4a|aac)|Artifacts[^\s\)]+\.(?:wav|mp3|m4a|aac))",
             result,
+            re.IGNORECASE
         )
         if match:
-            assets.append(match.group(1))
+            audio_path = match.group(1)
+            # Normalize Windows backslashes
+            audio_path = audio_path.replace('/', os.sep).replace('\\', os.sep)
+            assets.append(audio_path)
 
         state_update = {
             "messages": [AIMessage(content=f"Audio Created: {result}")],
@@ -487,6 +568,7 @@ async def editor_node(
     Uses Command for dynamic routing (typically ends workflow).
     """
     logger.info("✂️ NODE: Editor (Merge)")
+    _emit_progress("Editor", "Merging video and audio...")
 
     conf = config.get("configurable", {})
     do_merge = conf.get("merge_output", True)
@@ -519,10 +601,29 @@ async def editor_node(
     res_path = merge_video_audio_logic(
         video_paths=valid_videos, audio_path=final_audio, output_name=fname
     )
+    
+    # Upload merged video to GCS for public access
+    cloud_url = None
+    if res_path and not res_path.startswith("Error") and os.path.exists(res_path):
+        res_path = os.path.normpath(res_path)
+        try:
+            from DeepAgents.asset_manager import AssetManager
+            am = AssetManager()
+            # Upload to GCS and get public URL
+            cloud_url = am._upload_to_gcs(res_path, os.path.basename(res_path), make_public=True)
+            if cloud_url:
+                logger.info(f"✅ Merged video uploaded to GCS (PUBLIC): {cloud_url}")
+        except Exception as upload_err:
+            logger.warning(f"GCS upload failed for merged video: {upload_err}")
+
+    # Build result message with both local and cloud URLs
+    result_msg = f"FINAL MERGED VIDEO: {res_path}"
+    if cloud_url:
+        result_msg += f"\nCloud URL (PUBLIC): {cloud_url}"
 
     state_update = {
-        "messages": [AIMessage(content=f"FINAL CUT: {res_path}")],
-        "final_output": res_path,
+        "messages": [AIMessage(content=result_msg)],
+        "final_output": cloud_url if cloud_url else res_path,  # Prefer cloud URL
     }
     
     # Editor is typically the final step

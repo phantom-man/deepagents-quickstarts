@@ -2,42 +2,74 @@
 
 ## Current Focus
 
-**Full Media Pipeline with FFmpeg Editor - OPERATIONAL**
+**Schema-Driven Dynamic UI System - IMPLEMENTED**
 
-- Status: **All Production Agents Validated** (Cinematographer, Composer, Editor).
-- Objective: End-to-end media production with zero quality loss merging.
-- LangGraph Server: Running at `http://127.0.0.1:2024` via PowerShell `Start-Job`.
+- Status: **New Architecture Complete** - Services package created with schema fetching, dynamic UI, validation.
+- Objective: Zero-touch configuration where UI auto-generates from model OpenAPI schemas.
+- GUI: Cinematographer and Composer sections with active checkboxes, model selectors, dynamic parameters.
 
 ## Recent Changes
 
-- **Editor FFmpeg Upgrade (2026-01-16)**:
-  - **Problem**: MoviePy-only implementation re-encoded video, causing quality loss.
-  - **Research**: Fetched FFmpeg, SuperUser, MoviePy documentation. Confirmed stream copy (`-c:v copy`) is gold standard.
-  - **Solution**: Complete rewrite of `editor_tools.py` (~550 lines) with FFmpeg-first approach.
-  - **Key Functions**: `merge_ffmpeg_stream_copy()`, `merge_ffmpeg_python()`, `concat_videos_ffmpeg()`, `quick_merge()`.
-  - **Fallback Chain**: FFmpeg CLI -> ffmpeg-python -> MoviePy -> Simulation.
-  - **FFmpeg Installed**: v8.0.1-full_build via `winget install ffmpeg`.
-  - **Test Result**: Verified merge with test video + audio - stream copy working perfectly.
-  - **Commit**: `d5df4bf` - "Upgrade editor to FFmpeg stream copy for max quality" (+426/-108 lines).
+- **Schema-Driven UI Architecture (2026-01-17)**:
+  - **Requirement**: User requested Agency page with Cinematographer/Composer sections that dynamically populate controls from model schemas.
+  - **Philosophy**: Zero-Touch (UI auto-configures) + Fail-Fast (errors surface immediately).
+  - **Solution**: Created new `DeepAgents/services/` package with four modules.
 
-- **Video Model Migration (2026-01-16)**:
-  - **Root Cause**: LangSmith Hub config had wrong video model ID (`replicate/zeroscope-v2-xl` instead of `replicate/anotherjesse/zeroscope-v2-xl`).
-  - **Second Issue**: The `anotherjesse/zeroscope-v2-xl` model was deprecated/removed from Replicate (404 Not Found).
-  - **Solution**: Migrated to modern `wan-video/wan-2.5-t2v-fast` model (fast, cheap, 480p-720p).
-  - **Backup Model**: Added `luma/ray-flash-2-540p` as fallback.
+- **New Files Created**:
+  - `services/schema_service.py` - Fetches OpenAPI schemas from Replicate API, parses to `ControlDefinition` objects.
+  - `services/ui_generator.py` - `DynamicUIGenerator` creates Streamlit widgets from schemas.
+  - `services/asset_validator.py` - Validates uploaded files (MIME type, size, duration).
+  - `services/model_registry.py` - Curated catalog of 15 AI models (video, music, voice, image).
+  - `gui/agency_sections.py` - `render_cinematographer_section()`, `render_composer_section()`.
 
-- **Hub/Cache Synchronization Issue (2026-01-16)**:
-  - **Protocol Established**: Hub is Source of Truth. Local cache is ONLY for startup speed. Check Hub first when debugging.
+- **Key Features**:
+  - Active checkboxes to enable/disable Cinematographer and Composer agents.
+  - Model dropdown populated from registry with tier/capability info.
+  - Dynamic parameter expanders that auto-generate sliders, selects, checkboxes from schema.
+  - Storyboard generation option with image model selector.
+  - Voice dependency resolution - detects if music model needs voice, offers generate/upload/select.
+  - Green/red validation indicators for uploaded files.
+  - Config pass-through: GUI -> AgentRunner -> Graph -> Agent nodes.
 
-- **tool_choice="any" Implementation (2026-01-16)**:
-  - **Solution**: Added `tool_choice="any"` to force actual tool execution, preventing hallucinations.
+- **Modified Files**:
+  - `gui/app.py` - Integrated agency sections into Agency tab.
+  - `gui/agent_runner.py` - `stream_agency_graph()` accepts and passes agency_config.
+  - `graphs/agency_graph.py` - Cinematographer/Composer nodes read config, skip if inactive.
+  - `CommercialAgents/cinematographer_agent/agent.py` - `run_cinematographer_task()` accepts model params.
+  - `CommercialAgents/composer_agent/agent.py` - `run_composer_task()` accepts model + voice params.
+
+- **Pylint Score**: 9.82/10 after trailing whitespace cleanup.
+
+## Architecture Notes
+
+### Schema Service Flow
+
+1. GUI selects model from registry
+2. `SchemaService.get_schema(model_id)` fetches from Replicate API
+3. Schema parsed to `ControlDefinition` list with type, min/max, options
+4. `DynamicUIGenerator.render_controls()` creates Streamlit widgets
+5. Values collected and passed through `agency_config` dict
+
+### Model Registry Categories
+
+- VIDEO: Wan 2.5 Fast, Luma Ray Flash 2, Minimax Video-01
+- AUDIO_MUSIC: Lyria-002, ACE-Step, Minimax Music-01, MusicGen
+- AUDIO_VOICE: Minimax Speech-01, XTTS-v2, Kokoro
+- IMAGE: FLUX Schnell/Pro, SDXL, SDXL Lightning, Imagen 3
+
+### Caching Strategy
+
+- Memory cache: In-process dict, instant lookup
+- Disk cache: JSON files in `.cache/schemas/`, 24-hour TTL
+- Fail-fast: If schema fetch fails, raise immediately
 
 ## Active Questions / Issues
 
-- None critical. All core agents validated.
+- TODO: Actually wire model_id/params to underlying Replicate calls in agents.
+- TODO: Implement voice generation chain when composer needs voice reference.
 
 ## Next Steps
 
-1. **Run Model Tests**: Validate LLM, video, and audio generation end-to-end.
-2. **Full Pipeline Test**: Director -> Cinematographer -> Composer -> Editor flow.
-3. **Git Push**: Push all commits to remote.
+1. **Test New UI**: Launch Streamlit, verify sections render correctly.
+2. **Commit & Push**: Save all changes to remote.
+3. **Wire Model Params**: Complete integration so selected model actually gets used.

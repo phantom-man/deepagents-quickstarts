@@ -44,17 +44,71 @@ class AgentRunner:
         # OTLP Configuration removed to favor standard LangChain Tracing (HTTP)
         # This prevents ConnectionRefusedError if no local OTLP collector is running.
         
-    def stream_agency_graph(self, directive: str):
+    def stream_agency_graph(self, directive: str, agency_config: dict = None):
         """
         Runs the full LangGraph Studio Pipeline (Director->Research->Validation->Prod).
         Yields standard GUI events: (AgentName, Type, Content).
+        Uses AgentComms polling for real-time progress updates.
+        
+        Args:
+            directive: The creative directive from the user
+            agency_config: Optional dict with agent configuration from GUI:
+                - cinematographer: {active, model_id, params, storyboard_active, storyboard_model_id}
+                - composer: {active, model_id, params, voice_source, voice_file, voice_model_id}
         """
         self.session.log_event("System", "info", f"Starting Studio Graph for: {directive}")
         
         import queue
         import threading
+        import time as time_module
         
         event_queue = queue.Queue()
+        stop_polling = threading.Event()
+        last_message_id = [0]  # Use list to allow modification in nested function
+        
+        # Get the start time to filter messages
+        run_start_time = time_module.time()
+        
+        def poll_agent_comms():
+            """Poll AgentComms database for new messages to update progress bar."""
+            while not stop_polling.is_set():
+                try:
+                    if self.comms and self.comms.conn:
+                        with self.comms.conn.cursor() as cur:
+                            # Get messages newer than last seen, sorted ascending
+                            cur.execute(
+                                """SELECT id, sender, content, timestamp 
+                                   FROM agent_messages 
+                                   WHERE id > %s 
+                                   ORDER BY timestamp ASC, id ASC 
+                                   LIMIT 10""",
+                                (last_message_id[0],)
+                            )
+                            rows = cur.fetchall()
+                            for row in rows:
+                                msg_id, sender, content, timestamp = row
+                                last_message_id[0] = msg_id
+                                
+                                # Map sender to GUI agent name
+                                agent_map = {
+                                    "Director": "Director",
+                                    "Researcher": "Researcher", 
+                                    "Confidence": "Confidence",
+                                    "Validator": "Confidence",
+                                    "Cinematographer": "Cinematographer",
+                                    "Composer": "Composer",
+                                    "Editor": "Editor",
+                                    "System": "System"
+                                }
+                                gui_name = agent_map.get(sender, sender)
+                                
+                                # Only emit progress updates (not full content)
+                                if content and len(content) < 200:
+                                    event_queue.put((gui_name, "progress", content))
+                except Exception as e:
+                    pass  # Silently ignore polling errors
+                
+                time_module.sleep(0.5)  # Poll every 500ms
         
         async def run_loop():
             try:
@@ -69,16 +123,41 @@ class AgentRunner:
                     # We will use the standard invoke for simplicity in this version,
                     # mapping graph events to UI events.
                     
+                    # Build configurable dict with agency settings
+                    configurable = {
+                        "thread_id": f"studio_{self.session.session_id}",
+                        "require_validation": True,
+                        "merge_output": True,
+                    }
+                    
+                    # Inject agency configuration from GUI
+                    if agency_config:
+                        # Cinematographer settings
+                        cinema_cfg = agency_config.get("cinematographer", {})
+                        configurable["cinematographer_active"] = cinema_cfg.get("active", True)
+                        configurable["cinematographer_model"] = cinema_cfg.get("model_id")
+                        configurable["cinematographer_params"] = cinema_cfg.get("params", {})
+                        configurable["storyboard_active"] = cinema_cfg.get("storyboard_active", False)
+                        configurable["storyboard_model"] = cinema_cfg.get("storyboard_model_id")
+                        
+                        # Composer settings
+                        composer_cfg = agency_config.get("composer", {})
+                        configurable["composer_active"] = composer_cfg.get("active", True)
+                        configurable["composer_model"] = composer_cfg.get("model_id")
+                        configurable["composer_params"] = composer_cfg.get("params", {})
+                        configurable["composer_voice_source"] = composer_cfg.get("voice_source")
+                        configurable["composer_voice_file"] = composer_cfg.get("voice_file")
+                        configurable["composer_voice_model"] = composer_cfg.get("voice_model_id")
+                    
                     config = {
-                        "configurable": {
-                            "thread_id": f"studio_{self.session.session_id}",
-                            "require_validation": True,
-                            "merge_output": True
-                        },
+                        "configurable": configurable,
                         "tags": ["deep-agents-studio", "gui-triggered"],
                     }
 
                     # We use astream to get node outputs as they complete
+                    # Track which nodes we've sent "starting" events for
+                    started_nodes = set()
+                    
                     async for event in studio_graph.astream(
                         {"messages": [("user", directive)]},
                         config=config,
@@ -96,6 +175,14 @@ class AgentRunner:
                                 "editor": "Editor"
                             }
                             gui_name = agent_map.get(node_name, node_name.capitalize())
+                            
+                            # FIX: Send "starting" event FIRST before any output
+                            # This allows progress bar to update at the START of each agent
+                            if node_name not in started_nodes:
+                                started_nodes.add(node_name)
+                                # Use "progress" type so it updates the bar immediately without adding to log
+                                event_queue.put((gui_name, "progress", f"Initializing {gui_name}..."))
+                                event_queue.put((gui_name, "info", f"Starting {gui_name} processing..."))
                             
                             # Extract Content
                             # Our graph nodes return 'messages', 'director_plan', etc.
@@ -137,6 +224,10 @@ class AgentRunner:
                     event_queue.put(("System", "error", f"Async Thread Error: {ex}"))
                     event_queue.put(None)
 
+            # Start the polling thread for AgentComms
+            poll_thread = threading.Thread(target=poll_agent_comms, daemon=True)
+            poll_thread.start()
+            
             thread = threading.Thread(target=start_loop)
             thread.start()
 
@@ -148,13 +239,18 @@ class AgentRunner:
 
                 agent_name, evt_type, content = item
                 
-                # Log & Broadcast
-                self.session.log_event(agent_name, evt_type, content)
-                self.comms.send_message(agent_name, "All", f"{evt_type}: {content[:50]}...")
+                # Log & Broadcast (skip progress events to avoid spam)
+                if evt_type != "progress":
+                    self.session.log_event(agent_name, evt_type, content)
+                    self.comms.send_message(agent_name, "All", f"{evt_type}: {content[:50]}...")
                 
                 yield item
+            
+            # Stop polling thread
+            stop_polling.set()
 
         except Exception as e:
+             stop_polling.set()
              yield ("System", "error", str(e))
 
     async def _run_agent_async(self, agent_factory, inputs, config):

@@ -82,8 +82,36 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Video Model**: Primary video model is `wan-video/wan-2.5-t2v-fast` (fast, cheap, 480p). Backup is `luma/ray-flash-2-540p`. The deprecated `zeroscope-v2-xl` model was removed from Replicate.
 - **Editor/FFmpeg (CRITICAL)**: The Editor agent uses FFmpeg stream copy (`-c:v copy`) for maximum quality video/audio merging. FFmpeg 8.0+ is REQUIRED on the system PATH. Fallback chain: FFmpeg CLI -> ffmpeg-python -> MoviePy. Stream copy preserves bit-for-bit video quality; MoviePy always re-encodes (quality loss).
 - **Media Merging Gold Standard**: Use `quick_merge()` or `merge_video_audio_logic()` from `editor_tools.py`. Command pattern: `ffmpeg -i video.mp4 -i audio.mp3 -c:v copy -c:a aac -b:a 192k -map 0:v:0 -map 1:a:0 -shortest output.mp4`
+- **Schema-Driven Dynamic UI (CRITICAL)**: The GUI uses OpenAPI schemas from Replicate API to auto-populate controls. Do NOT hardcode model parameters. Use `SchemaService.get_schema()` to fetch and cache schemas.
+- **Streamlit UploadedFile Type**: Use `file_obj: Any` with duck-typing for attribute access (`name`, `read()`, `seek()`). Do NOT use `BinaryIO` which lacks `name` attribute.
+- **TYPE_CHECKING Pattern**: Use `from typing import TYPE_CHECKING` with `if TYPE_CHECKING:` blocks for imports only needed for type hints (avoids circular imports).
 
-### 6. MemoriPilot Documentation & Protocols
+### 6. Services Package Architecture (NEW - 2026-01-17)
+The `DeepAgents/services/` package provides schema-driven dynamic configuration for AI models.
+
+- **schema_service.py**: Core service for fetching and caching OpenAPI schemas from Replicate.
+    - `SchemaService.get_schema(model_id)` - Returns `ModelSchema` with `ControlDefinition` list.
+    - Caching: Memory cache (in-process dict) + disk cache (`.cache/schemas/`, 24-hour TTL).
+    - `ControlType` enum: `TEXT`, `NUMBER`, `SELECT`, `BOOLEAN`, `FILE`, `SLIDER`.
+- **ui_generator.py**: Dynamic Streamlit widget generation.
+    - `DynamicUIGenerator.render_control()` - Creates appropriate widget from `ControlDefinition`.
+    - `render_model_config_panel()` - Renders full model configuration with expander.
+- **asset_validator.py**: File validation against schema requirements.
+    - `AssetValidator.validate_file()` - Checks MIME type, file size, duration.
+    - Optional dependencies: `pydub` (audio duration), `cv2` (video duration).
+- **model_registry.py**: Curated catalog of 15 AI models.
+    - Categories: `VIDEO`, `AUDIO_MUSIC`, `AUDIO_VOICE`, `IMAGE`.
+    - `ModelRegistry.get_models_by_category()` - Returns list of `ModelInfo`.
+    - Pre-registered: Wan, Luma, Minimax Video, Lyria-002, ACE-Step, MusicGen, XTTS-v2, Kokoro, FLUX, SDXL, Imagen 3.
+
+**GUI Integration Pattern:**
+1. `gui/agency_sections.py` renders Cinematographer and Composer sections with active checkboxes.
+2. User selects model from registry dropdown.
+3. Schema fetched via `SchemaService`, controls rendered via `DynamicUIGenerator`.
+4. Config dict flows: GUI -> `agent_runner.py` -> `agency_graph.py` -> Agent nodes.
+5. Nodes check `configurable["*_active"]` and skip if `False`.
+
+### 7. MemoriPilot Documentation & Protocols
 The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.
 
 **CONSTRAINT: ROLE SEPARATION**

@@ -41,41 +41,60 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Clean dark theme overrides */
-    .stApp { background-color: #0e1117; }
+    /* Light theme for better readability - scoped to Streamlit elements only */
+    .stApp { background-color: #f8f9fa; }
     .block-container { padding: 2rem; max-width: 1200px; margin: auto; }
+    
+    /* Main content text */
+    .stApp .stMarkdown, .stApp p, .stApp span, .stApp label { color: #212529; }
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4 { color: #212529; }
+    
+    /* FIX: Button cursor states - ensure enabled buttons have pointer cursor */
+    .stButton > button {
+        cursor: pointer !important;
+    }
+    .stButton > button:disabled {
+        cursor: not-allowed !important;
+        opacity: 0.6;
+    }
+    .stButton > button:not(:disabled):hover {
+        cursor: pointer !important;
+    }
     
     /* Event log styling */
     .event-log {
-        background: #1a1a2e;
+        background: #ffffff;
         border-radius: 8px;
         padding: 1rem;
         max-height: 500px;
         overflow-y: auto;
         font-family: 'Consolas', 'Monaco', monospace;
         font-size: 0.85rem;
-        border: 1px solid #333;
+        border: 1px solid #dee2e6;
+        color: #212529;
     }
-    .event-info { color: #58a6ff; }
-    .event-output { color: #7ee787; }
-    .event-error { color: #f85149; }
-    .event-thinking { color: #d29922; font-style: italic; }
+    .event-info { color: #0d6efd; }
+    .event-output { color: #198754; }
+    .event-error { color: #dc3545; }
+    .event-thinking { color: #fd7e14; font-style: italic; }
     
     /* Message bubbles for AgentComms */
-    .msg-sender { color: #58a6ff; font-weight: bold; }
-    .msg-recipient { color: #a371f7; }
+    .msg-sender { color: #0d6efd; font-weight: bold; }
+    .msg-recipient { color: #6f42c1; }
     .msg-content { 
-        background: #21262d;
+        background: #ffffff;
         padding: 0.75rem;
         border-radius: 8px;
         margin: 0.5rem 0;
-        border-left: 3px solid #58a6ff;
+        border-left: 3px solid #0d6efd;
+        color: #212529;
+        border: 1px solid #dee2e6;
     }
-    .msg-timestamp { color: #8b949e; font-size: 0.75rem; }
+    .msg-timestamp { color: #6c757d; font-size: 0.75rem; }
     
     /* Status indicators */
-    .status-connected { color: #3fb950; }
-    .status-disconnected { color: #f85149; }
+    .status-connected { color: #198754; font-weight: bold; }
+    .status-disconnected { color: #dc3545; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -148,21 +167,48 @@ tab_agency, tab_research, tab_comms = st.tabs([
 # TAB 1: AGENCY - FULL LANGGRAPH ORCHESTRATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
+# Import agency sections for dynamic UI
+try:
+    from gui.agency_sections import (
+        render_cinematographer_section,
+        render_composer_section,
+        get_agency_config,
+        validate_agency_config
+    )
+    AGENCY_SECTIONS_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"Agency sections not available: {e}")
+    AGENCY_SECTIONS_AVAILABLE = False
+
 with tab_agency:
     st.header("Agency Orchestration")
     st.markdown("""
-    **Zero-Touch AI Production Pipeline**
+    **Schema-Driven AI Production Pipeline**
     
-    Enter a creative directive and the Agency will orchestrate the full production:
-    - **Director (Apollo)** - Plans and coordinates the project
-    - **Researcher (Delphi)** - Gathers facts and context
-    - **Confidence (Validator)** - Quality assurance and validation
-    - **Cinematographer (Lumiere)** - Video generation
-    - **Composer (Orpheus)** - Music and audio generation
-    - **Editor** - Final assembly and delivery
+    Configure your agents below, enter a creative directive, and run the Agency.
     """)
     
     st.divider()
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # AGENT CONFIGURATION SECTIONS
+    # ─────────────────────────────────────────────────────────────────────────
+    
+    if AGENCY_SECTIONS_AVAILABLE:
+        # Two-column layout for Cinematographer and Composer
+        col_cinema, col_composer = st.columns(2)
+        
+        with col_cinema:
+            cinema_config = render_cinematographer_section()
+        
+        with col_composer:
+            composer_config = render_composer_section()
+        
+        st.divider()
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # DIRECTIVE INPUT
+    # ─────────────────────────────────────────────────────────────────────────
     
     # Directive Input
     directive = st.text_area(
@@ -172,69 +218,316 @@ with tab_agency:
         key="agency_directive"
     )
     
+    # Validation before run
+    if AGENCY_SECTIONS_AVAILABLE:
+        agency_cfg = get_agency_config()
+        is_valid, validation_errors = validate_agency_config(agency_cfg)
+        
+        if not is_valid:
+            for err in validation_errors:
+                st.warning(f"⚠️ {err}")
+    else:
+        is_valid = True
+        agency_cfg = None
+    
     col_run, col_stop = st.columns([1, 1])
     
     with col_run:
+        # Run Agency - disabled while running or if config invalid
+        run_disabled = st.session_state.agency_running or (AGENCY_SECTIONS_AVAILABLE and not is_valid)
         run_button = st.button(
             "🚀 Run Agency",
-            disabled=st.session_state.agency_running or not directive,
+            disabled=run_disabled,
             use_container_width=True,
             type="primary"
         )
     
     with col_stop:
+        # Stop - only enabled while agency is running
         stop_button = st.button(
             "⏹️ Stop",
             disabled=not st.session_state.agency_running,
             use_container_width=True
         )
     
-    # Event Log Container
+    # Initialize session state for generated assets
+    if "generated_video" not in st.session_state:
+        st.session_state.generated_video = None
+    if "generated_audio" not in st.session_state:
+        st.session_state.generated_audio = None
+    if "generated_final" not in st.session_state:
+        st.session_state.generated_final = None
+    
+    # Progress and Status Display
+    progress_container = st.container()
     event_container = st.container()
+    download_container = st.container()
+    
+    # Helper function to extract file paths from content
+    def extract_file_path(content):
+        """Extract file paths from content string and normalize them."""
+        import re
+        # Match common file patterns - prioritize cloud URLs
+        patterns = [
+            r'(https://storage\.googleapis\.com/[^\s\)\"\']+)',  # GCS public URLs (highest priority)
+            r'(https?://[^\s\)\"\']+\.(mp4|mp3|wav|png|jpg|webm))',  # Other URLs with media extensions
+            r'(gs://[^\s\)\"\']+ )',  # GCS paths
+            r'([A-Za-z]:\\[^\s\)\"\']+\.(mp4|mp3|wav|png|jpg|webm))',  # Windows paths
+            r'(/[^\s\)\"\']+\.(mp4|mp3|wav|png|jpg|webm))',  # Unix paths
+            r'(Artifacts[/\\][^\s\)\"\']+\.(mp4|mp3|wav|png|jpg|webm))',  # Relative Artifacts paths
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, content, re.IGNORECASE)
+            if match:
+                path = match.group(1)
+                # If it's a URL, return as-is
+                if path.startswith('http'):
+                    return path
+                # Normalize local path - fix mixed slashes
+                path = path.replace('/', os.sep).replace('\\', os.sep)
+                # Convert relative Artifacts paths to absolute
+                if path.startswith('Artifacts'):
+                    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+                    path = os.path.join(base_dir, path)
+                return os.path.normpath(path)
+        return None
+    
+    def extract_cloud_url(content):
+        """Extract cloud/public URL from content string."""
+        import re
+        # Look specifically for GCS public URLs
+        match = re.search(r'(https://storage\.googleapis\.com/[^\s\)\"\']+)', content)
+        if match:
+            return match.group(1)
+        # Also check for generic HTTPS media URLs
+        match = re.search(r'(https://[^\s\)\"\']+\.(mp4|mp3|wav|webm))', content, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        return None
+    
+    def make_content_clickable(content):
+        """Convert file paths in content to clickable links."""
+        import re
+        # Replace GCS paths
+        content = re.sub(
+            r'(gs://[^\s\)\"\'<>]+)',
+            r'<a href="https://console.cloud.google.com/storage/browser/\1" target="_blank" style="color: #0d6efd;">\1</a>',
+            content
+        )
+        # Replace HTTP URLs
+        content = re.sub(
+            r'(https?://[^\s\)\"\'<>]+)',
+            r'<a href="\1" target="_blank" style="color: #0d6efd;">\1</a>',
+            content
+        )
+        # Replace local file paths (make them visible but note they're local)
+        content = re.sub(
+            r'([A-Za-z]:\\[^\s\)\"\'<>]+\.(mp4|mp3|wav|png|jpg|webm))',
+            r'<span style="color: #0d6efd; text-decoration: underline;" title="Local file path">\1</span>',
+            content,
+            flags=re.IGNORECASE
+        )
+        return content
     
     # Execution Logic
-    if run_button and directive:
-        st.session_state.agency_running = True
+    if run_button:
+        if not directive:
+            st.warning("⚠️ Please enter a creative directive before running the agency.")
+        else:
+            st.session_state.agency_running = True
+            st.session_state.generated_video = None
+            st.session_state.generated_audio = None
+            st.session_state.generated_final = None
+            
+            with progress_container:
+                progress_bar = st.progress(0, text="Initializing Agency...")
+                status_text = st.empty()
+            
+            with event_container:
+                st.subheader("📋 Event Log")
+                event_placeholder = st.empty()
+                events_html = []
+                
+                # Agent progress mapping
+                agent_progress = {
+                    "System": 5,
+                    "Director": 15,
+                    "Researcher": 30,
+                    "Confidence": 45,
+                    "Cinematographer": 60,
+                    "Composer": 75,
+                    "Editor": 90,
+                }
+                
+                try:
+                    runner = st.session_state.agent_runner
+                    current_agent = "System"
+                    
+                    # Pass agency config if available
+                    stream_config = agency_cfg if AGENCY_SECTIONS_AVAILABLE else None
+                    
+                    for event in runner.stream_agency_graph(directive, agency_config=stream_config):
+                        if event is None:
+                            break
+                        
+                        agent_name, event_type, content = event
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        
+                        # Update progress bar immediately on ANY event from an agent
+                        current_agent = agent_name
+                        progress_pct = agent_progress.get(agent_name, 50)
+                        
+                        # For progress events, use the content as the status text
+                        if event_type == "progress":
+                            progress_bar.progress(progress_pct / 100, text=f"🔄 {agent_name}: {content[:60]}...")
+                            status_text.markdown(f"**Current Agent:** {agent_name} | **Status:** Processing")
+                            continue  # Don't add to event log, just update progress
+                        else:
+                            progress_bar.progress(progress_pct / 100, text=f"🔄 {agent_name}: Processing...")
+                            status_text.markdown(f"**Current Agent:** {agent_name} | **Status:** {event_type.title()}")
+                        
+                        # Track generated assets - prioritize cloud URLs over local paths
+                        content_lower = content.lower()
+                        cloud_url = extract_cloud_url(content)
+                        local_path = extract_file_path(content)
+                        # Use cloud URL if available, otherwise local path
+                        path = cloud_url if cloud_url else local_path
+                        
+                        # Cinematographer outputs video
+                        if agent_name == "Cinematographer" and path:
+                            if path.startswith('http') or (path and path.endswith(('.mp4', '.webm'))):
+                                st.session_state.generated_video = path
+                        # Composer outputs audio
+                        elif agent_name == "Composer" and path:
+                            if path.startswith('http') or (path and path.endswith(('.wav', '.mp3', '.m4a'))):
+                                st.session_state.generated_audio = path
+                        # Editor outputs final merged video
+                        elif agent_name == "Editor" and path:
+                            if path.startswith('http') or (path and path.endswith('.mp4')):
+                                st.session_state.generated_final = path
+                        # Fallback: generic detection
+                        elif path:
+                            if "video" in content_lower and ("created" in content_lower or "generated" in content_lower or "success" in content_lower):
+                                if path.startswith('http') or path.endswith(('.mp4', '.webm')):
+                                    st.session_state.generated_video = path
+                            if "audio" in content_lower and ("created" in content_lower or "generated" in content_lower or "success" in content_lower):
+                                if path.startswith('http') or path.endswith(('.wav', '.mp3', '.m4a')):
+                                    st.session_state.generated_audio = path
+                            if "final" in content_lower and ("merge" in content_lower or "output" in content_lower or "cut" in content_lower):
+                                if path.startswith('http') or path.endswith('.mp4'):
+                                    st.session_state.generated_final = path
+                        
+                        # Format event with clickable links
+                        css_class = "event-info"
+                        if event_type == "output":
+                            css_class = "event-output"
+                        elif event_type == "error":
+                            css_class = "event-error"
+                        elif event_type == "thinking":
+                            css_class = "event-thinking"
+                        
+                        clickable_content = make_content_clickable(content)
+                        event_html = f"<div class='{css_class}' style='padding: 4px 0; border-bottom: 1px solid #eee;'>[{timestamp}] <b>{agent_name}</b>: {clickable_content}</div>"
+                        events_html.append(event_html)
+                        
+                        # Update display (show last 50 events)
+                        event_placeholder.markdown(
+                            f"<div class='event-log'>{''.join(events_html[-50:])}</div>",
+                            unsafe_allow_html=True
+                        )
+                    
+                    progress_bar.progress(100, text="✅ Pipeline Complete!")
+                    status_text.markdown("**Status:** Complete")
+                    st.success("Agency pipeline completed!")
+                    
+                except Exception as e:
+                    progress_bar.progress(100, text="❌ Pipeline Failed")
+                    status_text.markdown(f"**Status:** Error - {str(e)[:50]}")
+                    st.error(f"Agency Error: {str(e)}")
+                    logger.exception("Agency execution failed")
+                finally:
+                    st.session_state.agency_running = False
+    
+    # Download Section - Always visible if assets exist
+    with download_container:
+        has_video = st.session_state.generated_video is not None
+        has_audio = st.session_state.generated_audio is not None
+        has_final = st.session_state.generated_final is not None
         
-        with event_container:
-            st.markdown("<div class='event-log'>", unsafe_allow_html=True)
-            event_placeholder = st.empty()
-            events_html = []
+        if has_video or has_audio or has_final:
+            st.divider()
+            st.subheader("📥 Download Generated Media")
             
-            try:
-                runner = st.session_state.agent_runner
-                
-                for event in runner.stream_agency_graph(directive):
-                    if event is None:
-                        break
-                    
-                    agent_name, event_type, content = event
-                    timestamp = datetime.now().strftime("%H:%M:%S")
-                    
-                    # Format event
-                    css_class = "event-info"
-                    if event_type == "output":
-                        css_class = "event-output"
-                    elif event_type == "error":
-                        css_class = "event-error"
-                    elif event_type == "thinking":
-                        css_class = "event-thinking"
-                    
-                    event_html = f"<div class='{css_class}'>[{timestamp}] <b>{agent_name}</b>: {content}</div>"
-                    events_html.append(event_html)
-                    
-                    # Update display (show last 50 events)
-                    event_placeholder.markdown("\n".join(events_html[-50:]), unsafe_allow_html=True)
-                
-                st.success("Agency pipeline completed!")
-                
-            except Exception as e:
-                st.error(f"Agency Error: {str(e)}")
-                logger.exception("Agency execution failed")
-            finally:
-                st.session_state.agency_running = False
+            col_final, col_video, col_audio = st.columns(3)
             
-            st.markdown("</div>", unsafe_allow_html=True)
+            with col_final:
+                if has_final:
+                    final_path = st.session_state.generated_final
+                    st.markdown(f"**Combined Video**")
+                    if final_path.startswith("gs://"):
+                        st.markdown(f"[🎬 Download Final Video]({final_path.replace('gs://', 'https://storage.googleapis.com/')})")
+                    elif final_path.startswith("http"):
+                        st.markdown(f"[🎬 Download Final Video]({final_path})")
+                    else:
+                        # Local file - try to provide download
+                        if os.path.exists(final_path):
+                            with open(final_path, "rb") as f:
+                                st.download_button(
+                                    "🎬 Download Final Video",
+                                    data=f.read(),
+                                    file_name=os.path.basename(final_path),
+                                    mime="video/mp4"
+                                )
+                        else:
+                            st.info(f"Local: {final_path}")
+                else:
+                    st.markdown("*No combined video*")
+            
+            with col_video:
+                if has_video:
+                    video_path = st.session_state.generated_video
+                    st.markdown(f"**Video Only**")
+                    if video_path.startswith("gs://"):
+                        st.markdown(f"[🎥 Download Video]({video_path.replace('gs://', 'https://storage.googleapis.com/')})")
+                    elif video_path.startswith("http"):
+                        st.markdown(f"[🎥 Download Video]({video_path})")
+                    else:
+                        if os.path.exists(video_path):
+                            with open(video_path, "rb") as f:
+                                st.download_button(
+                                    "🎥 Download Video",
+                                    data=f.read(),
+                                    file_name=os.path.basename(video_path),
+                                    mime="video/mp4"
+                                )
+                        else:
+                            st.info(f"Local: {video_path}")
+                else:
+                    st.markdown("*No video generated*")
+            
+            with col_audio:
+                if has_audio:
+                    audio_path = st.session_state.generated_audio
+                    st.markdown(f"**Audio Only**")
+                    if audio_path.startswith("gs://"):
+                        st.markdown(f"[🎵 Download Audio]({audio_path.replace('gs://', 'https://storage.googleapis.com/')})")
+                    elif audio_path.startswith("http"):
+                        st.markdown(f"[🎵 Download Audio]({audio_path})")
+                    else:
+                        if os.path.exists(audio_path):
+                            with open(audio_path, "rb") as f:
+                                # Detect mime type based on extension
+                                audio_mime = "audio/wav" if audio_path.lower().endswith(".wav") else "audio/mpeg"
+                                st.download_button(
+                                    "🎵 Download Audio",
+                                    data=f.read(),
+                                    file_name=os.path.basename(audio_path),
+                                    mime=audio_mime
+                                )
+                        else:
+                            st.info(f"Local: {audio_path}")
+                else:
+                    st.markdown("*No audio generated*")
     
     if stop_button:
         st.session_state.agency_running = False
