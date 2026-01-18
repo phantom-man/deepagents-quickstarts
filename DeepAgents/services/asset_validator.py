@@ -99,6 +99,20 @@ class AssetValidator:
         self._pydub_available = self._check_pydub()
         self._opencv_available = self._check_opencv()
 
+    @staticmethod
+    def _format_duration(seconds: Optional[float]) -> Optional[str]:
+        """Format duration in seconds to mm:ss or hh:mm:ss string."""
+        if seconds is None:
+            return None
+        if seconds <= 0:
+            return "0s"
+        total_seconds = int(round(seconds))
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        return f"{minutes:02d}:{secs:02d}"
+
     def _check_pydub(self) -> bool:
         """Check if pydub is available for audio duration."""
         try:
@@ -427,3 +441,70 @@ def validate_upload(
         min_duration=min_duration,
         max_duration=max_duration
     )
+
+    def extract_metadata(
+        self,
+        file_path: Union[str, Path],
+        asset_type: str
+    ) -> Dict[str, Any]:
+        """Extract best-effort metadata for audio or video files."""
+        metadata: Dict[str, Any] = {}
+        path = str(file_path)
+
+        if not os.path.exists(path):
+            return metadata
+
+        try:
+            stat_info = os.stat(path)
+            metadata["file_size_bytes"] = stat_info.st_size
+            metadata["file_size_readable"] = f"{stat_info.st_size / (1024 * 1024):.2f} MB"
+        except OSError as exc:
+            logger.warning(f"Could not stat file for metadata: {exc}")
+
+        mime_type, _ = mimetypes.guess_type(path)
+        if mime_type:
+            metadata["mime_type"] = mime_type
+
+        duration_seconds: Optional[float] = None
+
+        if asset_type == "video" and self._opencv_available:
+            try:
+                import cv2
+
+                cap = cv2.VideoCapture(path)
+                fps = cap.get(cv2.CAP_PROP_FPS) or 0.0
+                frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0.0
+                width = cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0.0
+                height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0.0
+                cap.release()
+
+                if fps > 0:
+                    duration_seconds = frame_count / fps
+
+                if width > 0 and height > 0:
+                    metadata["resolution"] = f"{int(width)}x{int(height)}"
+
+                if fps > 0:
+                    metadata["fps"] = round(fps, 2)
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.warning(f"Could not extract video metadata: {exc}")
+
+        if asset_type == "audio" and self._pydub_available:
+            try:
+                from pydub import AudioSegment
+
+                audio = AudioSegment.from_file(path)
+                duration_seconds = len(audio) / 1000.0
+                metadata["channels"] = audio.channels
+                metadata["frame_rate"] = audio.frame_rate
+                metadata["sample_width_bytes"] = audio.sample_width
+            except Exception as exc:  # pylint: disable=broad-except
+                logger.warning(f"Could not extract audio metadata: {exc}")
+
+        if duration_seconds is not None:
+            metadata["duration_seconds"] = round(duration_seconds, 2)
+            formatted = self._format_duration(duration_seconds)
+            if formatted:
+                metadata["duration_readable"] = formatted
+
+        return metadata

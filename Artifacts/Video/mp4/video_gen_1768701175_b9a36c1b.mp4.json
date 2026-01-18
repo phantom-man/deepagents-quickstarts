@@ -1,0 +1,15 @@
+{
+  "prompt": "A majestic eagle soaring over mountain peaks at sunset",
+  "timestamp": 1768701175,
+  "date": "2026-01-17 18:52:57",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768701175_b9a36c1b.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768701175_b9a36c1b.mp4",
+  "cloud_url": null,
+  "session_id": "default",
+  "metadata": {
+    "model": "veo-3.1-fast-generate-001",
+    "provider": "VertexAI-Veo"
+  }
+}

@@ -578,36 +578,24 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             tags = lyric_data.get("tags", input_text)
             lyrics = lyric_data.get("lyrics", "[inst]")
 
-            # High Quality Params
-            input_data = {
-                "lyrics": lyrics,
-                "prompt": tags,
-                "duration": ace_duration,
-                "num_inference_steps": 50,  # MAX Quality
-                "guidance_scale": 7.5,
-            }
-
-            # ACE Step Run
-            ace_out = _safe_replicate_run("lucataco/ace-step", input_data=input_data)
-            final_url = _extract_replicate_url(ace_out)
-
-            # Hardcoded Options from Examples (Tuned for Quality)
+            # ACE-Step requires 'tags' not 'prompt' - MAXIMUM QUALITY SETTINGS
             payload = {
-                "tags": tags,
+                "tags": tags,  # REQUIRED field for ACE-Step
                 "lyrics": lyrics,
                 "duration": ace_duration,
-                "scheduler": "heun",
-                "guidance_type": "apg",
-                "guidance_scale": 20,  # Boosted to 20 for strict adherence
-                "number_of_steps": 200,  # MAX (200) for best quality
-                "granularity_scale": 10,
-                "guidance_interval": 0.5,
-                "min_guidance_scale": 3,
-                "tag_guidance_scale": 10,  # MAX (10) - Absolute Stlye Adherence
-                "lyric_guidance_scale": 10,  # MAX (10) - Absolute Lyric Adherence
-                "guidance_interval_decay": 0,
+                # === MAXIMUM QUALITY SETTINGS ===
+                "scheduler": "euler",           # euler = more stable/cleaner than heun
+                "guidance_type": "apg",         # APG = Adjusted Prompt Guidance (best)
+                "guidance_scale": 15,           # 15 = optimal balance (20 can over-saturate)
+                "number_of_steps": 200,         # 200 = MAXIMUM (best quality, slower)
+                "granularity_scale": 10,        # 10 = MAXIMUM detail
+                "guidance_interval": 0.5,       # Standard interval
+                "min_guidance_scale": 3,        # Minimum guidance floor
+                "tag_guidance_scale": 10,       # 10 = MAXIMUM style adherence
+                "lyric_guidance_scale": 10,     # 10 = MAXIMUM lyric alignment
+                "guidance_interval_decay": 0,   # No decay = consistent quality
             }
-            logger.info(f"   Payload Keys: {payload.keys()}")
+            logger.info(f"   ACE-Step Payload: tags='{tags[:50]}...', duration={ace_duration}s")
 
             ace_out = _safe_replicate_run("lucataco/ace-step", input_data=payload)
             final_url = _extract_replicate_url(ace_out)

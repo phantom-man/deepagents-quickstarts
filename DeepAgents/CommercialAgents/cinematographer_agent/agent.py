@@ -255,15 +255,123 @@ def create_cinematographer_agent(
             return f"Error Generating Image: {e}"
         return "Error: Image Generation returned no data."
 
+    def _generate_video_vertex(prompt: str, duration: int = 8) -> str:
+        """
+        Generates a video using Google Vertex AI Veo models.
+        Returns local file path (and cloud link).
+        
+        Note: Veo 3.1 only supports durations of 4, 6, or 8 seconds.
+        """
+        logger.info(f"[VIDEO-VERTEX] Generating with Veo: {vid_model}")
+        
+        if not gen_client:
+            return "Error: Google GenAI client not initialized. Check GOOGLE_CLOUD_PROJECT."
+        
+        try:
+            from google.genai import types
+            import time
+            
+            # Veo 3.1 only supports 4, 6, or 8 seconds - snap to nearest valid
+            valid_durations = [4, 6, 8]
+            if duration not in valid_durations:
+                # Snap to nearest valid duration
+                original = duration
+                duration = min(valid_durations, key=lambda x: abs(x - duration))
+                logger.warning(f"[VIDEO-VERTEX] Duration {original}s not supported, using {duration}s")
+            
+            # Veo generation config
+            config = types.GenerateVideosConfig(
+                aspect_ratio="16:9",
+                number_of_videos=1,
+                duration_seconds=duration,
+                enhance_prompt=True,  # Let Veo optimize the prompt
+            )
+            
+            logger.info(f"[VIDEO-VERTEX] Prompt: {prompt[:80]}...")
+            logger.info(f"[VIDEO-VERTEX] Config: duration={duration}s, aspect=16:9")
+            
+            # Start async generation
+            operation = gen_client.models.generate_videos(
+                model=vid_model,
+                prompt=prompt,
+                config=config,
+            )
+            
+            # Poll for completion (Veo is async)
+            logger.info("[VIDEO-VERTEX] Waiting for video generation...")
+            max_wait = 300  # 5 minutes max
+            poll_interval = 10
+            elapsed = 0
+            
+            while not operation.done and elapsed < max_wait:
+                time.sleep(poll_interval)
+                elapsed += poll_interval
+                logger.info(f"[VIDEO-VERTEX] Still generating... ({elapsed}s elapsed)")
+                operation = gen_client.operations.get(operation)
+            
+            if not operation.done:
+                return f"Error: Video generation timed out after {max_wait}s"
+            
+            # Check for result
+            if operation.response and operation.response.generated_videos:
+                video = operation.response.generated_videos[0]
+                video_uri = video.video.uri if hasattr(video.video, 'uri') else None
+                
+                if video_uri:
+                    logger.info(f"[VIDEO-VERTEX] Video ready: {video_uri}")
+                    
+                    # Download and save
+                    resp = requests.get(video_uri, timeout=120)
+                    if resp.status_code == 200:
+                        path = assets.save_asset(
+                            resp.content,
+                            "video",
+                            session_id,
+                            prompt,
+                            metadata={"model": vid_model, "provider": "VertexAI-Veo"},
+                        )
+                        if path:
+                            return f"Saved: {path}{_get_cloud_url(path)}"
+                        return "Error: Failed to save Veo video."
+                    return f"Error: Failed to download video (HTTP {resp.status_code})"
+                    
+                # Try getting bytes directly
+                if hasattr(video.video, 'video_bytes') and video.video.video_bytes:
+                    path = assets.save_asset(
+                        video.video.video_bytes,
+                        "video",
+                        session_id,
+                        prompt,
+                        metadata={"model": vid_model, "provider": "VertexAI-Veo"},
+                    )
+                    if path:
+                        return f"Saved: {path}{_get_cloud_url(path)}"
+                    return "Error: Failed to save Veo video bytes."
+                    
+            return f"Error: Veo returned no video data. Operation: {operation}"
+            
+        except Exception as e:
+            logger.error(f"[VIDEO-VERTEX] Veo generation failed: {e}")
+            return f"Error: Veo video generation failed: {e}"
+
     def _generate_video(prompt: str, duration: int = 5) -> str:
         """
         Generates a video clip (5-10s) based on the prompt.
         Uses dynamic schema-based prompt optimization from LangSmith Hub.
+        Supports Replicate AND Vertex AI (Veo) models.
         Returns local file path (and cloud link).
         """
         logger.info(f"[VIDEO] Generating Video: {prompt[:60]}...")
+        
+        # Check if this is a Vertex AI model (Veo)
+        is_vertex_model = vid_model.startswith("veo-") or "veo" in vid_model.lower()
+        
+        if is_vertex_model:
+            # Use Vertex AI for Veo models
+            return _generate_video_vertex(prompt, duration)
+        
         if vid_provider.lower() != "replicate":
-            return "Error: Only Replicate supported for video currently."
+            return "Error: Only Replicate and Vertex AI (Veo) supported for video currently."
 
         try:
             # Dynamic Prompt Optimization via Model Schema
@@ -339,7 +447,7 @@ def create_cinematographer_agent(
         StructuredTool.from_function(
             func=_generate_video,
             name="generate_video",
-            description="YOU MUST CALL THIS TOOL. Generates a video clip from a text prompt. This is your PRIMARY and MANDATORY tool. Call it immediately with the visual prompt you received.",
+            description="Generates a single video clip from a text prompt. Call this MULTIPLE TIMES if you need to generate multiple segments. Each call = one clip.",
         ),
     ]
 
@@ -388,11 +496,18 @@ def create_cinematographer_agent(
                     )
         else:
             yield ("thinking", "🎥 Cinematographer initializing...")
-            # FORCEFUL system prompt requiring immediate tool execution
+            # System prompt that supports multi-segment video generation
             sys_msg = SystemMessage(
                 content=f"{ontology}\n\n"
-                f"IMMEDIATE ACTION REQUIRED: Call generate_video NOW with the following prompt. "
-                f"Do NOT describe what you will do. Do NOT plan. Just call the tool."
+                f"## MULTI-SEGMENT VIDEO INSTRUCTIONS\n"
+                f"If the directive contains MULTIPLE segments (e.g., Segment 1, Segment 2, Segment 3), "
+                f"you MUST call generate_video ONCE for EACH segment.\n"
+                f"- Extract each segment's Visual Prompt\n"
+                f"- Call generate_video for Segment 1\n"
+                f"- Call generate_video for Segment 2\n"
+                f"- Continue until all segments are generated\n\n"
+                f"Each tool call creates ONE video clip. The Editor will concatenate them automatically.\n"
+                f"DO NOT combine multiple segments into one call - that produces poor results."
             )
             messages = [sys_msg, HumanMessage(content=input_text)]
 
@@ -410,14 +525,19 @@ def create_cinematographer_agent(
             yield ("error", f"LLM Error: {e}")
             return
 
-        # 2. Check for Tool Calls
+        # 2. Check for Tool Calls - MULTI-VIDEO SUPPORT
+        all_generated_assets = []  # Collect all video paths
+        
         if response.tool_calls:
-            for tool_call in response.tool_calls:
+            total_calls = len(response.tool_calls)
+            yield ("thinking", f"🎬 Generating {total_calls} video segment(s)...")
+            
+            for idx, tool_call in enumerate(response.tool_calls, 1):
                 tool_name = tool_call["name"]
                 args = tool_call["args"]
                 tool_id = tool_call["id"]
 
-                yield ("thinking", f"🔧 Executing {tool_name}...")
+                yield ("thinking", f"🔧 Executing {tool_name} ({idx}/{total_calls})...")
 
                 # Execute Tool (Fail Fast: No Try/Except to hide errors)
                 tool_result = "Error: Tool not found"
@@ -439,7 +559,7 @@ def create_cinematographer_agent(
                     ToolMessage(content=str(tool_result), tool_call_id=tool_id)
                 )
 
-                # HITL INTERRUPT: Stream Asset paths if detected
+                # Extract and collect asset paths (no HITL interrupt - collect all first)
                 tr_str = str(tool_result)
                 if (
                     "http" in tr_str
@@ -447,7 +567,7 @@ def create_cinematographer_agent(
                     or "/users/" in tr_str.lower()
                     or "Saved:" in tr_str
                 ):
-                    # Extract Best Identifier (Prioritize Cloud URL for LangSmith/Remote compatibility)
+                    # Extract Best Identifier
                     import re
 
                     url_match = re.search(r"(https?://[^\s\)]+)", tr_str)
@@ -455,17 +575,21 @@ def create_cinematographer_agent(
                         r"([A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+)", tr_str
                     )
 
-                    review_target = tr_str  # Default fallback
+                    asset_path = tr_str  # Default fallback
                     if url_match:
-                        review_target = url_match.group(1).rstrip(".,)")
+                        asset_path = url_match.group(1).rstrip(".,)")
                     elif path_match:
-                        review_target = path_match.group(1).rstrip(".,)")
+                        asset_path = path_match.group(1).rstrip(".,)")
 
-                    yield ("output", f"**Asset Pending Review**: {review_target}")
-                    yield ("review_required", review_target)
-                    yield ("state_dump", messages)  # Export state for Resume
-                    return  # HALT EXECUTION FOR APPROVAL
+                    all_generated_assets.append(asset_path)
+                    yield ("output", f"**Segment {idx}/{total_calls} Generated**: {asset_path}")
 
+            # Report all generated assets
+            if all_generated_assets:
+                yield ("output", f"**Total Videos Generated**: {len(all_generated_assets)}")
+                for i, asset in enumerate(all_generated_assets, 1):
+                    yield ("video_asset", asset)  # Emit each asset for collection
+                    
             # 3. Finalize (One interpretation pass after tools)
             yield ("thinking", "📝 Finalizing Report...")
             try:
@@ -524,6 +648,9 @@ def run_cinematographer_task(
         request_description: The visual directive/plan from Director
         model_id: Optional model ID from GUI (e.g., "wan-video/wan-2.5-t2v-fast")
         model_params: Optional dict of model parameters from GUI schema
+        
+    Returns:
+        String containing all generated video paths (supports multi-segment)
     """
     logger.info("[CINEMA] Cinematographer Consulted: %s", request_description)
     
@@ -541,39 +668,35 @@ def run_cinematographer_task(
         agent_gen = create_cinematographer_agent()
 
         final_output = ""
-        pending_assets = []
+        video_assets = []  # Collect ALL generated video paths
 
         # Run generator
         for status, content in agent_gen(request_description):
             if status == "done":
                 final_output = content
+            elif status == "video_asset":
+                # Multi-segment support: collect each video path
+                video_assets.append(content)
+                logger.info(f"[CINEMA] Video segment collected: {content}")
             elif status == "review_required":
-                # Check DB
-                if is_asset_approved(content):
-                    logger.info("HITL: Auto-approving previously verified asset.")
-                elif is_asset_rejected(content):
-                    return f"HITL_REJECTED: The user rejected asset {content}. Please generate a new one."
-                else:
-                    pending_assets.append(content)
+                # Legacy HITL path - collect for potential review
+                if not is_asset_rejected(content):
+                    video_assets.append(content)
             elif status == "output":
-                pass
+                # Log output messages
+                logger.info(f"[CINEMA] Output: {content}")
 
-        # Post-Run HITL Check
-        if pending_assets:
-            # If any asset remains unapproved, we must halt the Director
-            # We return the FIRST pending asset to avoid flooding
-            asset = pending_assets[0]
-
-            # FIX: If we have an asset but no final text output (early exit), use the asset message.
-            if not final_output:
-                logger.info("Auto-resolving output for generated asset: %s", asset)
-                final_output = f"Visual Asset Created: {asset}"
-
-            # HITL DISABLED: Always proceed
-            # if not is_asset_approved(asset):
-            #      return f"HITL_REVIEW_REQUIRED: {asset}"
-
-        return str(final_output)
+        # Build result string with all video paths
+        if video_assets:
+            # Multi-video: Return all paths as comma-separated for regex extraction
+            result_parts = [f"Generated {len(video_assets)} video segment(s):"]
+            for i, asset in enumerate(video_assets, 1):
+                result_parts.append(f"Segment {i}: {asset}")
+            return "\n".join(result_parts)
+        elif final_output:
+            return str(final_output)
+        else:
+            return "Error: No video assets generated"
 
     except Exception as e:
         logger.error("Cinematographer Task Failed: %s", e)

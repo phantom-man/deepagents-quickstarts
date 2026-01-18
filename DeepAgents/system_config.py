@@ -177,6 +177,56 @@ DEFAULT_SYSTEM_CONFIG = {
                                 "Detailed prompts with specific lighting/camera angles."
                             ),
                         },
+                        {
+                            "id": "replicate/kwaivgi/kling-v2.5-turbo-pro",
+                            "priority": 85,
+                            "description": "Kuaishou Kling v2.5 Turbo Pro - fast premium video.",
+                            "strengths": "Excellent motion, fast generation, 10s duration.",
+                            "weaknesses": "Newer model, less community examples.",
+                            "best_practices": (
+                                "Use cinematic prompts, specify camera movements explicitly."
+                            ),
+                        },
+                        {
+                            "id": "replicate/openai/sora-2-pro",
+                            "priority": 95,
+                            "description": "OpenAI Sora 2 Pro - premium video generation.",
+                            "strengths": "Best-in-class quality, 20s duration, excellent physics.",
+                            "weaknesses": "Higher cost, slower generation.",
+                            "best_practices": (
+                                "Detailed scene descriptions, specify temporal progression."
+                            ),
+                        },
+                        {
+                            "id": "replicate/bytedance/seedance-1-pro-fast",
+                            "priority": 80,
+                            "description": "ByteDance Seedance - fast video generation.",
+                            "strengths": "Fast generation, good value, 8s duration.",
+                            "weaknesses": "Less consistent than premium models.",
+                            "best_practices": (
+                                "Simple prompts work best, avoid complex multi-subject scenes."
+                            ),
+                        },
+                        {
+                            "id": "replicate/minimax/hailuo-2.3",
+                            "priority": 82,
+                            "description": "Minimax Hailuo 2.3 - balanced video generation.",
+                            "strengths": "Good quality-to-cost ratio, consistent output.",
+                            "weaknesses": "6s max duration.",
+                            "best_practices": (
+                                "Works well with character-focused prompts."
+                            ),
+                        },
+                        {
+                            "id": "replicate/minimax/hailuo-2.3-fast",
+                            "priority": 78,
+                            "description": "Minimax Hailuo 2.3 Fast - quick iterations.",
+                            "strengths": "Very fast, cheap, good for prototyping.",
+                            "weaknesses": "Lower quality than standard Hailuo.",
+                            "best_practices": (
+                                "Use for quick previews before premium generation."
+                            ),
+                        },
                     ],
                 },
                 {

@@ -35,7 +35,6 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
 - **Architectural Diagram**: You MUST Review the "System Architecture" file at `DeepAgents/docs/system_architecture.md` for the "Truth" of the system data flow.
 - **Master Ontology**: You MUST align all agent logic with `DeepAgents/Canon/MASTER_ONTOLOGY.md`.
-- **MemoriPilot Protocol (CRITICAL)**: You MUST read `DeepAgents/Canon/MemoriPilot.md` at the start of every session. You MUST log ALL user prompts and responses to it to ensure total continuity.
 - **Fail Fast Methodology (CRITICAL)**: We use a "Fail Fast" methodology. Do NOT use fallbacks to hide errors. If a configured resource (Model, Hub Prompt, API) is unavailable, the application MUST crash/raise an error immediately so the root cause is visible. NO SILENT FAILURES.
 - **Script Execution**: Always use `python DeepAgents/ignite_atlas.py` (Run from Repo Root).
 - **Voice-Only Mode**: Run with `$env:SKIP_PROBE="true"; python DeepAgents/ignite_atlas.py --voice-only` (Run from Repo Root).
@@ -73,6 +72,8 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **LangGraph Server Isolation**: On Windows, running the LangGraph server directly in VS Code integrated terminals causes premature exit. Use `Start-Job` for background isolation or run in a separate PowerShell window.
 - **LangGraph Command Pattern (CRITICAL)**: All agent nodes MUST return `Command[Literal[...]]` for dynamic routing. Do NOT use `add_conditional_edges()` or hardcoded keyword routing. Agents delegate via `HANDOFF:agent_name:directive` strings parsed from tool output. This is the "Gold Standard" mesh architecture.
 - **Inter-Agent Delegation**: Use tools from `inter_agent_comms.py` (`discover_agents`, `delegate_to_*`, `signal_task_complete`). Each agent has a curated tool set (`DIRECTOR_TOOLS`, `COMPOSER_TOOLS`, etc.).
+- **Director Agent Pattern (CRITICAL)**: Director HAS tools but ONLY delegation tools (`DIRECTOR_TOOLS`: `discover_agents`, `delegate_to_researcher`, `delegate_to_confidence`, `delegate_to_composer`, `delegate_to_cinematographer`, `delegate_to_editor`, `signal_task_complete`). Director MUST NOT have execution tools (`validate_scene_logic`, `assemble_final_cut`) - these cause `GraphRecursionError` from infinite loops. Director delegates work, does not execute it.
+- **Composer Music Strategy**: Primary: Minimax Music-1.5 (full songs with lyrics, 600 char limit). Fallback: MusicGen (instrumental only, max 30s). Use "High Density" prompting (compression over truncation) to fit song arc in API budget. "Phase-Based Classification" pattern (PHASE 1: Audit/Classify, PHASE 2: Execute) prevents lyric hallucinations in instrumental requests.
 - **Hub/Cache Synchronization (CRITICAL)**: LangSmith Hub is the Source of Truth for system config. Local cache (`DeepAgents/.cache/prompts/`) is ONLY for startup speed. When model/config issues occur:
   1. **CHECK HUB FIRST**: Go to LangSmith and verify the `deepagents-system-config` prompt content matches expected values.
   2. **VERIFY CACHE**: Read `DeepAgents/.cache/prompts/deepagents-system-config.txt` and compare to Hub.
@@ -86,13 +87,15 @@ These are the immutable facts of the current project state. Copilot must priorit
 - **Streamlit UploadedFile Type**: Use `file_obj: Any` with duck-typing for attribute access (`name`, `read()`, `seek()`). Do NOT use `BinaryIO` which lacks `name` attribute.
 - **TYPE_CHECKING Pattern**: Use `from typing import TYPE_CHECKING` with `if TYPE_CHECKING:` blocks for imports only needed for type hints (avoids circular imports).
 
-### 6. Services Package Architecture (NEW - 2026-01-17)
+### 6. Services Package Architecture (UPDATED - 2026-01-17)
 The `DeepAgents/services/` package provides schema-driven dynamic configuration for AI models.
 
-- **schema_service.py**: Core service for fetching and caching OpenAPI schemas from Replicate.
-    - `SchemaService.get_schema(model_id)` - Returns `ModelSchema` with `ControlDefinition` list.
+- **schema_service.py**: Multi-provider schema fetching with Strategy Pattern.
+    - **Providers**: `ReplicateSchemaProvider`, `VertexAISchemaProvider`, `GoogleGenAISchemaProvider`
+    - `SchemaService.get_schema(model_id, provider_hint)` - Auto-routes to correct provider
+    - `get_schema_for_registry_model(model_id)` - Auto-detects provider from ModelRegistry
     - Caching: Memory cache (in-process dict) + disk cache (`.cache/schemas/`, 24-hour TTL).
-    - `ControlType` enum: `TEXT`, `NUMBER`, `SELECT`, `BOOLEAN`, `FILE`, `SLIDER`.
+    - Pre-defined schemas for: Veo 3.1, Imagen 3, Lyria-2, MusicFX (no public API)
 - **ui_generator.py**: Dynamic Streamlit widget generation.
     - `DynamicUIGenerator.render_control()` - Creates appropriate widget from `ControlDefinition`.
     - `render_model_config_panel()` - Renders full model configuration with expander.
@@ -111,41 +114,100 @@ The `DeepAgents/services/` package provides schema-driven dynamic configuration 
 4. Config dict flows: GUI -> `agent_runner.py` -> `agency_graph.py` -> Agent nodes.
 5. Nodes check `configurable["*_active"]` and skip if `False`.
 
-### 7. MemoriPilot Documentation & Protocols
-The **MemoriPilot** (Memory Bank) is the project's persistent long-term memory system. You are required to maintain it to ensure context continuity.
+### 8. CanonKeeper MCP Server (UPDATED - 2026-01-18)
+**Status:** MCP server is optional and currently uninstalled/deprecated; manual Session Learnings Log updates are expected unless canon-keeper-mcp is explicitly reinstalled. Section retained for reference only.
+MCP server for automatic memory persistence from Copilot conversations.
 
-**CONSTRAINT: ROLE SEPARATION**
-- **You (The Extension)**: You MUST use the MemoriPilot system to maintain your own context and identity across sessions.
-- **The Agents (The Application)**: The AI Agents you build (Director, Researcher, etc.) MUST NOT use MemoriPilot. They MUST STRICTLY adhere to the **LangChain / LangSmith Gold Standard** for state and memory management (e.g., `LangGraph` checkpoints, `LanceDB` vector stores). Do not conflate your meta-cognition with the application's runtime logic.
+**Location:** `canon_keeper_mcp/` (Python, MCP Server)
 
-#### Reading Protocol (Mandatory)
-At the start of EVERY session, you MUST read the following files to synchronize your state:
-1. `memory-bank/activeContext.md` - To understand current focus.
-2. `memory-bank/systemPatterns.md` - To review architectural standards.
-3. `memory-bank/productContext.md` - To confirm technology stack.
-4. `memory-bank/decisionLog.md` - To see recent architectural changes.
-5. `memory-bank/projectBrief.md` - To align with core goals.
-6. `memory-bank/architect.md` - To review the roadmap.
+**Purpose:** Extract and persist learnings from Copilot conversations via LLM-based classification, with deduplication against existing entries in `copilot-instructions.md`.
 
-#### Writing Protocol (Tool Usage)
-You must use the `memory_bank_*` tools to document your work. Do not use raw file edits for these files unless necessary.
+**Architecture:**
+- **MCP Protocol:** Copilot calls `canon_keeper.extract_and_save_learnings` tool directly
+- **Deduplication:** LLM-based semantic comparison against existing Session Learnings Log
+- **Trigger Phrase:** User says `@History`, `save this`, `remember this` - Copilot invokes MCP tool
+- **Copilot Writes:** MCP returns formatted markdown; Copilot appends to Section 7
 
-- **`memory_bank_update_context`**: Call this at the Start (to set focus) and End (to log progress) of every task.
-- **`memory_bank_log_decision`**: Call this IMMEDIATELY when a significant technical choice is made (e.g., "Swapping Class A for Class B", "Changing LLM Provider").
-- **`memory_bank_update_product_context`**: Call this when the "Truth" of the project changes (e.g., Version numbers, Model IDs, Core Libraries).
-- **`memory_bank_update_system_patterns`**: Call this when establishing a new coding pattern (e.g., "All agents must use Asyncio").
-- **`memory_bank_switch_mode`**: Use this to toggle your persona context between Architect, Coder, and Debugger.
+**Key Files:**
+- `canon_keeper_mcp/server.py` - MCP server with 2 tools
+- `canon_keeper_mcp/__main__.py` - Entry point for `python -m canon_keeper_mcp`
+- `.vscode/mcp.json` - MCP server registration
 
-#### Operating Modes
-You must switch modes to match the nature of the user's request.
-- **Architect Mode** (`architect`): Use when designing new features or structures. Focus on `memory-bank/architect.md` and `memory-bank/systemPatterns.md`.
-- **Code Mode** (`code`): Use when writing or editing code. Focus on `memory-bank/activeContext.md` and `memory-bank/productContext.md`.
-- **Debug Mode** (`debug`): Use when fixing errors. Focus on `memory-bank/decisionLog.md` and `audit reports`.
-- **Ask Mode** (`ask`): Use when clarifying requirements. Focus on `memory-bank/projectBrief.md`.
+**MCP Tools:**
+- `extract_and_save_learnings` - Extract learnings, dedupe, return markdown rows
+- `check_learning_exists` - Check if specific learning already in log
+
+**LLM Providers:**
+- Primary: Google GenAI (`gemini-2.0-flash-001`)
+- Fallback: OpenAI (`gpt-4o-mini`)
+
+**Configuration (`.vscode/mcp.json`):**
+```json
+{
+  "mcpServers": {
+    "canon-keeper": {
+      "command": "python",
+      "args": ["-m", "canon_keeper_mcp"],
+      "cwd": "${workspaceFolder}"
+    }
+  }
+}
+```
+
+**Usage:**
+```
+User: @History save what we learned
+Copilot: [calls MCP tool] ✅ Saved 2 learnings, skipped 1 duplicate
+```
+
+**Note:** The VS Code extension (`canon-keeper/`) is deprecated due to Chat Participant API limitation - `@keeper` cannot access main Copilot conversation history. The MCP approach works because Copilot itself has full history and invokes the tool.
+
+### 7. Session Learnings Log
+This section tracks decisions and learnings that evolve over time. Copilot reads this at session start.
+
+| Date | Topic | Decision | Rationale |
+|------|-------|----------|----------|
+| 2026-01-17 | Multi-Provider Schema Service | Strategy pattern: VertexAI, GoogleGenAI, Replicate handlers | Auto-routes models to correct provider, prevents API mismatches |
+| 2026-01-17 | VS Code Crash Root Cause | Schema validation for non-Replicate models hit Replicate API | Added provider handlers to route Vertex/GenAI to pre-defined schemas |
+| 2026-01-17 | Lyria-2 Correction | `supports_lyrics=False`, instrumental only | Google Lyria generates instrumental music, no vocals |
+| 2026-01-17 | Pre-defined Schemas | Veo 3.1, Imagen 3, Lyria-2, MusicFX have hardcoded schemas | No public OpenAPI endpoint for Vertex AI/GenAI models |
+| 2026-01-17 | Terminal Theme | Neon Night + Custom CSS glow via `be5invis.vscode-custom-css` | High contrast colors, text shadow effects |
+| 2026-01-17 | CanonKeeper MCP Architecture | MCP server replaces VS Code extension | Copilot invokes tool directly, bypasses API limitation |
+| 2026-01-17 | PyPI Publishing | Use keyring for secure token storage, delete .pypirc | Tokens in config files risk exposure; keyring uses OS credential store |
+| 2026-01-17 | Canon Keeper Published | Package live at pypi.org/project/canon-keeper-mcp/0.1.0 | `pip install canon-keeper-mcp` for easy distribution |
+| 2026-01-17 | Post-Install HTML Page | Completion page with VS Code reload instructions | `show_completion_page()` opens browser with Ctrl+Shift+P guidance |
+| 2026-01-17 | First PyPI Upload | Requires "Entire account" scope token initially | Project-scoped tokens only available after project exists |
+| 2026-01-17 | Chat Participant Limitation | ChatContext.history only includes current participant | VS Code API design - @keeper can't see Copilot chat |
+| 2026-01-17 | CanonKeeper Extension | VS Code extension at `canon-keeper/` for auto-memory | Chat Participant API + LLM classification |
+| 2026-01-17 | CanonKeeper Architecture | TypeScript, `@keeper` participant, 3 commands | `/save`, `/review`, `/status` commands |
+| 2026-01-17 | CanonKeeper Initialization | Smart detect/replace/merge for copilot-instructions | Best practices template with conflict detection |
+| 2026-01-17 | Schema-Driven UI | Use OpenAPI from Replicate, cache 24hrs | Zero-touch config, no hardcoding |
+| 2026-01-17 | ModelProvider Enum | REPLICATE, VERTEX_AI, GOOGLE_GENAI | Skip schema fetch for non-Replicate |
+| 2026-01-16 | Command Mesh Routing | All nodes return `Command[Literal[...]]` | Eliminates brittle conditional edges |
+| 2026-01-16 | Director Delegation | 7 tools: discover + delegate_to_* + signal | Mesh routing, NOT execution |
+| 2026-01-16 | HANDOFF Protocol | `HANDOFF:agent:directive` strings | Dynamic routing from tool output |
+| 2026-01-15 | FFmpeg Stream Copy | `-c:v copy` for lossless merge | Bit-for-bit quality, instant speed |
+| 2026-01-14 | Hub Source of Truth | LangSmith Hub authoritative, cache for speed | Prevents config drift |
+| 2026-01-18 | Canon Keeper MCP Uninstalled | Removed canon-keeper-mcp package from environment | MCP server not available; Section 8 docs remain for reference only |
+| 2026-01-18 | Canon Keeper Installer Uninstalled | Removed canon-keeper installer package; MCP server remains uninstalled | Manual logging required unless canon-keeper-mcp is installed |
+| 2026-01-18 | Canon Keeper MCP Optional | canon-keeper installer does not require canon-keeper-mcp; MCP server is optional for automated logging | Manual logging is fine without MCP |
+| 2026-01-14 | Forced Tool Execution | `tool_choice='any'` for media agents | Prevents hallucinated descriptions |
+| 2026-01-13 | VS Code Crash Fix | Removed MemoriPilot (listener leak 223+) | Undeclared chatParticipants bug |
+| 2026-01-18 | Repo Context | Working on langchain-ai/deepagents-quickstarts main | Ensures consistent path/commands across sessions |
+| 2026-01-18 | Memory Save Trigger | 'save this' invoked; manual Session Learnings Log update performed | MCP server uninstalled; persistence maintained via manual log |
+
+#### Reference Files (Read-Only)
+The `memory-bank/` folder contains historical markdown files for context:
+- `activeContext.md`, `productContext.md`, `systemPatterns.md`, `decisionLog.md`, `projectBrief.md`, `architect.md`
 
 ---
 
 # Copilot (System) Ontology Canon
+
+
+### Prompt Processing
+- **Read First**: Read every new prompt from beginning to end before taking action.
+- **Clarify Ambiguity**: If a request is unclear, ask clarifying questions before implementing.
 
 ## Purpose
 
@@ -184,10 +246,10 @@ I am the source of truth for the **Infrastructure**.
 - I determine *where* output is stored (`Artifacts/`).
 
 ### B. Persistent Memory & Learning
-**Rule:** The Copilot (Engineer) **MUST** utilize the persistent memory system to recall past technical decisions and log new insights.
-- **Recall:** When facing a technical problem, consult memory via the tool: `python DeepAgents/Copilot.py --solve "problem description"`
-- **Learn:** When a solution is confirmed, log it immediately: `python DeepAgents/Copilot.py --learn "solution description"`
-- **Continuity:** This mechanism ensures that "I" (The Copilot) remain initialized with relevant context across sessions.
+**Rule:** The Copilot (Engineer) **MUST** utilize this instructions file as the persistent memory system.
+- **Recall:** This file auto-loads on every chat. Section 7 (Session Learnings Log) contains dated decisions.
+- **Learn:** When a durable decision is made, suggest adding it to the Session Learnings Log table.
+- **Continuity:** This file IS the memory. No external tools required.
 
 ### D. Code Quality Protocols
 **Rule:** After any code creation or significant modification, I **MUST** run validation tools to ensure robustness.
@@ -249,3 +311,4 @@ I must actively use the following MCP tools to "search and read as much as I can
 2. **Tavily MCP (`mcp_my-mcp-server2_tavily_search` / `tavily_extract`)**:
     - *Usage*: Search for live information, documentation updates, or world knowledge required by the agents.
     - *Context*: Tavily is the primary external sensory tool for the Research Agent.
+

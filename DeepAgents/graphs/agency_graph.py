@@ -24,6 +24,7 @@ import operator
 import logging
 import json
 import re
+from pathlib import Path
 from typing import Annotated, TypedDict, List, Literal, Union, Any, Optional
 
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
@@ -213,6 +214,8 @@ async def director_node(
     critique = state.get("validation_report", "")
     plan = state.get("director_plan", "")
     revision_count = state.get("revision_count", 0)
+    video_assets = state.get("video_assets", []) or []
+    audio_assets = state.get("audio_assets", []) or []
 
     # 2. Build prompt
     if revision_count > 0 and critique:
@@ -232,7 +235,62 @@ async def director_node(
                 directive = last_msg.get("content", "")
             else:
                 directive = str(last_msg)
-        prompt = directive
+            prompt = directive
+
+    base_directive = prompt
+
+    def _summarize_assets(label: str, assets: List[str]) -> str:
+        lines = []
+        for idx, asset in enumerate(assets, 1):
+            if not isinstance(asset, str):
+                lines.append(f"{idx}. [invalid asset reference]")
+                continue
+            display = asset
+            if asset.startswith("http"):
+                display = asset
+            else:
+                try:
+                    display = Path(asset).name
+                except Exception:
+                    display = asset
+            lines.append(f"{idx}. {display}")
+        return f"{label} ({len(assets)}):\n" + "\n".join(lines)
+
+    progress_sections: List[str] = []
+    outstanding: List[str] = []
+
+    if video_assets:
+        progress_sections.append(_summarize_assets("Video assets delivered", video_assets))
+    else:
+        outstanding.append("No video clips captured yet. Begin by delegating to the Cinematographer.")
+
+    if audio_assets:
+        progress_sections.append(_summarize_assets("Audio assets delivered", audio_assets))
+    else:
+        outstanding.append("Audio/Music not generated. Once visuals satisfy the directive, delegate to the Composer with explicit musical guidance.")
+
+    if video_assets and audio_assets:
+        outstanding.append("Video and audio assets are available. Delegate to the Editor with the exact asset references when ready to merge.")
+
+    progress_text = ""
+    if progress_sections:
+        progress_text = "CURRENT DELIVERABLES:\n" + "\n\n".join(progress_sections) + "\n\n"
+    if outstanding:
+        progress_text += "OUTSTANDING WORK:\n" + "\n".join(f"- {item}" for item in outstanding) + "\n\n"
+
+    control_prompt = (
+        "DIRECTOR CONTROL PROTOCOL (MANDATORY):\n"
+        "- Use your delegate_to_* tools to move work between agents.\n"
+        "- Delegate to the Cinematographer ONE clip at a time; wait for their handoff before issuing the next assignment.\n"
+        "- When visuals satisfy the plan, delegate_to_composer with a precise music directive referencing timing/energy.\n"
+        "- Once both video_assets and audio_assets are populated, delegate_to_editor with the asset references or signal_task_complete if the workflow should end.\n"
+        "- Do not assume automatic routing—explicitly choose the next agent every time."
+    )
+
+    prompt = (
+        f"{control_prompt}\n\n"
+        f"{progress_text}PRIMARY DIRECTIVE:\n{base_directive}"
+    )
 
     # 3. Invoke Director Agent (with mesh tools)
     agent = create_director_agent(provider=provider)
@@ -417,9 +475,8 @@ async def cinematographer_node(
         state_update = {
             "messages": [AIMessage(content="Cinematographer skipped (disabled in configuration)")]
         }
-        # Skip to composer or editor
-        composer_active = conf.get("composer_active", True)
-        return _route_from_handoffs([], state_update, "composer" if composer_active else "editor", "Cinematographer")
+        handoff_reason = "Cinematographer is inactive. Decide whether to delegate to another agent or adjust the plan."
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Cinematographer")
     
     _emit_progress("Cinematographer", "Generating video assets...")
     plan = state.get("director_plan", "")
@@ -434,6 +491,55 @@ async def cinematographer_node(
     # Get model configuration from GUI
     model_id = conf.get("cinematographer_model")
     model_params = conf.get("cinematographer_params", {})
+    source_mode = conf.get("cinematographer_source", "model")
+
+    if source_mode == "file":
+        file_paths = conf.get("cinematographer_files") or []
+        file_metadata = conf.get("cinematographer_file_metadata") or []
+        assets = []
+        summaries = []
+
+        for idx, path in enumerate(file_paths, start=1):
+            if not isinstance(path, str):
+                continue
+            normalized = os.path.normpath(path)
+            if not os.path.exists(normalized):
+                logger.warning("[CINEMA] Uploaded video missing on disk: %s", normalized)
+                continue
+            assets.append(normalized)
+            meta = file_metadata[idx - 1] if idx - 1 < len(file_metadata) else {}
+            parts = [f"Clip {idx}: {Path(normalized).name}"]
+            if meta:
+                duration = meta.get("duration_readable") or meta.get("duration_seconds")
+                if duration:
+                    parts.append(f"Duration {duration}")
+                if meta.get("resolution"):
+                    parts.append(f"Resolution {meta['resolution']}")
+                if meta.get("fps"):
+                    parts.append(f"FPS {meta['fps']}")
+            summaries.append(" | ".join(parts))
+
+        if not assets:
+            logger.warning("[CINEMA] No valid uploaded videos found for pass-through mode")
+            state_update = {
+                "messages": [AIMessage(content="Cinematographer received uploaded mode but no valid video files were available.")],
+                "video_assets": []
+            }
+            handoff_reason = "Uploaded video assets were missing. Provide corrected files or new visual guidance."
+        else:
+            summary_text = "\n".join(summaries) if summaries else "\n".join(assets)
+            state_update = {
+                "messages": [AIMessage(content=f"Using uploaded video assets ({len(assets)} clip(s)):\n{summary_text}")],
+                "video_assets": assets,
+            }
+            handoff_reason = "Uploaded video assets are ready. Review them and decide whether to request additional clips or move on to audio."
+
+        return _route_from_handoffs(
+            [("director", handoff_reason)],
+            state_update,
+            "director",
+            "Cinematographer"
+        )
     
     try:
         from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
@@ -447,41 +553,52 @@ async def cinematographer_node(
             model_params=model_params
         )
 
-        # Extract path
-        path = (
-            result
-            if "Artifacts" in result or "C:" in result or "http" in result
-            else None
-        )
-
+        # Extract ALL video paths (support multi-segment generation)
         assets = []
-        if path:
-            match = re.search(
-                r"(https?://[^\s\)]+|[A-Za-z]:\\[^\s\)]+|/Users/[^\s\)]+|Artifacts[^\s\)]+)",
-                result,
-            )
-            if match:
-                clean_path = match.group(1)
-                assets.append(clean_path)
-            else:
-                assets.append(path)
+        
+        # Find all URLs and paths in result (supports multiple videos)
+        url_matches = re.findall(r"(https?://[^\s\)\]\,]+)", result)
+        path_matches = re.findall(
+            r"([A-Za-z]:\\[^\s\)\]\,]+|/Users/[^\s\)\]\,]+|Artifacts[^\s\)\]\,]+)",
+            result,
+        )
+        
+        # Collect all unique paths (prefer URLs for cloud compatibility)
+        seen = set()
+        for url in url_matches:
+            clean = url.rstrip(".,)")
+            if clean not in seen:
+                assets.append(clean)
+                seen.add(clean)
+        for path in path_matches:
+            clean = path.rstrip(".,)")
+            if clean not in seen:
+                assets.append(clean)
+                seen.add(clean)
+        
+        if assets:
+            logger.info(f"Cinematographer produced {len(assets)} video asset(s)")
+        else:
+            # Fallback: try to use entire result if it looks like a path
+            if "Artifacts" in result or "C:" in result or "http" in result:
+                assets = [result]
+                logger.warning("Using raw result as single video path")
 
         state_update = {
-            "messages": [AIMessage(content=f"Visuals Created: {result}")],
+            "messages": [AIMessage(content=f"Visuals Created ({len(assets)} segments): {result}")],
             "video_assets": assets,
         }
-        
-        # Route based on composer activation
-        composer_active = conf.get("composer_active", True)
-        next_node = "composer" if composer_active else "editor"
-        return _route_from_handoffs([], state_update, next_node, "Cinematographer")
+
+        handoff_reason = (
+            "Cinematographer delivered the requested video segments. Review coverage, then either request the next shot or delegate to the Composer."
+        )
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Cinematographer")
         
     except Exception as e:
         logger.error("Cinematography Failed: %s", e)
         state_update = {"messages": [AIMessage(content=f"Visual Error: {e}")]}
-        # On error, still try to continue
-        composer_active = conf.get("composer_active", True)
-        return _route_from_handoffs([], state_update, "composer" if composer_active else "editor", "Cinematographer")
+        handoff_reason = "Cinematographer encountered an error. Provide revised instructions or choose the next action."
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Cinematographer")
 
 
 async def composer_node(
@@ -501,7 +618,8 @@ async def composer_node(
         state_update = {
             "messages": [AIMessage(content="Composer skipped (disabled in configuration)")]
         }
-        return _route_from_handoffs([], state_update, "editor", "Composer")
+        handoff_reason = "Composer is inactive. Director must decide whether to proceed to Editor or adjust requirements."
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
     
     _emit_progress("Composer", "Generating audio/music...")
     plan = state.get("director_plan", "")
@@ -519,6 +637,50 @@ async def composer_node(
     voice_source = conf.get("composer_voice_source")
     voice_file = conf.get("composer_voice_file")
     voice_model_id = conf.get("composer_voice_model")
+    composer_source = conf.get("composer_source", "model")
+
+    if composer_source == "file":
+        file_paths = conf.get("composer_files") or []
+        file_metadata = conf.get("composer_file_metadata") or []
+        assets = []
+        summaries = []
+
+        for idx, path in enumerate(file_paths, start=1):
+            if not isinstance(path, str):
+                continue
+            normalized = os.path.normpath(path)
+            if not os.path.exists(normalized):
+                logger.warning("[COMPOSER] Uploaded audio missing on disk: %s", normalized)
+                continue
+            assets.append(normalized)
+            meta = file_metadata[idx - 1] if idx - 1 < len(file_metadata) else {}
+            parts = [f"Track {idx}: {Path(normalized).name}"]
+            if meta:
+                duration = meta.get("duration_readable") or meta.get("duration_seconds")
+                if duration:
+                    parts.append(f"Duration {duration}")
+                if meta.get("frame_rate"):
+                    parts.append(f"Sample Rate {meta['frame_rate']} Hz")
+                if meta.get("channels"):
+                    parts.append(f"Channels {meta['channels']}")
+            summaries.append(" | ".join(parts))
+
+        if not assets:
+            logger.warning("[COMPOSER] No valid uploaded audio found for pass-through mode")
+            state_update = {
+                "messages": [AIMessage(content="Composer received uploaded mode but no valid audio files were available.")],
+                "audio_assets": []
+            }
+            handoff_reason = "Uploaded audio assets were missing. Provide corrected files or request new audio generation."
+        else:
+            summary_text = "\n".join(summaries) if summaries else "\n".join(assets)
+            state_update = {
+                "messages": [AIMessage(content=f"Using uploaded audio asset(s) ({len(assets)} track(s)):\n{summary_text}")],
+                "audio_assets": assets,
+            }
+            handoff_reason = "Uploaded audio assets are ready. Confirm they align with the vision or request adjustments."
+
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
 
     try:
         # Pass model configuration to the task
@@ -550,14 +712,14 @@ async def composer_node(
             "audio_assets": assets,
         }
         
-        # Default: After audio, go to editor to merge
-        return _route_from_handoffs([], state_update, "editor", "Composer")
+        handoff_reason = "Composer delivered audio assets. Review them and decide whether to iterate or move to the Editor."
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
         
     except Exception as e:
         logger.error("Composition Failed: %s", e)
         state_update = {"messages": [AIMessage(content=f"Audio Error: {e}")]}
-        # On error, still try to continue to editor
-        return _route_from_handoffs([], state_update, "editor", "Composer")
+        handoff_reason = "Composer encountered an error. Provide updated musical direction or adjust the workflow."
+        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
 
 
 async def editor_node(

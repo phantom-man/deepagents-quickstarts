@@ -118,15 +118,15 @@ class AssetManager:
         return full_path
 
     def _upload_to_gcs(self, local_path: str, filename: str, make_public: bool = True) -> str:
-        """Uploads file to GCS and returns the public GCS URL.
+        """Uploads file to GCS and returns the GCS URL.
         
         Args:
             local_path: Path to local file to upload
             filename: Name for the file in GCS
-            make_public: If True, makes the file publicly accessible (default: True)
+            make_public: If True, attempts to make public (ignored for uniform bucket-level access)
             
         Returns:
-            Public URL that anyone can access without authentication
+            GCS URL for the file (public if bucket allows, else authenticated URL)
         """
         if not self.gcs_client or not self.bucket_name:
             return None
@@ -138,11 +138,19 @@ class AssetManager:
             blob = bucket.blob(blob_name)
             blob.upload_from_filename(local_path)
             
-            # Make the blob publicly accessible so anyone can download
+            # Try to make public, but gracefully handle uniform bucket-level access buckets
+            # where make_public() doesn't work (returns 400 error)
             if make_public:
-                blob.make_public()
-                gcs_url = blob.public_url
-                logger.info(f"GCS Upload Success (PUBLIC): {blob_name}")
+                try:
+                    blob.make_public()
+                    gcs_url = blob.public_url
+                    logger.info(f"GCS Upload Success (PUBLIC): {blob_name}")
+                except Exception as acl_error:
+                    # Bucket uses uniform bucket-level access - use standard URL
+                    # The bucket itself may still be public via IAM
+                    logger.warning(f"GCS ACL not supported (uniform access): {acl_error}")
+                    gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"
+                    logger.info(f"GCS Upload Success (UNIFORM IAM): {blob_name}")
             else:
                 # Return authenticated URL (requires GCS auth to download)
                 gcs_url = f"https://storage.googleapis.com/{self.bucket_name}/{blob_name}"

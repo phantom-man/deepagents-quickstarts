@@ -1,0 +1,15 @@
+{
+  "prompt": "Macro cinematic shot. Orion AR glasses powering on. Holographic UI elements glow and animate. Focus on lens detail. Sleek, futuristic design. Shallow depth of field. Camera slowly zooms in to highlight the holographic display.",
+  "timestamp": 1768708138,
+  "date": "2026-01-17 20:49:00",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768708138_7ac48c69.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768708138_7ac48c69.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768708138_7ac48c69.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "veo-3.1-fast-generate-001",
+    "provider": "VertexAI-Veo"
+  }
+}

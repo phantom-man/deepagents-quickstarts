@@ -180,6 +180,66 @@ class ModelRegistry:
             cost_unit="second"
         ))
 
+        self.register(ModelInfo(
+            id="kwaivgi/kling-v2.5-turbo-pro",
+            name="Kling v2.5 Turbo Pro",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="Kuaishou Kling video generation. Fast turbo mode with pro quality.",
+            max_duration=10.0,
+            tier="fast",
+            tags={"text-to-video", "kling", "kuaishou"},
+            cost_per_run=0.20
+        ))
+
+        self.register(ModelInfo(
+            id="openai/sora-2-pro",
+            name="Sora 2 Pro (OpenAI)",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="OpenAI's Sora 2 Pro video generation. Premium quality.",
+            max_duration=20.0,
+            tier="premium",
+            tags={"text-to-video", "openai", "sora"},
+            cost_per_run=0.80
+        ))
+
+        self.register(ModelInfo(
+            id="bytedance/seedance-1-pro-fast",
+            name="Seedance 1 Pro Fast",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="ByteDance Seedance video generation. Fast mode.",
+            max_duration=8.0,
+            tier="fast",
+            tags={"text-to-video", "bytedance", "seedance"},
+            cost_per_run=0.15
+        ))
+
+        self.register(ModelInfo(
+            id="minimax/hailuo-2.3",
+            name="Hailuo 2.3 (Minimax)",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="Minimax Hailuo 2.3 video generation. Standard quality.",
+            max_duration=6.0,
+            tier="standard",
+            tags={"text-to-video", "minimax", "hailuo"},
+            cost_per_run=0.30
+        ))
+
+        self.register(ModelInfo(
+            id="minimax/hailuo-2.3-fast",
+            name="Hailuo 2.3 Fast (Minimax)",
+            category=ModelCategory.VIDEO,
+            output_type=OutputType.VIDEO_FILE,
+            description="Minimax Hailuo 2.3 fast mode. Quick iterations.",
+            max_duration=6.0,
+            tier="fast",
+            tags={"text-to-video", "minimax", "hailuo", "fast"},
+            cost_per_run=0.15
+        ))
+
         # ===================
         # MUSIC/AUDIO MODELS
         # ===================
@@ -189,12 +249,13 @@ class ModelRegistry:
             name="Lyria-2 (Google)",
             category=ModelCategory.AUDIO_MUSIC,
             output_type=OutputType.AUDIO_FILE,
-            description="Google's music generation model. 30-sec clips, supports genres from classical to electronic.",
-            supports_lyrics=True,
+            description="Google's music generation model. 30-sec instrumental clips, supports genres from classical to electronic. NO VOCALS/LYRICS.",
+            provider=ModelProvider.GOOGLE_GENAI,
+            supports_lyrics=False,
             supports_instrumental=True,
             max_duration=30.0,
             tier="premium",
-            tags={"music", "lyrics", "instrumental", "google"},
+            tags={"music", "instrumental", "google", "genai"},
             cost_per_run=0.05
         ))
 
@@ -283,6 +344,45 @@ class ModelRegistry:
             cost_per_run=0.005
         ))
 
+        self.register(ModelInfo(
+            id="gemini-2.5-flash-lite-tts",
+            name="Gemini 2.5 Flash Lite TTS",
+            category=ModelCategory.AUDIO_VOICE,
+            output_type=OutputType.AUDIO_FILE,
+            description="Google's Gemini 2.5 Flash Lite for text-to-speech. Fast, multilingual, natural voices.",
+            provider=ModelProvider.GOOGLE_GENAI,
+            max_duration=300.0,
+            tier="fast",
+            tags={"tts", "google", "genai", "multilingual"},
+            cost_per_run=0.001
+        ))
+
+        self.register(ModelInfo(
+            id="google/en-US-Studio-O",
+            name="Google Cloud TTS Studio O",
+            category=ModelCategory.AUDIO_VOICE,
+            output_type=OutputType.AUDIO_FILE,
+            description="Google Cloud Text-to-Speech Studio O voice. Premium female voice with natural intonation.",
+            provider=ModelProvider.VERTEX_AI,
+            max_duration=300.0,
+            tier="standard",
+            tags={"tts", "google", "cloud-tts", "female", "studio"},
+            cost_per_run=0.016
+        ))
+
+        self.register(ModelInfo(
+            id="google/en-US-Studio-M",
+            name="Google Cloud TTS Studio M",
+            category=ModelCategory.AUDIO_VOICE,
+            output_type=OutputType.AUDIO_FILE,
+            description="Google Cloud Text-to-Speech Studio M voice. Premium male voice with natural intonation.",
+            provider=ModelProvider.VERTEX_AI,
+            max_duration=300.0,
+            tier="standard",
+            tags={"tts", "google", "cloud-tts", "male", "studio"},
+            cost_per_run=0.016
+        ))
+
         # ===================
         # IMAGE MODELS
         # ===================
@@ -333,8 +433,9 @@ class ModelRegistry:
             category=ModelCategory.IMAGE,
             output_type=OutputType.IMAGE_FILE,
             description="Google's Imagen 3 for premium image generation.",
+            provider=ModelProvider.VERTEX_AI,
             tier="premium",
-            tags={"image", "google", "premium"}
+            tags={"image", "google", "premium", "vertex-ai"}
         ))
 
     def register(self, model: ModelInfo):
