@@ -78,6 +78,7 @@ st.markdown("""
     .event-output { color: #198754; }
     .event-error { color: #dc3545; }
     .event-thinking { color: #fd7e14; font-style: italic; }
+    .event-progress { color: #0d6efd; font-weight: 500; }
     
     /* Message bubbles for AgentComms */
     .msg-sender { color: #0d6efd; font-weight: bold; }
@@ -257,12 +258,12 @@ with tab_agency:
     )
     
     # Validation before run
-    # Only show validation errors if user has attempted to run or if fields have content
+    # Always validate to enable/disable button, but only show errors if user attempted to run
     if AGENCY_SECTIONS_AVAILABLE:
         agency_cfg = get_agency_config()
         is_valid, validation_errors = validate_agency_config(agency_cfg)
         
-        # Only show warnings if user tried to run or if they have partial config
+        # Only show warnings if user tried to run
         show_validation_warnings = st.session_state.get("show_validation_warnings", False)
         if not is_valid and show_validation_warnings:
             for err in validation_errors:
@@ -274,9 +275,8 @@ with tab_agency:
     col_run, col_stop = st.columns([1, 1])
     
     with col_run:
-        # Run Agency - only disabled while already running
-        # Validation happens AFTER click, not before
-        run_disabled = st.session_state.agency_running or not directive
+        # Run Agency - disabled if running, no directive, or invalid config
+        run_disabled = st.session_state.agency_running or not directive or (AGENCY_SECTIONS_AVAILABLE and not is_valid)
         run_button = st.button(
             "🚀 Run Agency",
             disabled=run_disabled,
@@ -430,7 +430,7 @@ with tab_agency:
                         if event_type == "progress":
                             progress_bar.progress(progress_pct / 100, text=f"🔄 {agent_name}: {content[:60]}...")
                             status_text.markdown(f"**Current Agent:** {agent_name} | **Status:** Processing")
-                            continue  # Don't add to event log, just update progress
+                            # KEEP progress events in log - don't skip them
                         else:
                             progress_bar.progress(progress_pct / 100, text=f"🔄 {agent_name}: Processing...")
                             status_text.markdown(f"**Current Agent:** {agent_name} | **Status:** {event_type.title()}")
@@ -474,6 +474,8 @@ with tab_agency:
                             css_class = "event-error"
                         elif event_type == "thinking":
                             css_class = "event-thinking"
+                        elif event_type == "progress":
+                            css_class = "event-progress"
                         
                         clickable_content = make_content_clickable(content)
                         event_html = f"<div class='{css_class}' style='padding: 4px 0; border-bottom: 1px solid #eee;'>[{timestamp}] <b>{agent_name}</b>: {clickable_content}</div>"
