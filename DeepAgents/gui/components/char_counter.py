@@ -82,37 +82,39 @@ def text_input_with_counter(
     
     # Check if there's an external update to apply (from presets, etc.)
     external_key = f"{key}_external_update"
-    external_update_applied = False
     if external_key in st.session_state:
         st.session_state[widget_key] = st.session_state[external_key]
         del st.session_state[external_key]
-        external_update_applied = True
 
-    # Get current value - use widget key if exists, otherwise default
-    if widget_key in st.session_state:
-        current_value = st.session_state[widget_key]
-    else:
-        current_value = default_value
+    # Get current value from widget state or use default
+    if widget_key not in st.session_state:
+        st.session_state[widget_key] = default_value
 
     # Create the input
-    raw_value = st.text_input(
-        label,
-        value=current_value,
-        key=widget_key,
-        placeholder=placeholder,
-        help=help_text,
-        disabled=disabled,
-        max_chars=max_chars  # Streamlit's built-in hard limit
-    )
-
-    # IMPORTANT: If we just applied an external update, the widget might return
-    # the old value on this render cycle. Use current_value instead.
-    if external_update_applied:
-        value = current_value
-    elif raw_value is None:
-        value = ""
+    # CRITICAL: When widget_key exists in session_state, do NOT pass value= parameter
+    # Streamlit will use session_state automatically and passing value= causes conflicts
+    if widget_key in st.session_state:
+        raw_value = st.text_input(
+            label,
+            key=widget_key,
+            placeholder=placeholder,
+            help=help_text,
+            disabled=disabled,
+            max_chars=max_chars
+        )
     else:
-        value = raw_value
+        raw_value = st.text_input(
+            label,
+            value=default_value,
+            key=widget_key,
+            placeholder=placeholder,
+            help=help_text,
+            disabled=disabled,
+            max_chars=max_chars
+        )
+
+    # Handle None return (shouldn't happen but type-safe)
+    value = raw_value if raw_value is not None else ""
 
     # Show character counter
     current_len = len(value)
@@ -161,24 +163,16 @@ def text_area_with_counter(
     widget_key = f"{key}_widget"
     
     # Check if there's an external update to apply (from presets, etc.)
-    # CRITICAL: We must update the WIDGET'S session state key, not a separate key
-    # Streamlit widgets ignore the `value` param after first render and use their own state
     external_key = f"{key}_external_update"
-    external_update_applied = False
     if external_key in st.session_state:
-        new_value = st.session_state[external_key]
-        # Update the widget's own session state key so it displays the new value
-        st.session_state[widget_key] = new_value
+        st.session_state[widget_key] = st.session_state[external_key]
         del st.session_state[external_key]
-        external_update_applied = True
 
-    # Get current value - use widget key if it exists, otherwise default
-    if widget_key in st.session_state:
-        current_value = st.session_state[widget_key]
-    else:
-        current_value = default_value
+    # Get current value from widget state or use default
+    if widget_key not in st.session_state:
+        st.session_state[widget_key] = default_value
     
-    current_len = len(current_value)
+    current_len = len(st.session_state[widget_key])
 
     # Build label with counter if max_chars specified
     display_label = label
@@ -191,23 +185,30 @@ def text_area_with_counter(
 
     # Create the textarea
     # Note: Streamlit textarea doesn't have max_chars, so we handle it manually
-    raw_value = st.text_area(
-        display_label,
-        value=current_value,
-        key=widget_key,
-        placeholder=placeholder,
-        height=height,
-        help=help_text,
-        disabled=disabled
-    )
+    # CRITICAL: When widget_key exists in session_state, do NOT pass value= parameter
+    # Streamlit will use session_state automatically and passing value= causes conflicts
+    if widget_key in st.session_state:
+        raw_value = st.text_area(
+            display_label,
+            key=widget_key,
+            placeholder=placeholder,
+            height=height,
+            help=help_text,
+            disabled=disabled
+        )
+    else:
+        raw_value = st.text_area(
+            display_label,
+            value=default_value,
+            key=widget_key,
+            placeholder=placeholder,
+            height=height,
+            help=help_text,
+            disabled=disabled
+        )
 
     # Handle None return (shouldn't happen but type-safe)
-    # IMPORTANT: If we just applied an external update, the widget might return
-    # the old value on this render cycle. Use current_value instead.
-    if external_update_applied:
-        value = current_value
-    else:
-        value = raw_value if raw_value is not None else ""
+    value = raw_value if raw_value is not None else ""
 
     # HARD BLOCKING: Truncate if over limit
     if max_chars and len(value) > max_chars:

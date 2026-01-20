@@ -292,13 +292,22 @@ async def director_node(
     cinematographer_active = conf.get("cinematographer_active", True)
     composer_active = conf.get("composer_active", True)
     
+    # Check if user pre-configured Composer params in GUI
+    composer_params = conf.get("composer_params", {})
+    gui_style_prompt = composer_params.get("prompt", "").strip()
+    gui_lyrics = composer_params.get("lyrics", "").strip()
+    composer_preconfigured = bool(gui_style_prompt or gui_lyrics)
+    
     agent_context = "ACTIVE AGENTS:\n"
     if cinematographer_active:
         agent_context += "- Cinematographer: ACTIVE (video generation enabled)\n"
     else:
         agent_context += "- Cinematographer: DISABLED (NO video generation - skip ALL visual prompts)\n"
     if composer_active:
-        agent_context += "- Composer: ACTIVE (audio/music generation enabled)\n"
+        if composer_preconfigured:
+            agent_context += "- Composer: ACTIVE (USER HAS PRE-CONFIGURED MUSIC - use provided style/lyrics)\n"
+        else:
+            agent_context += "- Composer: ACTIVE (audio/music generation enabled)\n"
     else:
         agent_context += "- Composer: DISABLED (no audio generation)\n"
     agent_context += "\n"
@@ -322,6 +331,22 @@ async def director_node(
             "The Lyrics field should contain the user's original lyrics VERBATIM.\n"
             "IMPORTANT: Music-1.5 has a 600 character limit for lyrics. If user lyrics exceed this, "
             "you may need to select fewer verses/choruses, but DO NOT rewrite the words.\n\n"
+        )
+    elif composer_preconfigured:
+        # User configured music in GUI - tell Director to use those exact values
+        lyrics_instruction = (
+            "PRE-CONFIGURED MUSIC (CRITICAL - OVERRIDE ANY GENERATION):\n"
+            "The user has already configured the music settings in the GUI.\n"
+            "DO NOT generate ANY music content. Your ONLY task is to delegate to the Composer.\n\n"
+        )
+        if gui_style_prompt:
+            lyrics_instruction += f"✅ Music Style Prompt (DO NOT MODIFY): \"{gui_style_prompt}\"\n"
+        if gui_lyrics:
+            lyrics_instruction += f"✅ Lyrics (DO NOT MODIFY):\n{gui_lyrics}\n"
+        lyrics_instruction += (
+            "\n⚠️ MANDATORY: When you delegate to the Composer, do NOT include any music prompts or lyrics.\n"
+            "Simply say 'Please generate the music using the pre-configured settings.'\n"
+            "The system will automatically use the user's GUI configuration.\n\n"
         )
     
     # Build audio-only specific instructions if cinematographer is disabled
@@ -642,52 +667,116 @@ async def cinematographer_node(
             run_cinematographer_task,
         )
 
-        # Pass model configuration to the task
-        result = run_cinematographer_task(
-            plan, 
-            model_id=model_id,
-            model_params=model_params
-        )
-
-        # Extract ALL video paths (support multi-segment generation)
-        assets = []
+        # Check for multi-clip mode
+        multi_mode = conf.get("cinematographer_multi_mode", False)
+        clips_config = conf.get("cinematographer_clips", [])
         
-        # Find all URLs and paths in result (supports multiple videos)
-        url_matches = re.findall(r"(https?://[^\s\)\]\,]+)", result)
-        path_matches = re.findall(
-            r"([A-Za-z]:\\[^\s\)\]\,]+|/Users/[^\s\)\]\,]+|Artifacts[^\s\)\]\,]+)",
-            result,
-        )
+        if multi_mode and clips_config:
+            # ================================================================
+            # MULTI-CLIP GENERATION MODE
+            # ================================================================
+            _emit_progress("Cinematographer", f"Generating {len(clips_config)} independent clip(s)...")
+            logger.info(f"[CINEMA] Multi-clip mode: generating {len(clips_config)} clips")
+            
+            all_assets = []
+            for idx, clip_config in enumerate(clips_config, 1):
+                _emit_progress("Cinematographer", f"Generating clip {idx}/{len(clips_config)}...")
+                
+                # Extract prompt from clip config
+                clip_prompt = clip_config.get("prompt", "")
+                if not clip_prompt:
+                    logger.warning(f"[CINEMA] Clip {idx} has no prompt, skipping")
+                    continue
+                
+                # Use clip-specific params (duration, etc.)
+                clip_params = {k: v for k, v in clip_config.items() if k != "prompt"}
+                
+                # Generate this clip
+                result = run_cinematographer_task(
+                    clip_prompt,
+                    model_id=model_id,
+                    model_params=clip_params
+                )
+                
+                # Extract video paths from result
+                url_matches = re.findall(r"(https?://[^\s\)\]\,]+)", result)
+                path_matches = re.findall(
+                    r"([A-Za-z]:\\[^\s\)\]\,]+|/Users/[^\s\)\]\,]+|Artifacts[^\s\)\]\,]+)",
+                    result,
+                )
+                
+                for url in url_matches:
+                    all_assets.append(url.rstrip(".,)"))
+                for path in path_matches:
+                    all_assets.append(path.rstrip(".,)"))
+                
+                logger.info(f"[CINEMA] Clip {idx} generated: {len(url_matches + path_matches)} asset(s)")
+            
+            assets = list(dict.fromkeys(all_assets))  # Remove duplicates while preserving order
+            
+            if assets:
+                state_update = {
+                    "messages": [AIMessage(content=f"Multi-Clip Generation Complete ({len(assets)} clips): {', '.join([Path(a).name for a in assets][:5])}")],
+                    "video_assets": assets,
+                }
+                handoff_reason = f"Cinematographer generated {len(assets)} independent video clips as requested."
+            else:
+                state_update = {
+                    "messages": [AIMessage(content="Multi-clip generation produced no assets")],
+                    "video_assets": []
+                }
+                handoff_reason = "Multi-clip generation failed. Review configuration."
         
-        # Collect all unique paths (prefer URLs for cloud compatibility)
-        seen = set()
-        for url in url_matches:
-            clean = url.rstrip(".,)")
-            if clean not in seen:
-                assets.append(clean)
-                seen.add(clean)
-        for path in path_matches:
-            clean = path.rstrip(".,)")
-            if clean not in seen:
-                assets.append(clean)
-                seen.add(clean)
-        
-        if assets:
-            logger.info(f"Cinematographer produced {len(assets)} video asset(s)")
         else:
-            # Fallback: try to use entire result if it looks like a path
-            if "Artifacts" in result or "C:" in result or "http" in result:
-                assets = [result]
-                logger.warning("Using raw result as single video path")
+            # ================================================================
+            # SINGLE-CLIP GENERATION MODE (Original)
+            # ================================================================
+            # Pass model configuration to the task
+            result = run_cinematographer_task(
+                plan, 
+                model_id=model_id,
+                model_params=model_params
+            )
 
-        state_update = {
-            "messages": [AIMessage(content=f"Visuals Created ({len(assets)} segments): {result}")],
-            "video_assets": assets,
-        }
+            # Extract ALL video paths (support multi-segment generation)
+            assets = []
+            
+            # Find all URLs and paths in result (supports multiple videos)
+            url_matches = re.findall(r"(https?://[^\s\)\]\,]+)", result)
+            path_matches = re.findall(
+                r"([A-Za-z]:\\[^\s\)\]\,]+|/Users/[^\s\)\]\,]+|Artifacts[^\s\)\]\,]+)",
+                result,
+            )
+            
+            # Collect all unique paths (prefer URLs for cloud compatibility)
+            seen = set()
+            for url in url_matches:
+                clean = url.rstrip(".,)")
+                if clean not in seen:
+                    assets.append(clean)
+                    seen.add(clean)
+            for path in path_matches:
+                clean = path.rstrip(".,)")
+                if clean not in seen:
+                    assets.append(clean)
+                    seen.add(clean)
+            
+            if assets:
+                logger.info(f"Cinematographer produced {len(assets)} video asset(s)")
+            else:
+                # Fallback: try to use entire result if it looks like a path
+                if "Artifacts" in result or "C:" in result or "http" in result:
+                    assets = [result]
+                    logger.warning("Using raw result as single video path")
 
-        handoff_reason = (
-            "Cinematographer delivered the requested video segments. Review coverage, then either request the next shot or delegate to the Composer."
-        )
+            state_update = {
+                "messages": [AIMessage(content=f"Visuals Created ({len(assets)} segments): {result}")],
+                "video_assets": assets,
+            }
+
+            handoff_reason = (
+                "Cinematographer delivered the requested video segments. Review coverage, then either request the next shot or delegate to the Composer."
+            )
         return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Cinematographer")
         
     except Exception as e:
@@ -784,28 +873,107 @@ async def composer_node(
         return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
 
     try:
-        # Pass model configuration to the task
-        result = run_composer_task(
-            plan,
-            model_id=model_id,
-            model_params=model_params,
-            voice_source=voice_source,
-            voice_file=voice_file,
-            voice_model_id=voice_model_id
-        )
-        result = str(result)
-        assets = []
+        from DeepAgents.CommercialAgents.composer_agent.agent import run_composer_task
+
+        # Check for multi-track mode
+        multi_mode = conf.get("composer_multi_mode", False)
+        tracks_config = conf.get("composer_tracks", [])
         
-        # Extract audio file path - look for common audio extensions and paths
-        match = re.search(
-            r"(https?://[^\s\)]+\.(?:wav|mp3|m4a|aac)|[A-Za-z]:\\[^\s\)]+\.(?:wav|mp3|m4a|aac)|/[^\s\)]+\.(?:wav|mp3|m4a|aac)|Artifacts[^\s\)]+\.(?:wav|mp3|m4a|aac))",
-            result,
-            re.IGNORECASE
-        )
-        if match:
-            audio_path = match.group(1)
-            # Normalize Windows backslashes
-            audio_path = audio_path.replace('/', os.sep).replace('\\', os.sep)
+        if multi_mode and tracks_config:
+            # ================================================================
+            # MULTI-TRACK GENERATION MODE
+            # ================================================================
+            _emit_progress("Composer", f"Generating {len(tracks_config)} independent track(s)...")
+            logger.info(f"[COMPOSER] Multi-track mode: generating {len(tracks_config)} tracks")
+            
+            all_assets = []
+            for idx, track_config in enumerate(tracks_config, 1):
+                _emit_progress("Composer", f"Generating track {idx}/{len(tracks_config)}...")
+                
+                # Extract prompt and lyrics from track config
+                track_prompt = track_config.get("prompt", "")
+                track_lyrics = track_config.get("lyrics", "")
+                
+                if not track_prompt:
+                    logger.warning(f"[COMPOSER] Track {idx} has no prompt, skipping")
+                    continue
+                
+                # Use track-specific params (duration, etc.)
+                track_params = {k: v for k, v in track_config.items() if k not in ("prompt", "lyrics")}
+                
+                # Add lyrics if present
+                if track_lyrics.strip():
+                    track_params["lyrics"] = track_lyrics
+                    track_params["prompt"] = track_prompt
+                else:
+                    track_params["prompt"] = track_prompt
+                
+                # Generate this track
+                result = run_composer_task(
+                    plan=f"Track {idx}: {track_prompt}",
+                    model_id=model_id,
+                    model_params=track_params,
+                    voice_source=voice_source,
+                    voice_file=voice_file,
+                    voice_model_id=voice_model_id
+                )
+                
+                # Extract audio path from result
+                match = re.search(
+                    r"(https?://[^\s\)]+\.(?:wav|mp3|m4a|aac)|[A-Za-z]:\\[^\s\)]+\.(?:wav|mp3|m4a|aac)|/[^\s\)]+\.(?:wav|mp3|m4a|aac)|Artifacts[^\s\)]+\.(?:wav|mp3|m4a|aac))",
+                    str(result),
+                    re.IGNORECASE
+                )
+                if match:
+                    audio_path = match.group(1).replace('/', os.sep).replace('\\', os.sep)
+                    all_assets.append(audio_path)
+                    logger.info(f"[COMPOSER] Track {idx} generated: {Path(audio_path).name}")
+            
+            assets = list(dict.fromkeys(all_assets))  # Remove duplicates
+            
+            if assets:
+                state_update = {
+                    "messages": [AIMessage(content=f"Multi-Track Generation Complete ({len(assets)} tracks): {', '.join([Path(a).name for a in assets][:5])}")],
+                    "audio_assets": assets,
+                }
+            else:
+                state_update = {
+                    "messages": [AIMessage(content="Multi-track generation produced no assets")],
+                    "audio_assets": []
+                }
+        
+        else:
+            # ================================================================
+            # SINGLE-TRACK GENERATION MODE (Original)
+            # ================================================================
+            # Pass model configuration to the task
+            result = run_composer_task(
+                plan,
+                model_id=model_id,
+                model_params=model_params,
+                voice_source=voice_source,
+                voice_file=voice_file,
+                voice_model_id=voice_model_id
+            )
+            result = str(result)
+            assets = []
+            
+            # Extract audio file path - look for common audio extensions and paths
+            match = re.search(
+                r"(https?://[^\s\)]+\.(?:wav|mp3|m4a|aac)|[A-Za-z]:\\[^\s\)]+\.(?:wav|mp3|m4a|aac)|/[^\s\)]+\.(?:wav|mp3|m4a|aac)|Artifacts[^\s\)]+\.(?:wav|mp3|m4a|aac))",
+                result,
+                re.IGNORECASE
+            )
+            if match:
+                audio_path = match.group(1)
+                # Normalize Windows backslashes
+                audio_path = audio_path.replace('/', os.sep).replace('\\', os.sep)
+                assets.append(audio_path)
+
+            state_update = {
+                "messages": [AIMessage(content=f"Audio Created: {result}")],
+                "audio_assets": assets,
+            }
             assets.append(audio_path)
 
         state_update = {

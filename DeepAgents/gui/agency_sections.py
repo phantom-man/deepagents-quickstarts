@@ -34,6 +34,7 @@ from DeepAgents.services.asset_validator import (
 )
 from DeepAgents.gui.components.preset_selector import render_preset_selector
 from DeepAgents.gui.components.char_counter import text_area_with_counter
+from DeepAgents.gui.components.multi_config import render_multi_config_panel
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -86,6 +87,62 @@ def _render_metadata_block(title: str, metadata: Dict[str, Any]) -> None:
 logger = logging.getLogger(__name__)
 
 
+def _auto_configure_multi_mode(
+    source_agent: str,
+    source_duration: float,
+    target_agent: str,
+    target_is_active: bool,
+    target_source: str,
+    target_model_id: Optional[str]
+) -> None:
+    """
+    Auto-configure multi-mode for target agent to match source duration.
+    
+    Args:
+        source_agent: "cinematographer" or "composer" (the one with uploaded file)
+        source_duration: Duration of the uploaded file in seconds
+        target_agent: "cinematographer" or "composer" (the one to auto-configure)
+        target_is_active: Whether target agent is active
+        target_source: "model" or "file" - if "file", skip auto-config
+        target_model_id: Model ID of the target agent
+    """
+    if not target_is_active or target_source == "file" or not target_model_id:
+        return  # Don't auto-configure if target uses file or is inactive
+    
+    # Determine max clip/track duration based on model
+    if target_agent == "cinematographer":
+        # Video model max durations
+        if "veo" in target_model_id.lower():
+            max_duration = 8.0  # Veo 3.1 max
+        elif "luma" in target_model_id.lower():
+            max_duration = 5.0  # Luma Ray max
+        else:  # Wan
+            max_duration = 5.0  # Wan 2.5 max
+        
+        # Calculate number of clips needed
+        num_clips = max(1, min(5, int(source_duration / max_duration) + (1 if source_duration % max_duration > 0 else 0)))
+        
+        st.session_state.cinematographer_multi_mode = True
+        st.session_state.cinematographer_clip_count = num_clips
+        st.info(f"🎬 Auto-configured Cinematographer: {num_clips} clips × {max_duration}s = {num_clips * max_duration}s to match {source_duration:.1f}s audio")
+        
+    elif target_agent == "composer":
+        # Audio model max durations
+        if "music-1.5" in target_model_id.lower() or "minimax" in target_model_id.lower():
+            max_duration = 120.0  # Minimax Music-1.5 max
+        elif "ace-step" in target_model_id.lower():
+            max_duration = 180.0  # ACE-Step max
+        else:  # MusicGen, Lyria
+            max_duration = 30.0  # Conservative default
+        
+        # Calculate number of tracks needed
+        num_tracks = max(1, min(5, int(source_duration / max_duration) + (1 if source_duration % max_duration > 0 else 0)))
+        
+        st.session_state.composer_multi_mode = True
+        st.session_state.composer_track_count = num_tracks
+        st.info(f"🎵 Auto-configured Composer: {num_tracks} tracks × {max_duration}s = {num_tracks * max_duration}s to match {source_duration:.1f}s video")
+
+
 def _init_section_state():
     """Initialize session state for agency sections."""
     defaults = {
@@ -98,6 +155,9 @@ def _init_section_state():
         "cinematographer_files": [],
         "cinematographer_file_metadata": [],
         "cinematographer_prompt_text": "",
+        "cinematographer_multi_mode": False,
+        "cinematographer_clip_count": 1,
+        "cinematographer_clips": [],
         "storyboard_active": False,
         "storyboard_model": None,
         "storyboard_params": {},
@@ -115,6 +175,9 @@ def _init_section_state():
         "composer_file_metadata": [],
         "composer_prompt_text": "",
         "composer_lyrics_text": "",
+        "composer_multi_mode": False,
+        "composer_track_count": 1,
+        "composer_tracks": [],
     }
 
     for key, default in defaults.items():
@@ -257,6 +320,21 @@ def render_cinematographer_section() -> Dict[str, Any]:
 
                 for idx, entry in enumerate(stored_entries, start=1):
                     _render_metadata_block(f"Video {idx}: {Path(entry['path']).name}", entry.get("metadata", {}))
+                
+                # Auto-configure Composer if active and using model
+                total_video_duration = sum(
+                    entry.get("metadata", {}).get("duration_seconds", 0)
+                    for entry in stored_entries
+                )
+                if total_video_duration > 0:
+                    _auto_configure_multi_mode(
+                        source_agent="cinematographer",
+                        source_duration=total_video_duration,
+                        target_agent="composer",
+                        target_is_active=st.session_state.get("composer_active", False),
+                        target_source=st.session_state.get("composer_source", "model"),
+                        target_model_id=st.session_state.get("composer_model")
+                    )
             else:
                 st.session_state.cinematographer_files = []
                 config["file_paths"] = []
@@ -288,82 +366,155 @@ def render_cinematographer_section() -> Dict[str, Any]:
             st.markdown(f"**Tier:** {model_info.tier.upper()} | **Cost:** {cost_str}")
 
     if st.session_state.cinematographer_source == "model":
+        # ================================================================
+        # MULTI-GENERATION MODE TOGGLE
+        # ================================================================
+        st.markdown("---")
+        st.markdown("**🎬 Generation Mode**")
+        
+        col_mode, col_count = st.columns([2, 1])
+        
+        with col_mode:
+            multi_mode = st.radio(
+                "Mode",
+                ["Single Clip", "Multiple Clips"],
+                index=1 if st.session_state.cinematographer_multi_mode else 0,
+                horizontal=True,
+                key="cinema_multi_mode_radio",
+                help="Generate one clip or multiple clips with different configurations"
+            )
+            st.session_state.cinematographer_multi_mode = (multi_mode == "Multiple Clips")
+        
+        with col_count:
+            if st.session_state.cinematographer_multi_mode:
+                clip_count = st.number_input(
+                    "Number of Clips",
+                    min_value=1,
+                    max_value=5,
+                    value=st.session_state.cinematographer_clip_count,
+                    key="cinema_clip_count_input",
+                    help="Generate up to 5 clips with independent settings"
+                )
+                st.session_state.cinematographer_clip_count = clip_count
+                st.caption(f"⚠️ Total cost: ~${model_info.cost_per_run * clip_count:.2f}" if model_info and model_info.cost_per_run else "")
+        
         # Dynamic Parameters from Schema (works for all providers)
         with st.expander("⚙️ Video Model Parameters", expanded=False):
             try:
                 schema = schema_service.get_schema_for_registry_model(model_id)
                 st.session_state.cinematographer_schema = schema
 
-                ui_generator = DynamicUIGenerator(key_prefix="cinema")
-                exclude = ["prompt", "text", "caption", "input"]
+                if st.session_state.cinematographer_multi_mode:
+                    # ================================================================
+                    # MULTI-CLIP CONFIGURATION
+                    # ================================================================
+                    st.info(f"Configure {st.session_state.cinematographer_clip_count} independent clip(s) below. Each can have unique prompt, duration, and settings.")
+                    
+                    clips = render_multi_config_panel(
+                        agent_type="cinematographer",
+                        model_id=model_id,
+                        schema=schema,
+                        count=st.session_state.cinematographer_clip_count,
+                        key_prefix="cinema",
+                        current_configs=st.session_state.get("cinematographer_clips", []),
+                        text_fields=["prompt"],
+                        exclude_params=["prompt", "text", "caption", "input"]
+                    )
+                    
+                    st.session_state.cinematographer_clips = clips
+                    config["clips"] = clips
+                    config["multi_mode"] = True
+                    
+                    # Clear single-mode state
+                    st.session_state.cinematographer_params = {}
+                    config["params"] = {}
+                
+                else:
+                    # ================================================================
+                    # SINGLE-CLIP CONFIGURATION (Original behavior)
+                    # ================================================================
+                    ui_generator = DynamicUIGenerator(key_prefix="cinema")
+                    exclude = ["prompt", "text", "caption", "input"]
 
-                params = ui_generator.render_controls(
-                    schema,
-                    current_values=st.session_state.cinematographer_params,
-                    exclude_params=exclude,
-                    columns=2
-                )
+                    params = ui_generator.render_controls(
+                        schema,
+                        current_values=st.session_state.cinematographer_params,
+                        exclude_params=exclude,
+                        columns=2
+                    )
 
-                st.session_state.cinematographer_params = params
-                config["params"] = params
+                    # CRITICAL: Merge schema params with existing params (preserves prompt)
+                    if "cinematographer_params" not in st.session_state:
+                        st.session_state.cinematographer_params = {}
+                    st.session_state.cinematographer_params.update(params)
+                    config["params"] = st.session_state.cinematographer_params
+                    config["multi_mode"] = False
+                    
+                    # Clear multi-mode state
+                    st.session_state.cinematographer_clips = []
+                    config["clips"] = []
 
             except ValueError as e:
                 st.warning(f"Could not load schema: {e}")
                 st.info("Using default parameters. The model may still work.")
                 st.session_state.cinematographer_params = {}
                 config["params"] = {}
+                config["multi_mode"] = False
+                config["clips"] = []
 
         # ================================================================
-        # VIDEO PROMPT INPUT SECTION (Sprint 4 Integration)
+        # VIDEO PROMPT INPUT SECTION (Single-Clip Mode Only)
         # ================================================================
-        st.markdown("---")
-        st.markdown("**🎥 Video Prompt**")
+        if not st.session_state.get("cinematographer_multi_mode", False):
+            st.markdown("---")
+            st.markdown("**🎥 Video Prompt**")
 
-        # Determine prompt limit based on model
-        prompt_limit = 500  # Wan default
-        if "veo" in model_id.lower():
-            prompt_limit = 1000
-        elif "luma" in model_id.lower():
-            prompt_limit = 700
+            # Determine prompt limit based on model
+            prompt_limit = 500  # Wan default
+            if "veo" in model_id.lower():
+                prompt_limit = 1000
+            elif "luma" in model_id.lower():
+                prompt_limit = 700
 
-        col_prompt, col_preset = st.columns([3, 1])
+            col_prompt, col_preset = st.columns([3, 1])
 
-        with col_preset:
-            with st.popover("📋 Presets"):
-                def on_cinema_prompt_apply(content: str):
-                    """Callback when video prompt preset is applied."""
-                    if "cinematographer_params" not in st.session_state:
-                        st.session_state.cinematographer_params = {}
-                    st.session_state.cinematographer_params["prompt"] = content
-                    st.session_state.cinematographer_prompt_text = content
+            with col_preset:
+                with st.popover("📋 Presets"):
+                    def on_cinema_prompt_apply(content: str):
+                        """Callback when video prompt preset is applied."""
+                        if "cinematographer_params" not in st.session_state:
+                            st.session_state.cinematographer_params = {}
+                        st.session_state.cinematographer_params["prompt"] = content
+                        st.session_state.cinematographer_prompt_text = content
 
-                render_preset_selector(
-                    preset_type="video",
-                    key_prefix="cinema_prompt",
-                    model_id=model_id,
+                    render_preset_selector(
+                        preset_type="video",
+                        key_prefix="cinema_prompt",
+                        model_id=model_id,
+                        max_chars=prompt_limit,
+                        show_preview=True,
+                        on_select=on_cinema_prompt_apply
+                    )
+
+            with col_prompt:
+                prompt_text = text_area_with_counter(
+                    label="Describe the visual scene",
+                    key="cinema_prompt",
                     max_chars=prompt_limit,
-                    show_preview=True,
-                    on_select=on_cinema_prompt_apply
+                    min_chars=10,
+                    placeholder="Cinematic aerial shot of a misty mountain valley at sunrise, golden light filtering through clouds, slow camera movement...",
+                    default_value=st.session_state.get("cinematographer_prompt_text", ""),
+                    height=120
                 )
+                # Use widget's session state as source of truth, not return value
+                widget_value = st.session_state.get("cinema_prompt_widget", prompt_text)
+                st.session_state.cinematographer_prompt_text = widget_value
+                config["params"]["prompt"] = widget_value
+                if "cinematographer_params" not in st.session_state:
+                    st.session_state.cinematographer_params = {}
+                st.session_state.cinematographer_params["prompt"] = widget_value
 
-        with col_prompt:
-            prompt_text = text_area_with_counter(
-                label="Describe the visual scene",
-                key="cinema_prompt",
-                max_chars=prompt_limit,
-                min_chars=10,
-                placeholder="Cinematic aerial shot of a misty mountain valley at sunrise, golden light filtering through clouds, slow camera movement...",
-                default_value=st.session_state.get("cinematographer_prompt_text", ""),
-                height=120
-            )
-            st.session_state.cinematographer_prompt_text = prompt_text
-            config["params"]["prompt"] = prompt_text
-            # FIX: Also save to session_state params so get_agency_config() can read it
-            if "cinematographer_params" not in st.session_state:
-                st.session_state.cinematographer_params = {}
-            st.session_state.cinematographer_params["prompt"] = prompt_text
-
-        st.caption(f"💡 Be specific about camera movement, lighting, and mood. Max {prompt_limit} chars.")
+                st.caption(f"💡 Be specific about camera movement, lighting, and mood. Max {prompt_limit} chars.")
 
     else:
         st.info("Model parameters not required when using uploaded video files.")
@@ -554,6 +705,18 @@ def render_composer_section() -> Dict[str, Any]:
                 config["file_paths"] = [entry["path"]]
                 config["file_metadata"] = [entry.get("metadata", {})]
                 _render_metadata_block(f"Audio: {Path(entry['path']).name}", entry.get("metadata", {}))
+                
+                # Auto-configure Cinematographer if active and using model
+                audio_duration = entry.get("metadata", {}).get("duration_seconds", 0)
+                if audio_duration > 0:
+                    _auto_configure_multi_mode(
+                        source_agent="composer",
+                        source_duration=audio_duration,
+                        target_agent="cinematographer",
+                        target_is_active=st.session_state.get("cinematographer_active", False),
+                        target_source=st.session_state.get("cinematographer_source", "model"),
+                        target_model_id=st.session_state.get("cinematographer_model")
+                    )
             else:
                 st.session_state.composer_files = []
                 config["file_paths"] = []
@@ -598,116 +761,154 @@ def render_composer_section() -> Dict[str, Any]:
                 st.markdown(" | ".join(caps))
 
         # ================================================================
-        # LYRICS & PROMPT INPUT SECTION (Sprint 3 Integration)
+        # MULTI-GENERATION MODE TOGGLE (COMPOSER)
         # ================================================================
         st.markdown("---")
-        st.markdown("**📝 Music Content**")
-
-        # Determine limits based on model
-        lyrics_limit = 600  # Music-1.5 default
-        prompt_limit = 300  # Music-1.5 default
-
-        if "ace-step" in model_id.lower():
-            lyrics_limit = 3000
-            prompt_limit = 500
-        elif "musicgen" in model_id.lower() or "lyria" in model_id.lower():
-            lyrics_limit = 0  # Instrumental only
-            prompt_limit = 500
-
-        # Music Style Prompt (always shown)
-        st.markdown("##### Style Prompt")
-        col_prompt, col_preset = st.columns([3, 1])
-
-        with col_preset:
-            with st.popover("📋 Presets"):
-                def on_composer_prompt_apply(content: str):
-                    """Callback when composer prompt preset is applied."""
-                    # Set directly in params so validation passes immediately
-                    if "composer_params" not in st.session_state:
-                        st.session_state.composer_params = {}
-                    st.session_state.composer_params["prompt"] = content
-                    st.session_state.composer_prompt_text = content
-
-                render_preset_selector(
-                    preset_type="composer",
-                    key_prefix="composer_prompt",
-                    model_id=model_id,
-                    max_chars=prompt_limit,
-                    show_preview=True,
-                    on_select=on_composer_prompt_apply
-                )
-
-        with col_prompt:
-            prompt_text = text_area_with_counter(
-                label="Describe the music style",
-                key="composer_prompt",
-                max_chars=prompt_limit,
-                min_chars=10,
-                placeholder="90s rock anthem, power chords, driving drums at 120 BPM, arena rock energy",
-                default_value=st.session_state.get("composer_prompt_text", ""),
-                height=100
+        st.markdown("**🎵 Generation Mode**")
+        
+        col_mode, col_count = st.columns([2, 1])
+        
+        with col_mode:
+            multi_mode = st.radio(
+                "Mode",
+                ["Single Track", "Multiple Tracks"],
+                index=1 if st.session_state.composer_multi_mode else 0,
+                horizontal=True,
+                key="composer_multi_mode_radio",
+                help="Generate one track or multiple tracks with different configurations"
             )
-            st.session_state.composer_prompt_text = prompt_text
-            config["params"]["prompt"] = prompt_text
-            # FIX: Also save to session_state params so get_agency_config() can read it
-            if "composer_params" not in st.session_state:
-                st.session_state.composer_params = {}
-            st.session_state.composer_params["prompt"] = prompt_text
+            st.session_state.composer_multi_mode = (multi_mode == "Multiple Tracks")
+        
+        with col_count:
+            if st.session_state.composer_multi_mode:
+                track_count = st.number_input(
+                    "Number of Tracks",
+                    min_value=1,
+                    max_value=5,
+                    value=st.session_state.composer_track_count,
+                    key="composer_track_count_input",
+                    help="Generate up to 5 tracks with independent settings"
+                )
+                st.session_state.composer_track_count = track_count
+                st.caption(f"⚠️ Total cost: ~${model_info.cost_per_run * track_count:.2f}" if model_info and model_info.cost_per_run else "")
 
-        # Lyrics section (only for models that support it)
-        if model_info and model_info.supports_lyrics and lyrics_limit > 0:
-            st.markdown("##### Lyrics (Optional)")
-            col_lyrics, col_lyric_preset = st.columns([3, 1])
+        # ================================================================
+        # LYRICS & PROMPT INPUT SECTION (Single-Track Mode Only)
+        # ================================================================
+        if not st.session_state.get("composer_multi_mode", False):
+            st.markdown("---")
+            st.markdown("**📝 Music Content**")
 
-            with col_lyric_preset:
+            # Determine limits based on model
+            lyrics_limit = 600  # Music-1.5 default
+            prompt_limit = 300  # Music-1.5 default
+
+            if "ace-step" in model_id.lower():
+                lyrics_limit = 3000
+                prompt_limit = 500
+            elif "musicgen" in model_id.lower() or "lyria" in model_id.lower():
+                lyrics_limit = 0  # Instrumental only
+                prompt_limit = 500
+
+            # Music Style Prompt (always shown)
+            st.markdown("##### Style Prompt")
+            col_prompt, col_preset = st.columns([3, 1])
+
+            with col_preset:
                 with st.popover("📋 Presets"):
-                    def on_composer_lyrics_apply(content: str):
-                        """Callback when lyrics preset is applied."""
+                    def on_composer_prompt_apply(content: str):
+                        """Callback when composer prompt preset is applied."""
+                        # Set directly in params so validation passes immediately
                         if "composer_params" not in st.session_state:
                             st.session_state.composer_params = {}
-                        st.session_state.composer_params["lyrics"] = content
-                        st.session_state.composer_lyrics_text = content
+                        st.session_state.composer_params["prompt"] = content
+                        st.session_state.composer_prompt_text = content
 
                     render_preset_selector(
-                        preset_type="lyrics",
-                        key_prefix="composer_lyrics",
+                        preset_type="composer",
+                        key_prefix="composer_prompt",
                         model_id=model_id,
-                        max_chars=lyrics_limit,
+                        max_chars=prompt_limit,
                         show_preview=True,
-                        on_select=on_composer_lyrics_apply
+                        on_select=on_composer_prompt_apply
                     )
 
-            with col_lyrics:
-                lyrics_text = text_area_with_counter(
-                    label="Song lyrics with [Verse], [Chorus] markers",
-                    key="composer_lyrics",
-                    max_chars=lyrics_limit,
-                    min_chars=0,
-                    placeholder="[Verse 1]\nYour opening lines...\n\n[Chorus]\nThe catchy hook...",
-                    default_value=st.session_state.get("composer_lyrics_text", ""),
-                    height=200
+            with col_prompt:
+                prompt_text = text_area_with_counter(
+                    label="Describe the music style",
+                    key="composer_prompt",
+                    max_chars=prompt_limit,
+                    min_chars=10,
+                    placeholder="90s rock anthem, power chords, driving drums at 120 BPM, arena rock energy",
+                    default_value=st.session_state.get("composer_prompt_text", ""),
+                    height=100
                 )
-                st.session_state.composer_lyrics_text = lyrics_text
-                if lyrics_text.strip():
-                    config["params"]["lyrics"] = lyrics_text
-                    # FIX: Also save to session_state params so get_agency_config() can read it
-                    if "composer_params" not in st.session_state:
-                        st.session_state.composer_params = {}
-                    st.session_state.composer_params["lyrics"] = lyrics_text
-                elif "composer_params" in st.session_state:
-                    # Clear lyrics from params when empty (prevents stale lyrics after model switch)
+                # Use widget's session state as source of truth, not return value
+                widget_value = st.session_state.get("composer_prompt_widget", prompt_text)
+                st.session_state.composer_prompt_text = widget_value
+                config["params"]["prompt"] = widget_value
+                if "composer_params" not in st.session_state:
+                    st.session_state.composer_params = {}
+                st.session_state.composer_params["prompt"] = widget_value
+
+            # Lyrics section (only for models that support it)
+            if model_info and model_info.supports_lyrics and lyrics_limit > 0:
+                st.markdown("##### Lyrics (Optional)")
+                col_lyrics, col_lyric_preset = st.columns([3, 1])
+
+                with col_lyric_preset:
+                    with st.popover("📋 Presets"):
+                        def on_composer_lyrics_apply(content: str):
+                            """Callback when lyrics preset is applied."""
+                            if "composer_params" not in st.session_state:
+                                st.session_state.composer_params = {}
+                            st.session_state.composer_params["lyrics"] = content
+                            st.session_state.composer_lyrics_text = content
+
+                        render_preset_selector(
+                            preset_type="lyrics",
+                            key_prefix="composer_lyrics",
+                            model_id=model_id,
+                            max_chars=lyrics_limit,
+                            show_preview=True,
+                            on_select=on_composer_lyrics_apply
+                        )
+
+                with col_lyrics:
+                    lyrics_text = text_area_with_counter(
+                        label="Song lyrics with [Verse], [Chorus] markers",
+                        key="composer_lyrics",
+                        max_chars=lyrics_limit,
+                        min_chars=0,
+                        placeholder="[Verse 1]\nYour opening lines...\n\n[Chorus]\nThe catchy hook...",
+                        default_value=st.session_state.get("composer_lyrics_text", ""),
+                        height=200
+                    )
+                    # Use widget's session state as source of truth, not return value
+                    widget_value = st.session_state.get("composer_lyrics_widget", lyrics_text)
+                    st.session_state.composer_lyrics_text = widget_value
+                    if widget_value.strip():
+                        config["params"]["lyrics"] = widget_value
+                        if "composer_params" not in st.session_state:
+                            st.session_state.composer_params = {}
+                        st.session_state.composer_params["lyrics"] = widget_value
+                    elif "composer_params" in st.session_state:
+                        # Clear lyrics from params when empty (prevents stale lyrics after model switch)
+                        st.session_state.composer_params.pop("lyrics", None)
+
+                st.caption(f"💡 Use [Verse], [Chorus], [Bridge] markers for song structure. Max {lyrics_limit} chars.")
+
+            elif model_info and model_info.supports_instrumental and not model_info.supports_lyrics:
+                # Pure instrumental model - no lyrics capability
+                st.info("🎸 This model generates instrumental music only (no lyrics).")
+                # FIX BUG 3: Clear any existing lyrics when switching to instrumental-only model
+                if "composer_params" in st.session_state:
                     st.session_state.composer_params.pop("lyrics", None)
+                st.session_state.composer_lyrics_text = ""
 
-            st.caption(f"💡 Use [Verse], [Chorus], [Bridge] markers for song structure. Max {lyrics_limit} chars.")
-
-        elif model_info and model_info.supports_instrumental and not model_info.supports_lyrics:
-            # Pure instrumental model - no lyrics capability
-            st.info("🎸 This model generates instrumental music only (no lyrics).")
-            # FIX BUG 3: Clear any existing lyrics when switching to instrumental-only model
-            if "composer_params" in st.session_state:
-                st.session_state.composer_params.pop("lyrics", None)
-            st.session_state.composer_lyrics_text = ""
-
+    # Voice requirement check (applies to both single and multi modes)
+    requires_voice = False
+    if st.session_state.composer_source == "model":
         requires_voice = model_requires_voice(model_id)
 
     if requires_voice:
@@ -825,24 +1026,68 @@ def render_composer_section() -> Dict[str, Any]:
                 schema = schema_service.get_schema_for_registry_model(model_id)
                 st.session_state.composer_schema = schema
 
-                ui_generator = DynamicUIGenerator(key_prefix="composer")
-                exclude = ["prompt", "text", "lyrics", "voice", "voice_file", "reference_audio"]
+                if st.session_state.composer_multi_mode:
+                    # ================================================================
+                    # MULTI-TRACK CONFIGURATION
+                    # ================================================================
+                    st.info(f"Configure {st.session_state.composer_track_count} independent track(s) below. Each can have unique prompt, lyrics, duration, and settings.")
+                    
+                    # Determine which text fields to include
+                    text_fields = ["prompt"]
+                    if model_info and model_info.supports_lyrics:
+                        text_fields.append("lyrics")
+                    
+                    tracks = render_multi_config_panel(
+                        agent_type="composer",
+                        model_id=model_id,
+                        schema=schema,
+                        count=st.session_state.composer_track_count,
+                        key_prefix="composer",
+                        current_configs=st.session_state.get("composer_tracks", []),
+                        text_fields=text_fields,
+                        exclude_params=["prompt", "text", "lyrics", "voice", "voice_file", "reference_audio"]
+                    )
+                    
+                    st.session_state.composer_tracks = tracks
+                    config["tracks"] = tracks
+                    config["multi_mode"] = True
+                    
+                    # Clear single-mode state
+                    st.session_state.composer_params = {}
+                    config["params"] = {}
+                
+                else:
+                    # ================================================================
+                    # SINGLE-TRACK CONFIGURATION (Original behavior)
+                    # ================================================================
+                    ui_generator = DynamicUIGenerator(key_prefix="composer")
+                    exclude = ["prompt", "text", "lyrics", "voice", "voice_file", "reference_audio"]
 
-                params = ui_generator.render_controls(
-                    schema,
-                    current_values=st.session_state.composer_params,
-                    exclude_params=exclude,
-                    columns=2
-                )
-
-                st.session_state.composer_params = params
-                config["params"] = params
+                    params = ui_generator.render_controls(
+                        schema,
+                        current_values=st.session_state.composer_params,
+                        exclude_params=exclude,
+                        columns=2
+                    )
+                    
+                    # CRITICAL: Merge schema params with existing params (preserves prompt/lyrics)
+                    if "composer_params" not in st.session_state:
+                        st.session_state.composer_params = {}
+                    st.session_state.composer_params.update(params)
+                    config["params"] = st.session_state.composer_params
+                    config["multi_mode"] = False
+                    
+                    # Clear multi-mode state
+                    st.session_state.composer_tracks = []
+                    config["tracks"] = []
 
             except ValueError as e:
                 st.warning(f"Could not load schema: {e}")
                 st.info("Using default parameters.")
                 st.session_state.composer_params = {}
                 config["params"] = {}
+                config["multi_mode"] = False
+                config["tracks"] = []
     else:
         st.info("Model parameters not required when using uploaded audio.")
 
@@ -868,6 +1113,8 @@ def get_agency_config() -> Dict[str, Any]:
             "file_metadata": [entry.get("metadata") for entry in st.session_state.get("cinematographer_files", []) or []],
             "storyboard_active": st.session_state.get("storyboard_active", False),
             "storyboard_model_id": st.session_state.get("storyboard_model"),
+            "multi_mode": st.session_state.get("cinematographer_multi_mode", False),
+            "clips": st.session_state.get("cinematographer_clips", []),
         },
         "composer": {
             "active": st.session_state.get("composer_active", True),
@@ -879,6 +1126,8 @@ def get_agency_config() -> Dict[str, Any]:
             "voice_source": st.session_state.get("composer_voice_source"),
             "voice_file": st.session_state.get("composer_voice_file"),
             "voice_model_id": st.session_state.get("composer_voice_model"),
+            "multi_mode": st.session_state.get("composer_multi_mode", False),
+            "tracks": st.session_state.get("composer_tracks", []),
         }
     }
 

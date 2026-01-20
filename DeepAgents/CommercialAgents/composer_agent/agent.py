@@ -649,12 +649,22 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             ace_duration = min(duration_sec, 240) if duration_sec else 60
             logger.info(f"   ACE-Step Duration set to: {ace_duration}s")
 
-            # Generate Tags/Lyrics
-            lyric_data = _generate_lyrics_and_style(
-                input_text, llm, model_type="ace-step"
-            )
-            tags = lyric_data.get("tags", input_text)
-            lyrics = lyric_data.get("lyrics", "[inst]")
+            # CRITICAL: Check GUI params FIRST
+            gui_prompt = gui_params.get("prompt", "").strip() if gui_params else ""
+            gui_lyrics = gui_params.get("lyrics", "").strip() if gui_params else ""
+            
+            if gui_prompt or gui_lyrics:
+                # User pre-configured music in GUI
+                logger.info("[ACE-STEP] Using pre-configured GUI prompt/lyrics")
+                tags = gui_prompt or input_text
+                lyrics = gui_lyrics or "[inst]"
+            else:
+                # No GUI config - parse Director's message
+                lyric_data = _generate_lyrics_and_style(
+                    input_text, llm, model_type="ace-step"
+                )
+                tags = lyric_data.get("tags", input_text)
+                lyrics = lyric_data.get("lyrics", "[inst]")
 
             # ACE-Step requires 'tags' not 'prompt' - MAXIMUM QUALITY SETTINGS
             payload = {
@@ -683,19 +693,31 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             logger.info("[MINIMAX] Generating with Minimax Music-1.5 (Text-to-Music)...")
             logger.info(f"[MINIMAX] GUI params to apply: {gui_params}")
 
-            lyric_data = _generate_lyrics_and_style(
-                input_text, llm, model_type="minimax"
-            )
-            lyrics_text = lyric_data.get("lyrics", input_text)
-            style_prompt = lyric_data.get("prompt", input_text)
+            # CRITICAL: Check GUI params FIRST before parsing Director's message
+            # GUI prompt and lyrics should ALWAYS override Director's generated content
+            gui_prompt = gui_params.get("prompt", "").strip() if gui_params else ""
+            gui_lyrics = gui_params.get("lyrics", "").strip() if gui_params else ""
+            
+            if gui_prompt or gui_lyrics:
+                # User pre-configured music in GUI - use those values directly
+                logger.info("[MINIMAX] Using pre-configured GUI prompt/lyrics (ignoring Director's content)")
+                style_prompt = gui_prompt or input_text
+                lyrics_text = gui_lyrics
+            else:
+                # No GUI config - parse Director's message
+                lyric_data = _generate_lyrics_and_style(
+                    input_text, llm, model_type="minimax"
+                )
+                lyrics_text = lyric_data.get("lyrics", input_text)
+                style_prompt = lyric_data.get("prompt", input_text)
 
             # Build payload with required params
             payload = {"prompt": style_prompt, "lyrics": lyrics_text}
             
-            # Merge GUI params (sample_rate, bitrate, etc.) - these override defaults
+            # Merge other GUI params (sample_rate, bitrate, etc.)
             if gui_params:
                 for key, value in gui_params.items():
-                    if key not in payload and value is not None:
+                    if key not in ["prompt", "lyrics"] and value is not None:
                         payload[key] = value
                         logger.info(f"[MINIMAX] Added GUI param: {key}={value}")
 

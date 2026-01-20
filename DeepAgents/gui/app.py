@@ -257,11 +257,14 @@ with tab_agency:
     )
     
     # Validation before run
+    # Only show validation errors if user has attempted to run or if fields have content
     if AGENCY_SECTIONS_AVAILABLE:
         agency_cfg = get_agency_config()
         is_valid, validation_errors = validate_agency_config(agency_cfg)
         
-        if not is_valid:
+        # Only show warnings if user tried to run or if they have partial config
+        show_validation_warnings = st.session_state.get("show_validation_warnings", False)
+        if not is_valid and show_validation_warnings:
             for err in validation_errors:
                 st.warning(f"⚠️ {err}")
     else:
@@ -271,8 +274,9 @@ with tab_agency:
     col_run, col_stop = st.columns([1, 1])
     
     with col_run:
-        # Run Agency - disabled while running or if config invalid
-        run_disabled = st.session_state.agency_running or (AGENCY_SECTIONS_AVAILABLE and not is_valid)
+        # Run Agency - only disabled while already running
+        # Validation happens AFTER click, not before
+        run_disabled = st.session_state.agency_running or not directive
         run_button = st.button(
             "🚀 Run Agency",
             disabled=run_disabled,
@@ -369,8 +373,14 @@ with tab_agency:
     
     # Execution Logic
     if run_button:
+        # User attempted to run - now show validation errors if any
+        st.session_state.show_validation_warnings = True
+        
         if not directive:
             st.warning("⚠️ Please enter a creative directive before running the agency.")
+        elif AGENCY_SECTIONS_AVAILABLE and not is_valid:
+            # Rerun to show validation warnings
+            st.rerun()
         else:
             st.session_state.agency_running = True
             st.session_state.agency_session_start = datetime.now()

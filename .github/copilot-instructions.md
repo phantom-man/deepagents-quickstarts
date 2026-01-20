@@ -34,6 +34,7 @@ These are the immutable facts of the current project state. Copilot must priorit
     - `DeepAgents/orchestrator.py` is the package entry point (renamed from `DeepAgents.py` to avoid collisions).
 
 ### 3. Operational Protocols
+- **Terminal Management (CRITICAL)**: You MUST name and reuse terminals. Use descriptive names (e.g., "streamlit", "langgraph-dev", "pytest"). Never create duplicate terminals for the same purpose. Before running commands, check existing terminals and reuse them.
 - **Data Query Protocol**: When querying large datasets or logs (Git, Search, etc.), you MUST pipe output to a file and read it. DO NOT echo massive text to the terminal to avoid scroll-lock freezing.
 - **Deprecation Policy**: Forbidden to use deprecated code. Always use the "latest and greatest" libraries (e.g., `langchain-google-genai` over `langchain-google-vertexai`).
 - **Prompt Logic**: You MUST read every new prompt from beginning to end before taking action or plan development.
