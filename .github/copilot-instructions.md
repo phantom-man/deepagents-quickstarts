@@ -126,7 +126,8 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 
 | Date | Topic | Decision | Rationale |
 |------|-------|----------|----------|
-| 2026-01-20 | DevDb Integration | Configured `.vscode/settings.json` for Postgres and SQLite | Enables visual inspection of Agent Memory (PG) and Command Queue (SQLite) directly in VS Code |
+| 2026-01-20 | SQLite Removal | Removed SQLite (atlas.db) and orphaned `atlas_db.py` | Architecture uses `atlas_link.py` (In-Memory) for commands and Postgres for Agent Memory. SQLite was dead code. |
+| 2026-01-20 | DevDb Integration | Configured `.vscode/settings.json` for Postgres | Enables visual inspection of Agent Memory (Postgres). SQLite connection removed. |
 | 2026-01-20 | Linter Strategy | Adopted Ruff as primary linter/formatter; deprecated Pylance refactoring | Ruff provides instant feedback; Pylint reserved for deep logic checks only |
 | 2026-01-20 | Progress Event Display | Removed `continue` statement that filtered handoff events from event log | Handoff messages (e.g., "[HANDOFF] -> Composer") now appear in both progress bar AND event log immediately when routing occurs |
 | 2026-01-20 | Run Agency Button Validation | Changed button disable logic to check config validity in real-time | Button now properly enables/disables based on live validation; activates immediately when preset changes lyrics/prompt |
@@ -186,6 +187,10 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-19 | Input Schema Service | `services/input_schema.py` defines model-specific char limits | `MODEL_INPUT_REGISTRY` maps model IDs to `InputFieldDefinition` lists |
 | 2026-01-19 | File Analyzer Service | `services/file_analyzer.py` extracts audio/video metadata | Uses ffprobe→pydub→mutagen fallback chain; `calculate_video_segments()` for auto-config |
 | 2026-01-19 | Pylint Score Improvement | Improved from 4.84/10 to 9.16/10 on Sprint 2 files | Fixed trailing whitespace, import order, added docstrings, removed unused imports |
+| 2026-01-20 | Handoff Routing Priority (CRITICAL) | Moved `end` to LAST in `_route_from_handoffs()` priority chain | Prevents premature exit when Director produces both work agents AND end in handoffs (e.g., `['composer', 'end']`) |
+| 2026-01-20 | Model Change Detection | Added `composer_last_model` and `cinematographer_last_model` tracking in session state | Clears stale schema params when switching models while preserving user content (prompt/lyrics) |
+| 2026-01-20 | Minimax Valid Params Whitelist | Added `MINIMAX_VALID_PARAMS = {"lyrics", "prompt", "bitrate", "sample_rate", "audio_format"}` in composer_agent | Filters out ACE-Step params (scheduler, guidance_type, etc.) that don't apply to Minimax Music-1.5 |
+| 2026-01-20 | Session State Pollution Bug | Root cause: switching models didn't clear old schema params | ACE-Step params persisted in `composer_params` after switching to Music-1.5, causing API to receive invalid params |
 | 2026-01-17 | Multi-Provider Schema Service | Strategy pattern: VertexAI, GoogleGenAI, Replicate handlers | Auto-routes models to correct provider, prevents API mismatches |
 | 2026-01-17 | VS Code Crash Root Cause | Schema validation for non-Replicate models hit Replicate API | Added provider handlers to route Vertex/GenAI to pre-defined schemas |
 | 2026-01-17 | Lyria-2 Correction | `supports_lyrics=False`, instrumental only | Google Lyria generates instrumental music, no vocals |
@@ -238,6 +243,9 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-20 | Systematic Debugging Protocol | Added Four-Phase Framework to copilot-instructions | Prevents symptom-focused fixes, enforces root cause analysis before any code changes |
 | 2026-01-20 | Streamlit Popover Lifecycle | Code inside `with st.popover(...)` doesn't run after `st.rerun()` when popover closes | Use `on_select` callbacks that execute BEFORE rerun to persist state |
 | 2026-01-20 | Preset Apply Fix | Changed from return-value pattern to `on_select` callback pattern | Callbacks execute during button click, before rerun closes popover |
+| 2026-01-20 | Ruff Configuration | Created `ruff.toml` with `unfixable = ["F401", "F841", "I"]` | Prevents auto-fixes from deleting unused imports/variables during active development cycles |
+| 2026-01-20 | Critical Bug Patches | Manually fixed runtime crashes in `studio.py`, `graph_app.py` | Addressed missing standard lib imports and undefined exception variables that caused immediate failure |
+| 2026-01-20 | Cosmetic Linting Policy | Ignored `E501` (Line Length) warnings | Prioritized code stability and "saving progress" over strict line-length enforcement |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:
@@ -367,6 +375,13 @@ Database.
 - **SDK Usage:** Prefer `vertexai` and `google-genai` libraries for Google Cloud integration.
 
 ## Operational Directives
+
+### Orphaned Files Protocol (Added 2026-01-20)
+**Rule:** When a file is identified as unused, dead, or "orphaned" code:
+1. Do NOT delete it immediately (unless auto-generated).
+2. Move it to `DeepAgents/Orphaned/`.
+3. Update imports in other files to comment out dependencies on the orphaned file to prevent crashes.
+4. This preserves the code for reference while cleaning up the active workspace.
 
 ### Memory Persistence Protocol (@History) - CRITICAL
 **Rule:** When the user includes `@History`, `save this`, `remember this`, `always remember`, `Learn this`:
