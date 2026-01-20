@@ -219,10 +219,69 @@ def _generate_lyrics_and_style(
     Implements a Reflexion Loop to strictly enforce API constraints.
     Uses dynamic schema loading from LangSmith Hub via get_model_schema().
     Supports: Minimax Music-1.5, ACE-Step, Lyria.
+    
+    IMPORTANT: If input_text contains user-supplied lyrics (detected via markers like
+    [Verse], [Chorus], [Bridge]), they will be passed through VERBATIM. The LLM will
+    only be used to extract the style/genre prompt, NOT to rewrite lyrics.
     """
     if not llm:
         return {"prompt": input_text, "tags": input_text}
 
+    # STEP 1: Detect user-supplied lyrics (verbatim pass-through)
+    lyrics_markers = ["[verse", "[chorus", "[bridge", "[intro", "[outro", "[hook", "[pre-chorus"]
+    input_lower = input_text.lower()
+    has_user_lyrics = any(marker in input_lower for marker in lyrics_markers)
+    
+    if has_user_lyrics:
+        logger.info("[LYRICS] User-supplied lyrics detected - passing through VERBATIM")
+        
+        # Extract the lyrics section (everything after "Lyrics:" or the first marker)
+        user_lyrics = ""
+        style_prompt = ""
+        
+        # Check if there's a "Lyrics:" label
+        lyrics_label_match = re.search(r"(?:Lyrics|LYRICS):\s*(.+)", input_text, re.IGNORECASE | re.DOTALL)
+        if lyrics_label_match:
+            user_lyrics = lyrics_label_match.group(1).strip()
+            # Style is everything before "Lyrics:"
+            style_prompt = input_text[:lyrics_label_match.start()].strip()
+        else:
+            # Find first lyrics marker and split there
+            first_marker_match = re.search(r"(\[(?:Verse|Chorus|Bridge|Intro|Outro|Hook|Pre-Chorus)[^\]]*\])", input_text, re.IGNORECASE)
+            if first_marker_match:
+                marker_pos = first_marker_match.start()
+                style_prompt = input_text[:marker_pos].strip()
+                user_lyrics = input_text[marker_pos:].strip()
+            else:
+                # Fallback: treat entire input as lyrics
+                user_lyrics = input_text
+        
+        # Clean up style prompt (extract from "Audio/Music Prompt:" if present)
+        audio_prompt_match = re.search(r"(?:Audio/Music Prompt|Audio Prompt|Music Prompt)[:\s]*[\"']?([^\"'\n]+)", style_prompt, re.IGNORECASE)
+        if audio_prompt_match:
+            style_prompt = audio_prompt_match.group(1).strip()
+        
+        # Remove artist name references from style prompt (content moderation)
+        style_prompt = re.sub(r"\b(?:like|think|similar to|sounds like|meets)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*", "", style_prompt, flags=re.IGNORECASE)
+        style_prompt = style_prompt.strip().strip('"').strip("'").strip(".")
+        
+        # Check if lyrics fit within Minimax limit (600 chars)
+        if model_type == "minimax" and len(user_lyrics) > 600:
+            logger.warning(f"[LYRICS] User lyrics are {len(user_lyrics)} chars (limit 600). Will truncate to fit.")
+            # Truncate at a natural break point (last complete section that fits)
+            truncated = ""
+            for line in user_lyrics.split('\n'):
+                if len(truncated) + len(line) + 1 <= 600:
+                    truncated += line + '\n'
+                elif line.startswith('[') and len(truncated) > 100:
+                    # Hit a section marker and have enough content, stop here
+                    break
+            user_lyrics = truncated.strip()
+            logger.info(f"[LYRICS] Truncated to {len(user_lyrics)} chars")
+        
+        return {"prompt": style_prompt or "rock anthem, powerful vocals", "lyrics": user_lyrics}
+
+    # STEP 2: No user lyrics detected - use LLM to generate
     # Dynamic Schema Loading from Hub (with local fallback)
     try:
         # Map model_type to model_id for schema lookup
@@ -278,9 +337,9 @@ def _generate_lyrics_and_style(
             # Validate Constraints (Minimax Only)
             constraint_errors = []
             if model_type == "minimax":
-                if len(lyrics) > 550:  # Safety buffer below 600
+                if len(lyrics) > 600:  # Minimax Music-1.5 hard limit
                     constraint_errors.append(
-                        f"Lyrics are {len(lyrics)} chars (Max 550 allowable)"
+                        f"Lyrics are {len(lyrics)} chars (Max 600 allowed)"
                     )
                 prompt_val = result.get("prompt", "")
                 if len(prompt_val) > 290:  # Safety buffer below 300
@@ -362,23 +421,41 @@ def _extract_replicate_url(output: Any) -> Optional[str]:
 
 
 def _handle_replicate_generation(  # pylint: disable=too-many-arguments
-    model_name: str, input_text: str, llm: Any, assets: Any, session_id: str
+    model_name: str, 
+    input_text: str, 
+    llm: Any, 
+    assets: Any, 
+    session_id: str,
+    extra_params: Optional[Dict[str, Any]] = None
 ) -> str:
     """
     Handle generation via Replicate (ACE-Step, Minimax, Lyria, MusicGen).
-    Implements cascading fallback, service checks, and voice library integration.
+    
+    Args:
+        model_name: Target model ID (e.g., "minimax/music-1.5")
+        input_text: The music prompt/description
+        llm: LLM for lyrics generation
+        assets: AssetManager instance
+        session_id: Session identifier
+        extra_params: Additional model parameters from GUI schema
+    
+    FAIL FAST: Raises exceptions on critical failures.
     """
     if not os.environ.get("REPLICATE_API_TOKEN"):
-        return "Error: REPLICATE_API_TOKEN not set."
+        raise ValueError("REPLICATE_API_TOKEN not set. Cannot proceed with music generation.")
+
+    # Merge extra_params if provided
+    gui_params = extra_params or {}
+    logger.info(f"[REPLICATE] GUI params: {gui_params}")
 
     # --- 1. Service Availability Check ---
     status_map = check_service_status()
 
-    # --- 2. Strategy Selection & Fallback ---
-    # Default selection logic
+    # --- 2. Strategy Selection ---
+    # Use the model passed in directly - no more guessing from prompt
     target_model = model_name
 
-    # Logic: Default to ACE-Step unless specific model requested
+    # Only do prompt-based selection if no model was specified
     if "/" not in target_model:
         lower_input = input_text.lower()
         if "voice" in lower_input or "speech" in lower_input:
@@ -389,13 +466,14 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             target_model = "google/lyria-2"
         elif "ace" in lower_input:
             target_model = "lucataco/ace-step"
-        # Removed the default assignment here, let logic proceed.
+        else:
+            target_model = "minimax/music-1.5"  # Default
 
-    logger.info(f"🎼 Initial Strategy: {target_model}")
+    logger.info(f"[REPLICATE] Target Model: {target_model}")
 
-    # Apply Service Status Fallbacks
+    # Apply Service Status Fallbacks (FAIL FAST on primary model failure)
     if "ace-step" in target_model and not status_map.get("lucataco/ace-step", True):
-        logger.warning("🚨 ACE-Step is DOWN. Falling back to Minimax 1.5.")
+        logger.warning("[REPLICATE] ACE-Step is DOWN. Falling back to Minimax 1.5.")
         target_model = "minimax/music-1.5"
 
     if "music-01" in target_model:
@@ -602,11 +680,8 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
 
         # Case: Minimax Music-1.5
         elif "music-1.5" in target_model:
-            logger.info("🎤 Generating with Minimax Music-1.5 (Text-to-Music)...")
-
-            # Minimax doesn't have explicit 'duration' param typically, but we should pass it
-            # if the new API supports it, or rely on lyric length.
-            # Assuming 'duration' int/float is supported per user instruction.
+            logger.info("[MINIMAX] Generating with Minimax Music-1.5 (Text-to-Music)...")
+            logger.info(f"[MINIMAX] GUI params to apply: {gui_params}")
 
             lyric_data = _generate_lyrics_and_style(
                 input_text, llm, model_type="minimax"
@@ -614,9 +689,17 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             lyrics_text = lyric_data.get("lyrics", input_text)
             style_prompt = lyric_data.get("prompt", input_text)
 
+            # Build payload with required params
             payload = {"prompt": style_prompt, "lyrics": lyrics_text}
-            # Note: Minimax Music-1.5 does NOT support 'duration'. Length is determined by text/lyrics.
+            
+            # Merge GUI params (sample_rate, bitrate, etc.) - these override defaults
+            if gui_params:
+                for key, value in gui_params.items():
+                    if key not in payload and value is not None:
+                        payload[key] = value
+                        logger.info(f"[MINIMAX] Added GUI param: {key}={value}")
 
+            logger.info(f"[MINIMAX] Final payload: {payload}")
             minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)
             final_url = _extract_replicate_url(minimax_out)
 
@@ -806,17 +889,29 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
         return "minimax/music-1.5"
 
 
-def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str:
+def _generate_music_audio_internal(
+    prompt: str, 
+    model_name: str = "auto",
+    model_params: Optional[Dict[str, Any]] = None
+) -> str:
     """
-    Directly generates audio using a Replicate model determined by System Configuration.
+    Directly generates audio using a Replicate model.
+    
     Args:
         prompt: The description of the music.
-        model_name: "auto" triggers dynamic selection. Specific ID overrides.
+        model_name: Model ID (e.g., "minimax/music-1.5"). "auto" triggers dynamic selection.
+        model_params: Additional model parameters from GUI schema (e.g., sample_rate, bitrate)
+    
+    FAIL FAST: Raises exceptions on failure instead of returning error strings.
     """
-    logger.info("🎵 Direct Audio Tool called: %s", prompt)
+    logger.info(f"[MUSIC] Direct Audio Tool called with model: {model_name}")
+    logger.info(f"[MUSIC] Prompt: {prompt[:100]}...")
+    if model_params:
+        logger.info(f"[MUSIC] Params: {model_params}")
+    
     assets = AssetManager()
 
-    # 1. Init LLM (Needed for both Selection and Generation)
+    # 1. Init LLM (Needed for lyrics generation)
     llm_for_lyrics = None
     try:
         llm_for_lyrics = ChatGoogleGenerativeAI(
@@ -824,79 +919,52 @@ def _generate_music_audio_internal(prompt: str, model_name: str = "auto") -> str
         )
     except Exception as e:
         logger.warning("Could not init LLM for lyrics/selection: %s", e)
-        try:
-            # Fallback
-            llm_for_lyrics = ChatReplicate(
-                model="meta/meta-llama-3-70b-instruct",
-                model_kwargs={"temperature": 0.7, "max_length": 2048},
-            )
-        except:
-            pass
+        # FAIL FAST for lyrics - some models require lyrics
+        if "minimax" in model_name.lower():
+            raise ValueError(f"Cannot initialize lyrics LLM for Minimax model: {e}")
 
-    # 2. Select Model
-    if (
-        model_name == "auto" or "/" not in model_name
-    ):  # Handle "minimax/music-1.5" or just "auto"
+    # 2. Select Model (only if "auto")
+    if model_name == "auto" or "/" not in model_name:
         target_model = _select_optimal_music_model(prompt, llm_for_lyrics)
+        logger.info(f"[MUSIC] Auto-selected model: {target_model}")
     else:
         target_model = model_name
+        logger.info(f"[MUSIC] Using specified model: {target_model}")
 
-    # 3. Execute
+    # 3. Execute with params
     return _handle_replicate_generation(
         model_name=target_model,
         input_text=prompt,
         llm=llm_for_lyrics,
         assets=assets,
         session_id="tool_direct",
+        extra_params=model_params  # Pass GUI params through
     )
 
 
-@tool
-def generate_music_tool(prompt: str) -> str:
-    """
-    YOU MUST CALL THIS TOOL IMMEDIATELY. Generates music/audio from a text description.
-    Do NOT describe or plan - just call this tool with the music prompt.
-    Input: A descriptive prompt like "Lo-fi hip hop, chill piano, 80bpm, instrumental"
-    Returns: Path to the generated audio file.
-    """
-    try:
-        # Determine likely model based on prompt content (advanced selection via _select_optimal_music_model)
-        # We pass "auto" to trigger dynamic configuration lookup
-        return _generate_music_audio_internal(prompt, model_name="auto")
-    except Exception as e:
-        return f"Error generation music: {e}"
-
-
-@tool
-def browse_library_tool(filter_type: str = "all") -> str:
-    """
-    Browses the Asset Library to see what audio, video, or images have been generated.
-    Args:
-        filter_type: "audio", "video", "image", or "all".
-    """
-    assets = AssetManager()
-
-    # If "all", pass None, else pass type
-    a_type = None if filter_type == "all" else filter_type
-
-    results = assets.list_assets(asset_type=a_type)
-    if not results:
-        return "Library is empty."
-
-    output = "Current Asset Library:\n"
-    for item in results[:10]:  # Limit to 10 most recent
-        output += f"- [{item.get('asset_type')}] {item.get('prompt', 'Unknown')} (File: {os.path.basename(item.get('path', ''))})\n"
-
-    return output
+# NOTE: Old global @tool definitions removed. Tools are now defined as closures
+# inside create_composer_agent() to capture GUI config from factory scope.
+# This is the correct LangChain pattern for injecting runtime config.
 
 
 def create_composer_agent(
     model_config: Optional[Dict[str, Any]] = None,
     brain: Any = None,
     session_id: str = "default",
+    music_model_id: Optional[str] = None,
+    music_model_params: Optional[Dict[str, Any]] = None,
+    voice_config: Optional[Dict[str, Any]] = None,
 ):
     """
     Factory to create the Composer Agent runner.
+    
+    Args:
+        model_config: LLM brain configuration (provider, model for reasoning)
+        brain: Pre-initialized LLM (optional, for testing)
+        session_id: Session identifier for asset tracking
+        music_model_id: GUI-selected music generation model (e.g., "minimax/music-1.5")
+        music_model_params: GUI-selected model parameters from schema
+        voice_config: Voice configuration dict with 'source', 'file', 'model_id' keys
     """
     if model_config is None:
         # Default to Google Gemini for the Brain, music gen is separate
@@ -904,6 +972,34 @@ def create_composer_agent(
 
     provider = model_config.get("provider", "Google")
     model_name = model_config.get("model", "gemini-2.0-flash-001")
+    
+    # Capture music model config for closures (FAIL FAST: No default fallback)
+    # If GUI didn't provide a model, we use the system config default
+    effective_music_model = music_model_id
+    effective_music_params = music_model_params or {}
+    effective_voice_config = voice_config or {}
+    
+    if not effective_music_model:
+        # Pull from SystemConfiguration as authoritative default
+        try:
+            sys_config = SystemConfiguration()
+            cfg = sys_config.load_config()
+            capabilities = cfg.get("agents", {}).get("Composer", {}).get("capabilities", [])
+            music_cap = next((c for c in capabilities if c.get("type") == "music_generation"), None)
+            if music_cap and music_cap.get("models"):
+                # Get highest priority model
+                models = sorted(music_cap["models"], key=lambda x: x.get("priority", 0), reverse=True)
+                effective_music_model = models[0].get("id", "").replace("replicate/", "")
+                logger.info(f"[CONFIG] Using system default music model: {effective_music_model}")
+        except Exception as e:
+            logger.warning(f"[CONFIG] Could not load system config: {e}")
+    
+    # FAIL FAST: If still no model, use hardcoded fallback and log warning
+    if not effective_music_model:
+        effective_music_model = "minimax/music-1.5"
+        logger.warning(f"[CONFIG] No music model configured, using fallback: {effective_music_model}")
+    
+    logger.info(f"[CONFIG] Music Model: {effective_music_model}, Params: {effective_music_params}")
 
     assets = AssetManager()
 
@@ -972,12 +1068,56 @@ def create_composer_agent(
         raise e
 
     # 3. Initialize Agent
-    # Fix: Restored valid 'browse_library_tool'
 
     # 🔗 HUB INTEGRATION: Pull System Prompt
     hub_prompt = get_or_push_prompt("composer-system-prompt", COMPOSER_INSTRUCTIONS)
 
-    # We replace 'compose_tool' (which was recursive) with 'generate_music_tool' (which wraps the logic)
+    # --- DEFINE TOOLS AS CLOSURES (Capture config from factory scope) ---
+    # This is the CORRECT LangChain pattern for injecting runtime config into tools.
+    # The tools capture effective_music_model, effective_music_params, etc. from closure scope.
+    
+    @tool
+    def generate_music_tool(prompt: str) -> str:
+        """
+        YOU MUST CALL THIS TOOL IMMEDIATELY. Generates music/audio from a text description.
+        Do NOT describe or plan - just call this tool with the music prompt.
+        Input: A descriptive prompt like "Lo-fi hip hop, chill piano, 80bpm, instrumental"
+        Returns: Path to the generated audio file.
+        """
+        # Use the model from GUI config (captured via closure)
+        logger.info(f"[TOOL] generate_music_tool called with model: {effective_music_model}")
+        logger.info(f"[TOOL] Model params: {effective_music_params}")
+        
+        try:
+            # Direct execution with the GUI-selected model
+            return _generate_music_audio_internal(
+                prompt, 
+                model_name=effective_music_model,
+                model_params=effective_music_params
+            )
+        except Exception as e:
+            logger.error(f"[TOOL] Music generation failed: {e}")
+            raise  # FAIL FAST - don't swallow errors
+    
+    @tool
+    def browse_library_tool(filter_type: str = "all") -> str:
+        """
+        Browses the Asset Library to see what audio, video, or images have been generated.
+        Args:
+            filter_type: "audio", "video", "image", or "all".
+        """
+        # If "all", pass None, else pass type
+        a_type = None if filter_type == "all" else filter_type
+
+        results = assets.list_assets(asset_type=a_type)
+        if not results:
+            return "Library is empty."
+
+        output = "Current Asset Library:\n"
+        for item in results[:10]:  # Limit to 10 most recent
+            output += f"- [{item.get('asset_type')}] {item.get('prompt', 'Unknown')} (File: {os.path.basename(item.get('path', ''))})\n"
+
+        return output
 
     # LINEAR CHAIN (No Retry Loops)
     # The Composer is a simple "One-Shot" agent. It should not loop.
@@ -1088,9 +1228,21 @@ def run_composer_task(
     try:
         from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
 
-        # TODO: Pass model_id, model_params, and voice config to the agent/tools
-        # For now, the agent uses system config. Future: override with GUI config.
-        agent = create_composer_agent()
+        # Build voice config dict for passing to factory
+        voice_config = None
+        if voice_source:
+            voice_config = {
+                "source": voice_source,
+                "file": voice_file,
+                "model_id": voice_model_id
+            }
+
+        # Create agent with GUI-selected model config (PROPER INJECTION)
+        agent = create_composer_agent(
+            music_model_id=model_id,
+            music_model_params=model_params,
+            voice_config=voice_config
+        )
 
         # Format input
         inputs = {"messages": [HumanMessage(content=request_description)]}

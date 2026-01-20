@@ -1,0 +1,12 @@
+{
+  "prompt": "Acoustic guitar intro, slow tempo, melancholic mood, quiet and reflective, lyrics: Called from the o",
+  "timestamp": 1768833465,
+  "date": "2026-01-19 07:37:48",
+  "asset_type": "audio",
+  "subtype": "music",
+  "filename": "audio_music_1768833465_92248483.mp3",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Audio\\Music\\mp3\\audio_music_1768833465_92248483.mp3",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/audio_music_1768833465_92248483.mp3",
+  "session_id": "tool_direct",
+  "metadata": {}
+}

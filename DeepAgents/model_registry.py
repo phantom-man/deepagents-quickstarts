@@ -6,24 +6,24 @@ Defines ID, Inputs, and Display Options for dynamic GUI generation.
 REPLICATE_MODELS = {
     # === AUDIO / MUSIC ===
     "audio": {
-        "minimax/music-01": {
-            "id": "minimax/music-01",
-            "name": "Minimax Music 01 (Songs with Lyrics)",
+        "minimax/music-1.5": {
+            "id": "minimax/music-1.5",
+            "name": "Minimax Music 1.5 (Full Songs with Vocals)",
             "provider": "Replicate",
-            "cost_type": "high",
-            "pricing": {"type": "run", "cost": 0.10},  # Estimate
+            "cost_type": "low",
+            "pricing": {"type": "run", "cost": 0.03},
             "inputs": [
                 {
                     "name": "prompt",
                     "type": "text",
-                    "label": "Song Description/Style",
-                    "default": "A synthwave song about robots"
+                    "label": "Style/Genre Description (10-300 chars)",
+                    "default": "Pop, upbeat, energetic"
                 },
                 {
                     "name": "lyrics",
                     "type": "textarea",
-                    "label": "Lyrics (Optional - Generated if empty)",
-                    "default": ""
+                    "label": "Lyrics (10-600 chars, use [verse][chorus][bridge][outro])",
+                    "default": "[verse]\nIn the morning light we rise\n[chorus]\nTogether we will fly"
                 }
             ]
         },

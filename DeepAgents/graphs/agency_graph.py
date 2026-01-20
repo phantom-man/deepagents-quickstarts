@@ -174,22 +174,30 @@ def _route_from_handoffs(
         
         # Priority order for multiple handoffs
         if "end" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] Completing task")
             return Command(update=state_update, goto=END)
         elif "director" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Director")
             return Command(update=state_update, goto="director")
         elif "validator" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Confidence")
             return Command(update=state_update, goto="validator")
         elif "researcher" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Researcher")
             return Command(update=state_update, goto="researcher")
         elif "cinematographer" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Cinematographer")
             return Command(update=state_update, goto="cinematographer")
         elif "composer" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Composer")
             return Command(update=state_update, goto="composer")
         elif "editor" in targets:
+            _emit_progress(logger_context, f"[HANDOFF] -> Editor")
             return Command(update=state_update, goto="editor")
     
-    # Default routing
+    # Default routing (no explicit handoff, follow pipeline order)
     logger.info("[%s] No handoff, routing to: %s", logger_context, default_target)
+    _emit_progress(logger_context, f"[HANDOFF] -> {default_target.title() if default_target != 'end' else 'Complete'}")
     if default_target == "end":
         return Command(update=state_update, goto=END)
     return Command(update=state_update, goto=default_target)
@@ -227,6 +235,7 @@ async def director_node(
             f"Maintain the original goal: {directive}"
         )
     else:
+        # Extract directive from messages if not provided
         if not directive and state["messages"]:
             last_msg = state["messages"][-1]
             if hasattr(last_msg, "content"):
@@ -235,7 +244,8 @@ async def director_node(
                 directive = last_msg.get("content", "")
             else:
                 directive = str(last_msg)
-            prompt = directive
+        # Always set prompt to directive (fixes UnboundLocalError)
+        prompt = directive if directive else "Create a compelling creative directive."
 
     base_directive = prompt
 
@@ -278,16 +288,76 @@ async def director_node(
     if outstanding:
         progress_text += "OUTSTANDING WORK:\n" + "\n".join(f"- {item}" for item in outstanding) + "\n\n"
 
+    # Build active agent context
+    cinematographer_active = conf.get("cinematographer_active", True)
+    composer_active = conf.get("composer_active", True)
+    
+    agent_context = "ACTIVE AGENTS:\n"
+    if cinematographer_active:
+        agent_context += "- Cinematographer: ACTIVE (video generation enabled)\n"
+    else:
+        agent_context += "- Cinematographer: DISABLED (NO video generation - skip ALL visual prompts)\n"
+    if composer_active:
+        agent_context += "- Composer: ACTIVE (audio/music generation enabled)\n"
+    else:
+        agent_context += "- Composer: DISABLED (no audio generation)\n"
+    agent_context += "\n"
+    
+    # Detect user-supplied lyrics in the directive
+    lyrics_detected = False
+    lyrics_markers = ["[verse", "[chorus", "[bridge", "[intro", "[outro", "[hook", "[pre-chorus"]
+    directive_lower = base_directive.lower()
+    for marker in lyrics_markers:
+        if marker in directive_lower:
+            lyrics_detected = True
+            break
+    
+    lyrics_instruction = ""
+    if lyrics_detected:
+        lyrics_instruction = (
+            "USER-SUPPLIED LYRICS DETECTED (CRITICAL):\n"
+            "The user has provided their own lyrics with markers like [Verse], [Chorus], etc.\n"
+            "You MUST pass these lyrics to the Composer EXACTLY as written - DO NOT rewrite, rephrase, or modify them.\n"
+            "Your Audio/Music Prompt should describe ONLY the musical style/genre/instruments.\n"
+            "The Lyrics field should contain the user's original lyrics VERBATIM.\n"
+            "IMPORTANT: Music-1.5 has a 600 character limit for lyrics. If user lyrics exceed this, "
+            "you may need to select fewer verses/choruses, but DO NOT rewrite the words.\n\n"
+        )
+    
+    # Build audio-only specific instructions if cinematographer is disabled
+    audio_only_instruction = ""
+    if not cinematographer_active and composer_active:
+        audio_only_instruction = (
+            "AUDIO-ONLY MODE (CRITICAL):\n"
+            "The Cinematographer is DISABLED. This is an AUDIO-ONLY workflow.\n"
+            "DO NOT include Visual Prompts, camera directions, or any video-related content.\n"
+            "Focus ENTIRELY on the audio/music directive:\n"
+            "- Genre and style (e.g., '90s rock anthem', 'lo-fi hip hop', 'orchestral')\n"
+            "- Tempo and energy level\n"
+            "- Instrumentation (e.g., 'distorted guitars, heavy drums')\n"
+            "- Mood and emotional arc\n"
+            "- Lyrics (if lyrical - pass through user lyrics VERBATIM)\n\n"
+        )
+
     control_prompt = (
         "DIRECTOR CONTROL PROTOCOL (MANDATORY):\n"
         "- Use your delegate_to_* tools to move work between agents.\n"
-        "- Delegate to the Cinematographer ONE clip at a time; wait for their handoff before issuing the next assignment.\n"
-        "- When visuals satisfy the plan, delegate_to_composer with a precise music directive referencing timing/energy.\n"
-        "- Once both video_assets and audio_assets are populated, delegate_to_editor with the asset references or signal_task_complete if the workflow should end.\n"
-        "- Do not assume automatic routing—explicitly choose the next agent every time."
     )
+    
+    if cinematographer_active:
+        control_prompt += "- Delegate to the Cinematographer ONE clip at a time; wait for their handoff before issuing the next assignment.\n"
+    if composer_active:
+        control_prompt += "- When ready for audio, delegate_to_composer with a precise music directive including GENRE, STYLE, TEMPO, and MOOD.\n"
+    if cinematographer_active and composer_active:
+        control_prompt += "- Once both video_assets and audio_assets are populated, delegate_to_editor with the asset references.\n"
+    elif not cinematographer_active and composer_active:
+        control_prompt += "- After audio generation, signal_task_complete to end the workflow.\n"
+    control_prompt += "- Do not assume automatic routing - explicitly choose the next agent every time.\n"
 
     prompt = (
+        f"{agent_context}"
+        f"{audio_only_instruction}"
+        f"{lyrics_instruction}"
         f"{control_prompt}\n\n"
         f"{progress_text}PRIMARY DIRECTIVE:\n{base_directive}"
     )
@@ -309,7 +379,16 @@ async def director_node(
     
     # 5. Route based on handoffs or default
     skip_prod = conf.get("skip_production", False)
-    default_target = "end" if skip_prod else "cinematographer"
+    
+    # Smart default: pick first active production agent
+    if skip_prod:
+        default_target = "end"
+    elif conf.get("cinematographer_active", True):
+        default_target = "cinematographer"
+    elif conf.get("composer_active", True):
+        default_target = "composer"
+    else:
+        default_target = "end"  # Both disabled
     
     return _route_from_handoffs(handoffs, state_update, default_target, "Director")
 
@@ -430,20 +509,29 @@ async def validator_node(
         "revision_count": revision_count,
     }
     
+    # Smart default: pick first active production agent
+    def _get_production_target() -> str:
+        if skip_prod:
+            return "end"
+        elif conf.get("cinematographer_active", True):
+            return "cinematographer"
+        elif conf.get("composer_active", True):
+            return "composer"
+        else:
+            return "end"  # Both disabled
+    
     # Routing logic based on validation result
     if revision_count > max_revs:
-        logger.warning("⚠️ Max revisions (%s) reached. Forcing proceed.", max_revs)
-        default_target = "end" if skip_prod else "cinematographer"
-        return _route_from_handoffs([], state_update, default_target, "Validator")
+        logger.warning("[WARN] Max revisions (%s) reached. Forcing proceed.", max_revs)
+        return _route_from_handoffs([], state_update, _get_production_target(), "Validator")
     
     if status == "REJECTED":
-        logger.info("❌ Plan Rejected. Sending back to Director.")
+        logger.info("[REJECTED] Plan Rejected. Sending back to Director.")
         return Command(update=state_update, goto="director")
     
     # APPROVED or SKIPPED - proceed to production
-    logger.info("✅ Plan Approved. Proceeding to Production.")
-    default_target = "end" if skip_prod else "cinematographer"
-    return _route_from_handoffs([], state_update, default_target, "Validator")
+    logger.info("[APPROVED] Plan Approved. Proceeding to Production.")
+    return _route_from_handoffs([], state_update, _get_production_target(), "Validator")
 
 
 # --- 4. The Router (Conditional Edges) ---
@@ -475,8 +563,16 @@ async def cinematographer_node(
         state_update = {
             "messages": [AIMessage(content="Cinematographer skipped (disabled in configuration)")]
         }
-        handoff_reason = "Cinematographer is inactive. Decide whether to delegate to another agent or adjust the plan."
-        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Cinematographer")
+        # Smart routing: Skip to next active agent instead of looping back to Director
+        if conf.get("composer_active", True):
+            logger.info("[CINEMA] Routing to Composer (cinematographer disabled)")
+            return Command(update=state_update, goto="composer")
+        elif state.get("audio_assets"):
+            logger.info("[CINEMA] Routing to Editor (has audio assets)")
+            return Command(update=state_update, goto="editor")
+        else:
+            logger.info("[CINEMA] Both production agents disabled, ending workflow")
+            return Command(update=state_update, goto=END)
     
     _emit_progress("Cinematographer", "Generating video assets...")
     plan = state.get("director_plan", "")
@@ -618,8 +714,13 @@ async def composer_node(
         state_update = {
             "messages": [AIMessage(content="Composer skipped (disabled in configuration)")]
         }
-        handoff_reason = "Composer is inactive. Director must decide whether to proceed to Editor or adjust requirements."
-        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
+        # Smart routing: Skip to Editor if we have assets, otherwise end
+        if state.get("video_assets") or state.get("audio_assets"):
+            logger.info("[COMPOSER] Routing to Editor (has assets)")
+            return Command(update=state_update, goto="editor")
+        else:
+            logger.info("[COMPOSER] No assets and composer disabled, ending workflow")
+            return Command(update=state_update, goto=END)
     
     _emit_progress("Composer", "Generating audio/music...")
     plan = state.get("director_plan", "")
@@ -712,8 +813,22 @@ async def composer_node(
             "audio_assets": assets,
         }
         
-        handoff_reason = "Composer delivered audio assets. Review them and decide whether to iterate or move to the Editor."
-        return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
+        # Smart routing: If cinematographer is disabled (audio-only workflow), go to end/editor
+        cinematographer_disabled = not conf.get("cinematographer_active", True)
+        has_video = bool(state.get("video_assets"))
+        
+        if cinematographer_disabled and not has_video:
+            # Audio-only workflow - end after generating music
+            logger.info("[COMPOSER] Audio-only workflow complete. Ending.")
+            return Command(update=state_update, goto=END)
+        elif assets and has_video:
+            # Both audio and video ready - go to editor
+            logger.info("[COMPOSER] Audio and video ready. Routing to Editor.")
+            return Command(update=state_update, goto="editor")
+        else:
+            # Normal flow - let director decide
+            handoff_reason = "Composer delivered audio assets. Review them and decide whether to iterate or move to the Editor."
+            return _route_from_handoffs([("director", handoff_reason)], state_update, "director", "Composer")
         
     except Exception as e:
         logger.error("Composition Failed: %s", e)

@@ -118,6 +118,9 @@ if "comms" not in st.session_state:
 if "agency_running" not in st.session_state:
     st.session_state.agency_running = False
 
+if "agency_session_start" not in st.session_state:
+    st.session_state.agency_session_start = None
+
 if "research_running" not in st.session_state:
     st.session_state.research_running = False
 
@@ -381,6 +384,7 @@ with tab_agency:
             st.warning("⚠️ Please enter a creative directive before running the agency.")
         else:
             st.session_state.agency_running = True
+            st.session_state.agency_session_start = datetime.now()
             st.session_state.generated_video = None
             st.session_state.generated_audio = None
             st.session_state.generated_final = None
@@ -735,10 +739,15 @@ POSTGRES_HOST=localhost
         
         # Fetch and display messages
         try:
-            messages = st.session_state.comms.get_all_recent_messages(limit=50)
+            # Use session start time for filtering if available
+            session_filter = st.session_state.get("agency_session_start", None)
+            messages = st.session_state.comms.get_all_recent_messages(limit=50, since=session_filter)
             
             if not messages:
-                st.info("No messages yet. Send a message to get started!")
+                if session_filter:
+                    st.info(f"No messages in current session (started {session_filter.strftime('%H:%M:%S')}). Messages will appear when agents communicate.")
+                else:
+                    st.info("No messages yet. Start an agency run to see agent communications.")
             else:
                 # Filter if needed
                 if filter_agent != "All":
@@ -805,6 +814,6 @@ with st.sidebar:
     # Session Info
     st.subheader("Session Info")
     session = st.session_state.session_manager
-    st.text(f"Session ID: {session.session_id[:8]}...")
+    st.code(f"{session.session_id}", language=None)
     history = session.load_history()
     st.text(f"Events: {len(history)}")

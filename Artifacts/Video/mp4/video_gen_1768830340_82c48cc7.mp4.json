@@ -1,0 +1,15 @@
+{
+  "prompt": "Cinematic 4k. A young woman stands at a bus stop in a rainy suburban town. Desaturated colors. Overcast sky. She looks lost and contemplative. Camera slowly zooms in on her face.",
+  "timestamp": 1768830340,
+  "date": "2026-01-19 06:45:42",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1768830340_82c48cc7.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1768830340_82c48cc7.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1768830340_82c48cc7.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "veo-3.1-fast-generate-001",
+    "provider": "VertexAI-Veo"
+  }
+}

@@ -43,6 +43,25 @@ from DeepAgents.services.model_registry import (
     model_requires_voice
 )
 
+from DeepAgents.services.input_schema import (
+    InputType,
+    InputFieldDefinition,
+    get_input_fields_for_model,
+    get_max_chars_for_field,
+    validate_input,
+    filter_presets_by_char_limit,
+    get_fields_supporting_presets
+)
+
+from DeepAgents.services.file_analyzer import (
+    FileAnalyzer,
+    AudioMetadata,
+    VideoMetadata,
+    ImageMetadata,
+    calculate_video_segments,
+    format_file_size
+)
+
 __all__ = [
     # Schema Service
     "SchemaService",
@@ -74,5 +93,22 @@ __all__ = [
     "get_music_model_options",
     "get_voice_model_options",
     "get_image_model_options",
-    "model_requires_voice"
+    "model_requires_voice",
+    
+    # Input Schema
+    "InputType",
+    "InputFieldDefinition",
+    "get_input_fields_for_model",
+    "get_max_chars_for_field",
+    "validate_input",
+    "filter_presets_by_char_limit",
+    "get_fields_supporting_presets",
+    
+    # File Analyzer
+    "FileAnalyzer",
+    "AudioMetadata",
+    "VideoMetadata",
+    "ImageMetadata",
+    "calculate_video_segments",
+    "format_file_size"
 ]

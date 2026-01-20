@@ -8,6 +8,7 @@ import os
 import time
 import json
 import logging
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from dotenv import load_dotenv
 
@@ -287,19 +288,31 @@ class AgentComms:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to send message: %s", e)
 
-    def get_all_recent_messages(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Dashboard: Get latest messages from everyone."""
+    def get_all_recent_messages(self, limit: int = 50, since: datetime = None) -> List[Dict[str, Any]]:
+        """Dashboard: Get latest messages from everyone.
+        
+        Args:
+            limit: Maximum number of messages to return
+            since: If provided, only return messages after this timestamp (session filtering)
+        """
         if not self.conn:
             return []
 
         messages = []
         try:
             with self.conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id, sender, recipient, content, status, timestamp "
-                    "FROM agent_messages ORDER BY timestamp DESC LIMIT %s",
-                    (limit,),
-                )
+                if since:
+                    cur.execute(
+                        "SELECT id, sender, recipient, content, status, timestamp "
+                        "FROM agent_messages WHERE timestamp >= %s ORDER BY timestamp ASC LIMIT %s",
+                        (since, limit),
+                    )
+                else:
+                    cur.execute(
+                        "SELECT id, sender, recipient, content, status, timestamp "
+                        "FROM agent_messages ORDER BY timestamp ASC LIMIT %s",
+                        (limit,),
+                    )
                 rows = cur.fetchall()
 
                 for row in rows:

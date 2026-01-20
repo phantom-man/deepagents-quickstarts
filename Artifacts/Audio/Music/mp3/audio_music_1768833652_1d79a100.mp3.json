@@ -1,0 +1,12 @@
+{
+  "prompt": "Gentle acoustic guitar, melancholic, slow tempo, with lyrics 'Called from the ordinary world I knew.",
+  "timestamp": 1768833652,
+  "date": "2026-01-19 07:40:55",
+  "asset_type": "audio",
+  "subtype": "music",
+  "filename": "audio_music_1768833652_1d79a100.mp3",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Audio\\Music\\mp3\\audio_music_1768833652_1d79a100.mp3",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/audio_music_1768833652_1d79a100.mp3",
+  "session_id": "tool_direct",
+  "metadata": {}
+}

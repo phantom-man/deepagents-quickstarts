@@ -7,21 +7,18 @@ These sections provide schema-driven configuration panels with:
 - Asset dependency resolution
 - Storyboard integration for video
 """
+# pylint: disable=line-too-long, too-many-locals, too-many-branches
+# pylint: disable=too-many-statements, too-many-lines
 import os
 import re
 import time
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import streamlit as st
 
 from DeepAgents.services.model_registry import (
-    ModelRegistry,
-    ModelInfo,
-    ModelCategory,
-    ModelProvider,
-    InputRequirement,
     get_model_registry,
     get_video_model_options,
     get_music_model_options,
@@ -29,19 +26,14 @@ from DeepAgents.services.model_registry import (
     get_image_model_options,
     model_requires_voice
 )
-from DeepAgents.services.schema_service import (
-    SchemaService,
-    ModelSchema,
-    AssetRequirement,
-    get_schema_service
-)
+from DeepAgents.services.schema_service import get_schema_service
 from DeepAgents.services.ui_generator import DynamicUIGenerator
 from DeepAgents.services.asset_validator import (
-    AssetValidator,
-    ValidationResult,
     validate_upload,
     get_asset_validator
 )
+from DeepAgents.gui.components.preset_selector import render_preset_selector
+from DeepAgents.gui.components.char_counter import text_area_with_counter
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -105,6 +97,7 @@ def _init_section_state():
         "cinematographer_source": "model",
         "cinematographer_files": [],
         "cinematographer_file_metadata": [],
+        "cinematographer_prompt_text": "",
         "storyboard_active": False,
         "storyboard_model": None,
         "storyboard_params": {},
@@ -120,6 +113,8 @@ def _init_section_state():
         "composer_source": "model",
         "composer_files": [],
         "composer_file_metadata": [],
+        "composer_prompt_text": "",
+        "composer_lyrics_text": "",
     }
 
     for key, default in defaults.items():
@@ -317,6 +312,53 @@ def render_cinematographer_section() -> Dict[str, Any]:
                 st.info("Using default parameters. The model may still work.")
                 st.session_state.cinematographer_params = {}
                 config["params"] = {}
+
+        # ================================================================
+        # VIDEO PROMPT INPUT SECTION (Sprint 4 Integration)
+        # ================================================================
+        st.markdown("---")
+        st.markdown("**🎥 Video Prompt**")
+
+        # Determine prompt limit based on model
+        prompt_limit = 500  # Wan default
+        if "veo" in model_id.lower():
+            prompt_limit = 1000
+        elif "luma" in model_id.lower():
+            prompt_limit = 700
+
+        col_prompt, col_preset = st.columns([3, 1])
+
+        with col_preset:
+            with st.popover("📋 Presets"):
+                selected_prompt = render_preset_selector(
+                    preset_type="video",
+                    key_prefix="cinema_prompt",
+                    model_id=model_id,
+                    max_chars=prompt_limit,
+                    show_preview=True
+                )
+                if selected_prompt:
+                    st.session_state.cinematographer_prompt_text = selected_prompt
+
+        with col_prompt:
+            prompt_text = text_area_with_counter(
+                label="Describe the visual scene",
+                key="cinema_prompt",
+                max_chars=prompt_limit,
+                min_chars=10,
+                placeholder="Cinematic aerial shot of a misty mountain valley at sunrise, golden light filtering through clouds, slow camera movement...",
+                default_value=st.session_state.get("cinematographer_prompt_text", ""),
+                height=120
+            )
+            st.session_state.cinematographer_prompt_text = prompt_text
+            config["params"]["prompt"] = prompt_text
+            # FIX: Also save to session_state params so get_agency_config() can read it
+            if "cinematographer_params" not in st.session_state:
+                st.session_state.cinematographer_params = {}
+            st.session_state.cinematographer_params["prompt"] = prompt_text
+
+        st.caption(f"💡 Be specific about camera movement, lighting, and mood. Max {prompt_limit} chars.")
+
     else:
         st.info("Model parameters not required when using uploaded video files.")
 
@@ -325,6 +367,7 @@ def render_cinematographer_section() -> Dict[str, Any]:
     if st.session_state.cinematographer_source == "model":
         # Storyboard Section
         st.markdown("#### 📸 Storyboard Generation")
+        st.caption("⚠️ Note: Storyboard feature is planned but not yet implemented in the pipeline.")
 
         col_sb_active, col_sb_info = st.columns([1, 3])
 
@@ -548,6 +591,104 @@ def render_composer_section() -> Dict[str, Any]:
             if caps:
                 st.markdown(" | ".join(caps))
 
+        # ================================================================
+        # LYRICS & PROMPT INPUT SECTION (Sprint 3 Integration)
+        # ================================================================
+        st.markdown("---")
+        st.markdown("**📝 Music Content**")
+
+        # Determine limits based on model
+        lyrics_limit = 600  # Music-1.5 default
+        prompt_limit = 300  # Music-1.5 default
+
+        if "ace-step" in model_id.lower():
+            lyrics_limit = 3000
+            prompt_limit = 500
+        elif "musicgen" in model_id.lower() or "lyria" in model_id.lower():
+            lyrics_limit = 0  # Instrumental only
+            prompt_limit = 500
+
+        # Music Style Prompt (always shown)
+        st.markdown("##### Style Prompt")
+        col_prompt, col_preset = st.columns([3, 1])
+
+        with col_preset:
+            with st.popover("📋 Presets"):
+                selected_prompt = render_preset_selector(
+                    preset_type="composer",
+                    key_prefix="composer_prompt",
+                    model_id=model_id,
+                    max_chars=prompt_limit,
+                    show_preview=True
+                )
+                if selected_prompt:
+                    st.session_state.composer_prompt_text = selected_prompt
+
+        with col_prompt:
+            prompt_text = text_area_with_counter(
+                label="Describe the music style",
+                key="composer_prompt",
+                max_chars=prompt_limit,
+                min_chars=10,
+                placeholder="90s rock anthem, power chords, driving drums at 120 BPM, arena rock energy",
+                default_value=st.session_state.get("composer_prompt_text", ""),
+                height=100
+            )
+            st.session_state.composer_prompt_text = prompt_text
+            config["params"]["prompt"] = prompt_text
+            # FIX: Also save to session_state params so get_agency_config() can read it
+            if "composer_params" not in st.session_state:
+                st.session_state.composer_params = {}
+            st.session_state.composer_params["prompt"] = prompt_text
+
+        # Lyrics section (only for models that support it)
+        if model_info and model_info.supports_lyrics and lyrics_limit > 0:
+            st.markdown("##### Lyrics (Optional)")
+            col_lyrics, col_lyric_preset = st.columns([3, 1])
+
+            with col_lyric_preset:
+                with st.popover("📋 Presets"):
+                    selected_lyrics = render_preset_selector(
+                        preset_type="lyrics",
+                        key_prefix="composer_lyrics",
+                        model_id=model_id,
+                        max_chars=lyrics_limit,
+                        show_preview=True
+                    )
+                    if selected_lyrics:
+                        st.session_state.composer_lyrics_text = selected_lyrics
+
+            with col_lyrics:
+                lyrics_text = text_area_with_counter(
+                    label="Song lyrics with [Verse], [Chorus] markers",
+                    key="composer_lyrics",
+                    max_chars=lyrics_limit,
+                    min_chars=0,
+                    placeholder="[Verse 1]\nYour opening lines...\n\n[Chorus]\nThe catchy hook...",
+                    default_value=st.session_state.get("composer_lyrics_text", ""),
+                    height=200
+                )
+                st.session_state.composer_lyrics_text = lyrics_text
+                if lyrics_text.strip():
+                    config["params"]["lyrics"] = lyrics_text
+                    # FIX: Also save to session_state params so get_agency_config() can read it
+                    if "composer_params" not in st.session_state:
+                        st.session_state.composer_params = {}
+                    st.session_state.composer_params["lyrics"] = lyrics_text
+                elif "composer_params" in st.session_state:
+                    # Clear lyrics from params when empty (prevents stale lyrics after model switch)
+                    st.session_state.composer_params.pop("lyrics", None)
+
+            st.caption(f"💡 Use [Verse], [Chorus], [Bridge] markers for song structure. Max {lyrics_limit} chars.")
+
+        elif model_info and model_info.supports_instrumental and not model_info.supports_lyrics:
+            # Pure instrumental model - no lyrics capability
+            st.info("🎸 This model generates instrumental music only (no lyrics).")
+            # FIX BUG 3: Clear any existing lyrics when switching to instrumental-only model
+            if "composer_params" in st.session_state:
+                st.session_state.composer_params.pop("lyrics", None)
+            st.session_state.composer_lyrics_text = ""
+
         requires_voice = model_requires_voice(model_id)
 
     if requires_voice:
@@ -644,6 +785,19 @@ def render_composer_section() -> Dict[str, Any]:
             else:
                 st.info(f"No voice files found in {voice_dir}")
                 st.markdown("Upload a voice file instead.")
+    else:
+        # Bug 6 Fix: Clear voice settings when switching to a model that doesn't require voice
+        if "composer_params" in st.session_state:
+            st.session_state.composer_params.pop("voice_source", None)
+            st.session_state.composer_params.pop("voice_model_id", None)
+            st.session_state.composer_params.pop("voice_file", None)
+        # Clear session state voice fields
+        if "composer_voice_source" in st.session_state:
+            del st.session_state.composer_voice_source
+        if "composer_voice_model" in st.session_state:
+            del st.session_state.composer_voice_model
+        if "composer_voice_file" in st.session_state:
+            del st.session_state.composer_voice_file
 
     if st.session_state.composer_source == "model":
         # Dynamic Parameters from Schema (works for all providers)
@@ -779,7 +933,14 @@ def render_cost_estimate():
     st.markdown("### 💰 Estimated Cost")
 
     if costs["total"] == 0:
-        st.info("Enable agents and select models to see cost estimate")
+        # Check if agents are actually enabled - if so, cost may just be unavailable
+        config = get_agency_config()
+        cinema_active = config.get("cinematographer", {}).get("active", False)
+        composer_active = config.get("composer", {}).get("active", False)
+        if cinema_active or composer_active:
+            st.info("Cost estimate: N/A (model pricing unavailable)")
+        else:
+            st.info("Enable agents and select models to see cost estimate")
         return
 
     # Cost breakdown
@@ -825,6 +986,12 @@ def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     if not path or not os.path.exists(path):
                         errors.append("Cinematographer: Uploaded video file missing on disk")
                         break
+        else:
+            # Model-based generation - require prompt
+            params = cinema.get("params", {})
+            prompt = params.get("prompt", "").strip()
+            if not prompt or len(prompt) < 10:
+                errors.append("Cinematographer: Video prompt required (at least 10 characters)")
 
     # Composer validation
     if composer.get("active"):
@@ -839,6 +1006,12 @@ def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     if not path or not os.path.exists(path):
                         errors.append("Composer: Uploaded audio file missing on disk")
                         break
+        else:
+            # Model-based generation - require style prompt
+            params = composer.get("params", {})
+            prompt = params.get("prompt", "").strip()
+            if not prompt or len(prompt) < 10:
+                errors.append("Composer: Music style prompt required (at least 10 characters)")
 
         # Check voice requirement
         model_id = composer.get("model_id")
@@ -846,7 +1019,13 @@ def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
             voice_source = composer.get("voice_source")
             if voice_source == "generate" and not composer.get("voice_model_id"):
                 errors.append("Composer: Voice model selected but no generator chosen")
-            elif voice_source in ("upload", "local") and not composer.get("voice_file"):
-                errors.append("Composer: Voice file required but not provided")
+            elif voice_source == "upload" and not composer.get("voice_file"):
+                errors.append("Composer: Voice file required but not uploaded")
+            elif voice_source == "local":
+                voice_file = composer.get("voice_file")
+                if not voice_file:
+                    errors.append("Composer: Select a voice file from library")
+                elif not os.path.exists(voice_file):
+                    errors.append(f"Composer: Selected voice file not found: {voice_file}")
 
     return len(errors) == 0, errors

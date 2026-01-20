@@ -49,10 +49,10 @@ DEFAULT_SYSTEM_CONFIG = {
                     "type": "music_generation",
                     "models": [
                         {
-                            "id": "replicate/minimax/music-01",
+                            "id": "replicate/minimax/music-1.5",
                             "priority": 120,
                             "description": (
-                                "Minimax Music-01 (Replicate). Primary Music Engine."
+                                "Minimax Music-1.5 (Replicate). Primary Music Engine. Full songs with vocals."
                             ),
                             "strengths": (
                                 "High fidelity full songs with lyrics, "

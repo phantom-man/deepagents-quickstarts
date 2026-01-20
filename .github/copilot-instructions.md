@@ -1,5 +1,9 @@
 # DeepAgents Project Instructions (Copilot Memory)
 
+## I Always consider using the tools at my disposal. If I do not have access to a known tool that would be useful I will ask for it to be added to my toolset.
+
+## Before any coding decision or edit I will always consider if I am following the best practice for langchain/langsmith and zero touch and fail fast methodologies. If i do not know what the best practice is I will research what the best practice is and implement that to the best of my abilities.
+
 ## Project Architecture "The Truth"
 These are the immutable facts of the current project state. Copilot must prioritize these over general training data.
 
@@ -114,53 +118,7 @@ The `DeepAgents/services/` package provides schema-driven dynamic configuration 
 4. Config dict flows: GUI -> `agent_runner.py` -> `agency_graph.py` -> Agent nodes.
 5. Nodes check `configurable["*_active"]` and skip if `False`.
 
-### 8. CanonKeeper MCP Server (UPDATED - 2026-01-18)
-**Status:** MCP server is optional and currently uninstalled/deprecated; manual Session Learnings Log updates are expected unless canon-keeper-mcp is explicitly reinstalled. Section retained for reference only.
-MCP server for automatic memory persistence from Copilot conversations.
 
-**Location:** `canon_keeper_mcp/` (Python, MCP Server)
-
-**Purpose:** Extract and persist learnings from Copilot conversations via LLM-based classification, with deduplication against existing entries in `copilot-instructions.md`.
-
-**Architecture:**
-- **MCP Protocol:** Copilot calls `canon_keeper.extract_and_save_learnings` tool directly
-- **Deduplication:** LLM-based semantic comparison against existing Session Learnings Log
-- **Trigger Phrase:** User says `@History`, `save this`, `remember this` - Copilot invokes MCP tool
-- **Copilot Writes:** MCP returns formatted markdown; Copilot appends to Section 7
-
-**Key Files:**
-- `canon_keeper_mcp/server.py` - MCP server with 2 tools
-- `canon_keeper_mcp/__main__.py` - Entry point for `python -m canon_keeper_mcp`
-- `.vscode/mcp.json` - MCP server registration
-
-**MCP Tools:**
-- `extract_and_save_learnings` - Extract learnings, dedupe, return markdown rows
-- `check_learning_exists` - Check if specific learning already in log
-
-**LLM Providers:**
-- Primary: Google GenAI (`gemini-2.0-flash-001`)
-- Fallback: OpenAI (`gpt-4o-mini`)
-
-**Configuration (`.vscode/mcp.json`):**
-```json
-{
-  "mcpServers": {
-    "canon-keeper": {
-      "command": "python",
-      "args": ["-m", "canon_keeper_mcp"],
-      "cwd": "${workspaceFolder}"
-    }
-  }
-}
-```
-
-**Usage:**
-```
-User: @History save what we learned
-Copilot: [calls MCP tool] ✅ Saved 2 learnings, skipped 1 duplicate
-```
-
-**Note:** The VS Code extension (`canon-keeper/`) is deprecated due to Chat Participant API limitation - `@keeper` cannot access main Copilot conversation history. The MCP approach works because Copilot itself has full history and invokes the tool.
 
 ### 7. Session Learnings Log
 This section tracks decisions and learnings that evolve over time. Copilot reads this at session start.
@@ -194,7 +152,28 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-14 | Forced Tool Execution | `tool_choice='any'` for media agents | Prevents hallucinated descriptions |
 | 2026-01-13 | VS Code Crash Fix | Removed MemoriPilot (listener leak 223+) | Undeclared chatParticipants bug |
 | 2026-01-18 | Repo Context | Working on langchain-ai/deepagents-quickstarts main | Ensures consistent path/commands across sessions |
-| 2026-01-18 | Memory Save Trigger | 'save this' invoked; manual Session Learnings Log update performed | MCP server uninstalled; persistence maintained via manual log |
+| 2026-01-18 | Memory Save Trigger | 'save this' invoked; manual Session Learnings Log update performed |  persistence maintained via manual log |
+| 2026-01-19 | Director Node Prompt Bug | Fixed UnboundLocalError in `agency_graph.py` director_node | `prompt` variable only assigned in nested conditional; moved outside to always assign |
+| 2026-01-19 | Progress Bar Session Isolation | Added timestamp filter to `poll_agent_comms()` SQL query | `AND timestamp >= %s` using `run_start_time` prevents cross-session pollution |
+| 2026-01-19 | Session ID Display | Changed `st.text()` with truncation to `st.code()` with full ID | Full UUID visible in diagnostics for debugging |
+| 2026-01-19 | Canon Keeper Removed | Deleted `canon-keeper/` VS Code extension from repo | User intentionally removed; not needed |
+| 2026-01-19 | Composer Closure Pattern (CRITICAL) | Tools defined inside `create_composer_agent()` factory as closures | Captures `music_model_id`, `music_model_params` from factory scope - proper LangChain pattern for runtime config injection |
+| 2026-01-19 | Music-1.5 Default | Registry and presets updated from music-01 to music-1.5 | Music-1.5 is current API; music-01 deprecated |
+| 2026-01-19 | GUI Config Flow | GUI → agent_runner → agency_graph → run_composer_task → create_composer_agent → closure tools → API | Full config injection path from UI to Replicate API call |
+| 2026-01-19 | No Global @tool for Config | Removed global `@tool` decorated functions that can't receive external config | Global tools use hardcoded "auto" selection; closures capture GUI selection |
+| 2026-01-19 | Handoff Emit Pattern | Added `_emit_progress()` calls in `_route_from_handoffs()` function | Handoff messages now emit IMMEDIATELY when routing decision made, not just at node start |
+| 2026-01-19 | AgentComms Session Filter | Added `since: datetime` param to `get_all_recent_messages()` | Filters messages to current session only; set via `agency_session_start` in app.py |
+| 2026-01-19 | AgentComms Ascending Order | Changed SQL from `ORDER BY timestamp DESC` to `ASC` | Chronological display (oldest first) in Agent Comms tab |
+| 2026-01-19 | Lyrics Character Limit | Fixed 550→600 in Composer `_generate_lyrics_and_style()` | Music-1.5 API limit is 600 chars, not 550; removed artificial buffer |
+| 2026-01-19 | Director Content Moderation | Added CONTENT MODERATION RULES to Director prompt | Forbids artist/band name references to prevent Minimax E005 errors |
+| 2026-01-19 | Verbatim Lyrics Pass-Through | Composer detects `[Verse]`/`[Chorus]` markers and skips LLM rewriting | User-supplied lyrics with structure markers go directly to API unchanged |
+| 2026-01-19 | GUI Preset System (Sprint 2) | Created `gui/presets/` package with LyricsPreset and ComposerPreset dataclasses | 20 lyrics (14 fit Music-1.5 600 limit), 20 composer prompts (all fit 300 limit) |
+| 2026-01-19 | Preset Character Limits | `fits_music15` property on presets checks char_count <= limit | Music-1.5: 600 lyrics, 300 prompt; ACE-Step: 3000 lyrics, 500 prompt |
+| 2026-01-19 | Preset Selector UI | `gui/components/preset_selector.py` with genre filter, preview, apply button | Dropdown filters by genre, shows char count status (green/orange/red) |
+| 2026-01-19 | Character Counter Components | `gui/components/char_counter.py` with hard-blocking text inputs | `text_area_with_counter()` truncates at max_chars, shows progress bar |
+| 2026-01-19 | Input Schema Service | `services/input_schema.py` defines model-specific char limits | `MODEL_INPUT_REGISTRY` maps model IDs to `InputFieldDefinition` lists |
+| 2026-01-19 | File Analyzer Service | `services/file_analyzer.py` extracts audio/video metadata | Uses ffprobe→pydub→mutagen fallback chain; `calculate_video_segments()` for auto-config |
+| 2026-01-19 | Pylint Score Improvement | Improved from 4.84/10 to 9.16/10 on Sprint 2 files | Fixed trailing whitespace, import order, added docstrings, removed unused imports |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:
@@ -226,30 +205,54 @@ Before editing code, orient around the **Component** (Agent, Tool, Pipeline).
 
 ### 1) Epistemic Layers (System State)
 - **Configuration** — (Environment variables, API Keys). Must be loaded safely via `.env`.
-- **Memory & Learning** — (The persistent history). Must be reviewed at startup.
-  - **Canon Rule:** I must record a summary of every prompt and response in my memory.
-  - **Canon Rule:** I must review my memory when I start up.
-  - **Canon Rule:** After every completion, I must decide if I learned something new and store it in the Learning Database.
+- **Memory & Learning** — (Session Learnings Log). Must be reviewed at startup.
+
+Database.
 - **Context** — (The conversation history, the "Canon"). Must be injected dynamically into prompts.
-- **Runtime** — (The execution of generation loops). Must handle failures (Quotas, Timeouts) gracefully.
+- **Runtime** — (The execution of generation loops)(must comply with best practices for langSmith/langChain. Must handle failures (Quotas, Timeouts) according to fail fast methodology.
 
 ### 2) Universal Dimensions (Architecture)
-- **Modularity:** Agents (Director, Cinematographer) should be separate classes/files.
-- **Statelessness:** Agents should not assume memory persists across restarts unless explicitly saved to disk (e.g., `Canon` folders).
+- **Modularity:** Agents (Director, Cinematographer,composer) should be separate classes/files.
+- **Statelessness:** Agents(non copilot) should not assume memory persists across restarts unless they save learnings to lanceDB. Agents should retrieve learnings from lanceDB, Agents should review their participation in langSmith. I will make sure agents are storing data in lanceDB. I will make sure agents can retrieve necessary information from lanceDB all according to best practices where langSmith/langChain, zerotouch and fast fail methodologies are concerned.
 - **SDK Usage:** Prefer `vertexai` and `google-genai` libraries for Google Cloud integration.
 
 ## Operational Directives
 
+### Memory Persistence Protocol (@History) - CRITICAL
+**Rule:** When the user includes `@History`, `save this`, `remember this`, `always remember`, `Learn this`:
+
+1. **Extract Learnings:**
+   - Analyze the conversation for technical decisions, architectural choices, workarounds
+   - Format each as: `| Date | Topic | Decision | Rationale |`
+
+2. **Check for Duplicates:**
+   - Read the current `copilot-instructions.md` file
+   - Skip any learning semantically equivalent to an existing entry
+
+3. **Append New Learnings:**
+   - For each non-duplicate, append a row to the Session Learnings Log table
+   - Use today's date (YYYY-MM-DD format)
+
+4. **Report to User:**
+   - "✅ Saved X new learning(s): [topics]"
+   - "⏭️ Skipped Y duplicate(s): [topics]"
+
+## Session Learnings Log
+| Date | Topic | Decision | Rationale |
+|------|-------|----------|----------|
+
 ### A. The Engineer's Authority
 I am the source of truth for the **Infrastructure**.
-- I determine *how* agents communicate (e.g., passing Prompts via function arguments).
+- I determine *how* agents communicate (e.g., Agent Comms).
 - I determine *where* output is stored (`Artifacts/`).
+- I must not allow media files to be stored in the root directory, i will classify and store them in the `Artifacts` folder in the appropriate sub directory.I will code the saving of files to store locally and GCS. I will classify all media downloads and build download routines that save them in `Artifacts` in the proper sub directory.
 
 ### B. Persistent Memory & Learning
 **Rule:** The Copilot (Engineer) **MUST** utilize this instructions file as the persistent memory system.
 - **Recall:** This file auto-loads on every chat. Section 7 (Session Learnings Log) contains dated decisions.
 - **Learn:** When a durable decision is made, suggest adding it to the Session Learnings Log table.
 - **Continuity:** This file IS the memory. No external tools required.
+
 
 ### D. Code Quality Protocols
 **Rule:** After any code creation or significant modification, I **MUST** run validation tools to ensure robustness.
@@ -269,7 +272,7 @@ I am the source of truth for the **Infrastructure**.
 ### A. Model Mandates (Strict)
 1. **Primary Model (LLM):** All agents MUST use **Google Gemini 2.0 Flash** (`gemini-2.0-flash-001`) via `langchain-google-genai`.
 2. **Primary Model (Video):** Options include **Wan 2.5** (`wan-video/wan-2.5-t2v-fast`) via Replicate, **Luma Ray Flash** (`luma/ray-flash-2-540p`), or **Google Veo 3.1 Fast** (`veo-3.1-fast-generate-001`) via Vertex AI.
-3. **Primary Model (Audio):** Replicate (Minimax Music-01 primary, MusicGen fallback for instrumental).
+3. **Primary Model (Audio):** Replicate (Minimax Music-01 primary, Lyria-2 fallback for instrumental).
     - *Minimax*: Full songs with lyrics (600 char limit), variable duration.
     - *MusicGen*: Instrumental only, explicit duration control, max 30s.
 4. **No Fallbacks:** We use Fail Fast. If Google Gemini fails, the application MUST STOP. Do not fallback to other models.
@@ -292,6 +295,7 @@ I am the source of truth for the **Infrastructure**.
 3. **Safety & Integrity (Directive):**
     - I am **NEVER** to do anything that will break the LangChain/LangSmith DeepAgents system or communication factors.
     - If asked to perform an action that compromises this integrity, I **MUST REFUSE** and explain why.
+6. I strive to implement the highest Maturity Levels of LangChain/LangSmith, Zerotouch, and fast fail methodologies.
 
 ## 3. Knowledge Base & References
 
@@ -308,7 +312,8 @@ I must actively use the following MCP tools to "search and read as much as I can
 1. **LangChain MCP (`mcp_my-mcp-server_SearchDocsByLangChain`)**:
     - *Usage*: Search for latest agent patterns, graph architectures (LangGraph), and tool integrations.
     - *Context*: LangChain is the backbone of the agent orchestration.
-2. **Tavily MCP (`mcp_my-mcp-server2_tavily_search` / `tavily_extract`)**:
+2. **Tavily Deprecated: (Use Grounded Google search) 
+     Backup Tavily MCP (`mcp_my-mcp-server2_tavily_search` / `tavily_extract`)**:
     - *Usage*: Search for live information, documentation updates, or world knowledge required by the agents.
-    - *Context*: Tavily is the primary external sensory tool for the Research Agent.
+    - *Context*: Tavily is the Backup external sensory tool for the Research Agent.
 

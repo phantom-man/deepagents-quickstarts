@@ -8,6 +8,7 @@ import os
 import io
 import contextlib
 import asyncio
+import queue
 
 # pylint: disable=line-too-long, missing-module-docstring, import-error, wrong-import-position
 # pylint: disable=no-name-in-module, missing-class-docstring, unused-argument, unused-variable
@@ -75,14 +76,17 @@ class AgentRunner:
                 try:
                     if self.comms and self.comms.conn:
                         with self.comms.conn.cursor() as cur:
-                            # Get messages newer than last seen, sorted ascending
+                            # Get messages newer than last seen AND from current session (timestamp filter)
+                            # Only fetch messages created after this run started
+                            from datetime import datetime
+                            start_datetime = datetime.fromtimestamp(run_start_time)
                             cur.execute(
                                 """SELECT id, sender, content, timestamp 
                                    FROM agent_messages 
-                                   WHERE id > %s 
+                                   WHERE id > %s AND timestamp >= %s
                                    ORDER BY timestamp ASC, id ASC 
                                    LIMIT 10""",
-                                (last_message_id[0],)
+                                (last_message_id[0], start_datetime)
                             )
                             rows = cur.fetchall()
                             for row in rows:
@@ -239,7 +243,12 @@ class AgentRunner:
 
             # Consumer
             while True:
-                item = event_queue.get()
+                try:
+                    # Use timeout to allow checking for progress events more frequently
+                    item = event_queue.get(timeout=0.2)
+                except queue.Empty:
+                    continue
+                    
                 if item is None:
                     break
 

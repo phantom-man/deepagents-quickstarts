@@ -7,7 +7,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Product Launch Multi-Clip Campaign",
         "description": "Three hero clips highlighting a premium tech device, ideal for social cutdowns.",
         "video_models": ["veo-3.1-fast-generate-001", "wan-video/wan-2.5-t2v-fast"],
-        "audio_models": ["minimax/music-01", "lucataco/ace-step"],
+        "audio_models": ["minimax/music-1.5", "lucataco/ace-step"],
         "prompt": (
             "Director Goal: Deliver a 30-second campaign for the new Orion AR glasses.\n"
             "Cinematographer: Produce THREE distinct 8-second clips (Clip A/B/C) that can be delivered as separate video files.\n"
@@ -23,7 +23,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "E-commerce Beauty Spot",
         "description": "15s glossy promo for a cosmetics line with upbeat pop music.",
         "video_models": ["veo-3.1-fast-generate-001"],
-        "audio_models": ["minimax/music-01"],
+        "audio_models": ["minimax/music-1.5"],
         "prompt": (
             "Create a 15-second commercial for the Solara Glow skincare collection.\n"
             "Cinematographer: one continuous 15s hero shot starting on product macro, transitioning to model application, ending on floating text CTA.\n"
@@ -48,7 +48,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "YouTube Explainer Segment",
         "description": "Animated explainer for a consumer fintech product.",
         "video_models": ["veo-3.1-fast-generate-001"],
-        "audio_models": ["minimax/music-01"],
+        "audio_models": ["minimax/music-1.5"],
         "prompt": (
             "Produce a 90-second YouTube explainer for 'Nimbus', a budgeting app.\n"
             "Cinematographer: generate animated UI walkthroughs, on-screen text, and B-roll of users managing finances. Keep graphics brand colors #2E7CFB and #F2F6FF.\n"
@@ -60,7 +60,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Documentary Brand Story",
         "description": "Mini-doc style narrative for a sustainable fashion label.",
         "video_models": ["veo-3.1-fast-generate-001"],
-        "audio_models": ["lucataco/ace-step", "minimax/music-01"],
+        "audio_models": ["lucataco/ace-step", "minimax/music-1.5"],
         "prompt": (
             "Craft a 2-minute documentary profile of 'Verdant Loom', a sustainable fashion collective.\n"
             "Cinematographer: combine interview-style shots, atelier b-roll, and location footage of reclaimed textile sourcing.\n"
@@ -72,7 +72,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Conference Hype Reel",
         "description": "High-energy recap for a tech summit, optimized for vertical cuts.",
         "video_models": ["wan-video/wan-2.5-t2v-fast"],
-        "audio_models": ["minimax/music-01"],
+        "audio_models": ["minimax/music-1.5"],
         "prompt": (
             "Assemble a 45-second hype reel for the 'FutureStack' developer summit.\n"
             "Cinematographer: capture crowd shots, keynote moments, expo booths, and night events with dynamic camera moves. Deliver both 16:9 master and 9:16 crops.\n"
@@ -96,7 +96,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Short-Form Social Pack",
         "description": "Five quick bursts optimized for TikTok/Reels challenges.",
         "video_models": ["wan-video/wan-2.5-t2v-fast", "veo-3.1-fast-generate-001"],
-        "audio_models": ["minimax/music-01"],
+        "audio_models": ["minimax/music-1.5"],
         "prompt": (
             "Create a bundle of FIVE 6-second vertical clips promoting the #GlowUp fitness challenge.\n"
             "Cinematographer: each clip should feature a different workout move, bold typography, and swipe-up CTA. Export as separate assets labeled Clip1-Clip5.\n"
@@ -108,7 +108,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Podcast Intro (Audio-First)",
         "description": "Audio identity package with minimal supporting visuals.",
         "video_models": ["veo-3.1-fast-generate-001"],
-        "audio_models": ["lucataco/ace-step", "minimax/music-01"],
+        "audio_models": ["lucataco/ace-step", "minimax/music-1.5"],
         "prompt": (
             "Develop branding for the 'Signal Shift' tech podcast.\n"
             "Composer: produce a 30-second intro theme, a 10-second bumper, and a 5-second outro, blending analog synth and modern percussion.\n"
@@ -120,7 +120,7 @@ _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [
         "title": "Cinematic Trailer",
         "description": "Epic teaser for a sci-fi streaming series with dramatic score.",
         "video_models": ["veo-3.1-fast-generate-001"],
-        "audio_models": ["ace-step/music"],
+        "audio_models": ["lucataco/ace-step"],
         "prompt": (
             "Produce a 60-second teaser trailer for the sci-fi series 'Eclipse Frontier'.\n"
             "Cinematographer: deliver a three-act structure (setup, escalation, climax) with title cards and end slate. Include at least one cosmic exterior, one command center scene, and one hero close-up.\n"

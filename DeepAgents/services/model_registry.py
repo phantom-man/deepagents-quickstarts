@@ -260,18 +260,18 @@ class ModelRegistry:
         ))
 
         self.register(ModelInfo(
-            id="minimax/music-01",
-            name="Minimax Music-01",
+            id="minimax/music-1.5",
+            name="Minimax Music-1.5",
             category=ModelCategory.AUDIO_MUSIC,
             output_type=OutputType.AUDIO_FILE,
-            description="Full songs with lyrics. Requires voice reference for best results.",
-            required_inputs=[InputRequirement.AUDIO_VOICE],
+            description="Full songs with vocals from lyrics + text prompt. No reference required. Up to 4 mins. $0.03/song.",
+            required_inputs=[InputRequirement.TEXT_PROMPT],  # Just needs lyrics + prompt
             supports_lyrics=True,
-            supports_instrumental=False,
-            max_duration=300.0,
+            supports_instrumental=True,  # Can do both
+            max_duration=240.0,  # 4 minutes max
             tier="premium",
-            tags={"music", "lyrics", "voice-clone"},
-            cost_per_run=0.15
+            tags={"music", "lyrics", "vocals", "minimax"},
+            cost_per_run=0.03
         ))
 
         self.register(ModelInfo(
