@@ -126,6 +126,9 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 
 | Date | Topic | Decision | Rationale |
 |------|-------|----------|----------|
+| 2026-01-20 | Progress Event Display | Removed `continue` statement that filtered handoff events from event log | Handoff messages (e.g., "[HANDOFF] -> Composer") now appear in both progress bar AND event log immediately when routing occurs |
+| 2026-01-20 | Run Agency Button Validation | Changed button disable logic to check config validity in real-time | Button now properly enables/disables based on live validation; activates immediately when preset changes lyrics/prompt |
+| 2026-01-20 | Event Log Styling | Added `.event-progress` CSS class for handoff events | Blue, bold text distinguishes routing decisions from other event types (info, output, error, thinking) |
 | 2026-01-20 | Multi-File Generation System | Implemented N-file generation with independent configs per file | Users can generate 1-5 clips/tracks with unique prompts, lyrics, durations, and schema params via `multi_config.py` component |
 | 2026-01-20 | Cross-Agent Auto-Configuration | When one agent uploads file, auto-configure other agent's multi-mode | Calculates optimal clips/tracks based on duration and model max (Veo:8s, Music-1.5:120s, ACE-Step:180s) |
 | 2026-01-20 | Empty Label Warnings | Streamlit warns about empty label values in multi_config text_area | Cosmetic warning - does not break functionality; consider adding label_visibility="hidden" with descriptive labels |
