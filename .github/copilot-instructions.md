@@ -126,6 +126,61 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 
 | Date | Topic | Decision | Rationale |
 |------|-------|----------|----------|
+| 2026-01-20 | Multi-File Generation System | Implemented N-file generation with independent configs per file | Users can generate 1-5 clips/tracks with unique prompts, lyrics, durations, and schema params via `multi_config.py` component |
+| 2026-01-20 | Cross-Agent Auto-Configuration | When one agent uploads file, auto-configure other agent's multi-mode | Calculates optimal clips/tracks based on duration and model max (Veo:8s, Music-1.5:120s, ACE-Step:180s) |
+| 2026-01-20 | Empty Label Warnings | Streamlit warns about empty label values in multi_config text_area | Cosmetic warning - does not break functionality; consider adding label_visibility="hidden" with descriptive labels |
+| 2026-01-20 | Systematic Debugging Protocol | Added Four-Phase Framework to copilot-instructions | Prevents symptom-focused fixes, enforces root cause analysis before any code changes |
+| 2026-01-20 | Streamlit Popover Lifecycle | Code inside `with st.popover(...)` doesn't run after `st.rerun()` when popover closes | Use `on_select` callbacks that execute BEFORE rerun to persist state |
+| 2026-01-20 | Preset Apply Fix | Changed from return-value pattern to `on_select` callback pattern | Callbacks execute during button click, before rerun closes popover |
+| 2026-01-17 | Multi-Provider Schema Service | Strategy pattern: VertexAI, GoogleGenAI, Replicate handlers | Auto-routes models to correct provider, prevents API mismatches |
+| 2026-01-17 | VS Code Crash Root Cause | Schema validation for non-Replicate models hit Replicate API | Added provider handlers to route Vertex/GenAI to pre-defined schemas |
+| 2026-01-17 | Lyria-2 Correction | `supports_lyrics=False`, instrumental only | Google Lyria generates instrumental music, no vocals |
+| 2026-01-17 | Pre-defined Schemas | Veo 3.1, Imagen 3, Lyria-2, MusicFX have hardcoded schemas | No public OpenAPI endpoint for Vertex AI/GenAI models |
+| 2026-01-17 | Terminal Theme | Neon Night + Custom CSS glow via `be5invis.vscode-custom-css` | High contrast colors, text shadow effects |
+| 2026-01-17 | CanonKeeper MCP Architecture | MCP server replaces VS Code extension | Copilot invokes tool directly, bypasses API limitation |
+| 2026-01-17 | PyPI Publishing | Use keyring for secure token storage, delete .pypirc | Tokens in config files risk exposure; keyring uses OS credential store |
+| 2026-01-17 | Canon Keeper Published | Package live at pypi.org/project/canon-keeper-mcp/0.1.0 | `pip install canon-keeper-mcp` for easy distribution |
+| 2026-01-17 | Post-Install HTML Page | Completion page with VS Code reload instructions | `show_completion_page()` opens browser with Ctrl+Shift+P guidance |
+| 2026-01-17 | First PyPI Upload | Requires "Entire account" scope token initially | Project-scoped tokens only available after project exists |
+| 2026-01-17 | Chat Participant Limitation | ChatContext.history only includes current participant | VS Code API design - @keeper can't see Copilot chat |
+| 2026-01-17 | CanonKeeper Extension | VS Code extension at `canon-keeper/` for auto-memory | Chat Participant API + LLM classification |
+| 2026-01-17 | CanonKeeper Architecture | TypeScript, `@keeper` participant, 3 commands | `/save`, `/review`, `/status` commands |
+| 2026-01-17 | CanonKeeper Initialization | Smart detect/replace/merge for copilot-instructions | Best practices template with conflict detection |
+| 2026-01-17 | Schema-Driven UI | Use OpenAPI from Replicate, cache 24hrs | Zero-touch config, no hardcoding |
+| 2026-01-17 | ModelProvider Enum | REPLICATE, VERTEX_AI, GOOGLE_GENAI | Skip schema fetch for non-Replicate |
+| 2026-01-16 | Command Mesh Routing | All nodes return `Command[Literal[...]]` | Eliminates brittle conditional edges |
+| 2026-01-16 | Director Delegation | 7 tools: discover + delegate_to_* + signal | Mesh routing, NOT execution |
+| 2026-01-16 | HANDOFF Protocol | `HANDOFF:agent:directive` strings | Dynamic routing from tool output |
+| 2026-01-15 | FFmpeg Stream Copy | `-c:v copy` for lossless merge | Bit-for-bit quality, instant speed |
+| 2026-01-14 | Hub Source of Truth | LangSmith Hub authoritative, cache for speed | Prevents config drift |
+| 2026-01-18 | Canon Keeper MCP Uninstalled | Removed canon-keeper-mcp package from environment | MCP server not available; Section 8 docs remain for reference only |
+| 2026-01-18 | Canon Keeper Installer Uninstalled | Removed canon-keeper installer package; MCP server remains uninstalled | Manual logging required unless canon-keeper-mcp is installed |
+| 2026-01-18 | Canon Keeper MCP Optional | canon-keeper installer does not require canon-keeper-mcp; MCP server is optional for automated logging | Manual logging is fine without MCP |
+| 2026-01-14 | Forced Tool Execution | `tool_choice='any'` for media agents | Prevents hallucinated descriptions |
+| 2026-01-13 | VS Code Crash Fix | Removed MemoriPilot (listener leak 223+) | Undeclared chatParticipants bug |
+| 2026-01-18 | Repo Context | Working on langchain-ai/deepagents-quickstarts main | Ensures consistent path/commands across sessions |
+| 2026-01-18 | Memory Save Trigger | 'save this' invoked; manual Session Learnings Log update performed | Persistence maintained via manual log |
+| 2026-01-19 | Director Node Prompt Bug | Fixed UnboundLocalError in `agency_graph.py` director_node | `prompt` variable only assigned in nested conditional; moved outside to always assign |
+| 2026-01-19 | Progress Bar Session Isolation | Added timestamp filter to `poll_agent_comms()` SQL query | `AND timestamp >= %s` using `run_start_time` prevents cross-session pollution |
+| 2026-01-19 | Session ID Display | Changed `st.text()` with truncation to `st.code()` with full ID | Full UUID visible in diagnostics for debugging |
+| 2026-01-19 | Canon Keeper Removed | Deleted `canon-keeper/` VS Code extension from repo | User intentionally removed; not needed |
+| 2026-01-19 | Composer Closure Pattern (CRITICAL) | Tools defined inside `create_composer_agent()` factory as closures | Captures `music_model_id`, `music_model_params` from factory scope - proper LangChain pattern for runtime config injection |
+| 2026-01-19 | Music-1.5 Default | Registry and presets updated from music-01 to music-1.5 | Music-1.5 is current API; music-01 deprecated |
+| 2026-01-19 | GUI Config Flow | GUI → agent_runner → agency_graph → run_composer_task → create_composer_agent → closure tools → API | Full config injection path from UI to Replicate API call |
+| 2026-01-19 | No Global @tool for Config | Removed global `@tool` decorated functions that can't receive external config | Global tools use hardcoded "auto" selection; closures capture GUI selection |
+| 2026-01-19 | Handoff Emit Pattern | Added `_emit_progress()` calls in `_route_from_handoffs()` function | Handoff messages now emit IMMEDIATELY when routing decision made, not just at node start |
+| 2026-01-19 | AgentComms Session Filter | Added `since: datetime` param to `get_all_recent_messages()` | Filters messages to current session only; set via `agency_session_start` in app.py |
+| 2026-01-19 | AgentComms Ascending Order | Changed SQL from `ORDER BY timestamp DESC` to `ASC` | Chronological display (oldest first) in Agent Comms tab |
+| 2026-01-19 | Lyrics Character Limit | Fixed 550→600 in Composer `_generate_lyrics_and_style()` | Music-1.5 API limit is 600 chars, not 550; removed artificial buffer |
+| 2026-01-19 | Director Content Moderation | Added CONTENT MODERATION RULES to Director prompt | Forbids artist/band name references to prevent Minimax E005 errors |
+| 2026-01-19 | Verbatim Lyrics Pass-Through | Composer detects `[Verse]`/`[Chorus]` markers and skips LLM rewriting | User-supplied lyrics with structure markers go directly to API unchanged |
+| 2026-01-19 | GUI Preset System (Sprint 2) | Created `gui/presets/` package with LyricsPreset and ComposerPreset dataclasses | 20 lyrics (14 fit Music-1.5 600 limit), 20 composer prompts (all fit 300 limit) |
+| 2026-01-19 | Preset Character Limits | `fits_music15` property on presets checks char_count <= limit | Music-1.5: 600 lyrics, 300 prompt; ACE-Step: 3000 lyrics, 500 prompt |
+| 2026-01-19 | Preset Selector UI | `gui/components/preset_selector.py` with genre filter, preview, apply button | Dropdown filters by genre, shows char count status (green/orange/red) |
+| 2026-01-19 | Character Counter Components | `gui/components/char_counter.py` with hard-blocking text inputs | `text_area_with_counter()` truncates at max_chars, shows progress bar |
+| 2026-01-19 | Input Schema Service | `services/input_schema.py` defines model-specific char limits | `MODEL_INPUT_REGISTRY` maps model IDs to `InputFieldDefinition` lists |
+| 2026-01-19 | File Analyzer Service | `services/file_analyzer.py` extracts audio/video metadata | Uses ffprobe→pydub→mutagen fallback chain; `calculate_video_segments()` for auto-config |
+| 2026-01-19 | Pylint Score Improvement | Improved from 4.84/10 to 9.16/10 on Sprint 2 files | Fixed trailing whitespace, import order, added docstrings, removed unused imports |
 | 2026-01-17 | Multi-Provider Schema Service | Strategy pattern: VertexAI, GoogleGenAI, Replicate handlers | Auto-routes models to correct provider, prevents API mismatches |
 | 2026-01-17 | VS Code Crash Root Cause | Schema validation for non-Replicate models hit Replicate API | Added provider handlers to route Vertex/GenAI to pre-defined schemas |
 | 2026-01-17 | Lyria-2 Correction | `supports_lyrics=False`, instrumental only | Google Lyria generates instrumental music, no vocals |
