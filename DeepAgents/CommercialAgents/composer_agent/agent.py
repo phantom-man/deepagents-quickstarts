@@ -712,12 +712,17 @@ def _handle_replicate_generation(  # pylint: disable=too-many-arguments
             # Build payload with required params
             payload = {"prompt": style_prompt, "lyrics": lyrics_text}
             
-            # Merge other GUI params (sample_rate, bitrate, etc.)
+            # CRITICAL: Only pass params that Minimax actually accepts
+            # Minimax Music-1.5 valid params: lyrics, prompt, bitrate, sample_rate, audio_format
+            MINIMAX_VALID_PARAMS = {"lyrics", "prompt", "bitrate", "sample_rate", "audio_format"}
+            
             if gui_params:
                 for key, value in gui_params.items():
-                    if key not in ["prompt", "lyrics"] and value is not None:
+                    if key in MINIMAX_VALID_PARAMS and key not in ["prompt", "lyrics"] and value is not None:
                         payload[key] = value
                         logger.info(f"[MINIMAX] Added GUI param: {key}={value}")
+                    elif key not in MINIMAX_VALID_PARAMS and key not in ["prompt", "lyrics"]:
+                        logger.info(f"[MINIMAX] Skipping invalid param for Minimax: {key}")
 
             logger.info(f"[MINIMAX] Final payload: {payload}")
             minimax_out = _safe_replicate_run("minimax/music-1.5", input_data=payload)

@@ -164,11 +164,10 @@ def _route_from_handoffs(
         targets = [h[0] for h in handoffs]
         logger.info("[%s] Delegating to: %s", logger_context, targets)
         
-        # Priority order for multiple handoffs
-        if "end" in targets:
-            _emit_progress(logger_context, "[HANDOFF] Completing task")
-            return Command(update=state_update, goto=END)
-        elif "director" in targets:
+        # Priority order for multiple handoffs (work agents first, end LAST)
+        # This ensures if Director produces multiple handoffs including 'end',
+        # we still execute the work before completing.
+        if "director" in targets:
             _emit_progress(logger_context, "[HANDOFF] -> Director")
             return Command(update=state_update, goto="director")
         elif "validator" in targets:
@@ -186,6 +185,10 @@ def _route_from_handoffs(
         elif "editor" in targets:
             _emit_progress(logger_context, "[HANDOFF] -> Editor")
             return Command(update=state_update, goto="editor")
+        elif "end" in targets:
+            # Only end if no other work targets are present
+            _emit_progress(logger_context, "[HANDOFF] Completing task")
+            return Command(update=state_update, goto=END)
     
     # Default routing (no explicit handoff, follow pipeline order)
     logger.info("[%s] No handoff, routing to: %s", logger_context, default_target)

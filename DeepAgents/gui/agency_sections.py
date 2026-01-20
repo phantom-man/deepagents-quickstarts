@@ -145,10 +145,23 @@ def _auto_configure_multi_mode(
 
 def _init_section_state():
     """Initialize session state for agency sections."""
+    # Get default models from registry (must be done before setting defaults)
+    from DeepAgents.services.model_registry import (
+        get_video_model_options,
+        get_music_model_options,
+    )
+    
+    # Get first available models as defaults
+    video_models = dict(get_video_model_options())
+    music_models = dict(get_music_model_options())
+    default_video_model = next(iter(video_models.values()), None) if video_models else None
+    default_music_model = next(iter(music_models.values()), None) if music_models else None
+    
     defaults = {
         # Cinematographer
         "cinematographer_active": True,
-        "cinematographer_model": None,
+        "cinematographer_model": default_video_model,  # Use first available model, not None
+        "cinematographer_last_model": None,  # Track model changes to clear stale params
         "cinematographer_params": {},
         "cinematographer_schema": None,
         "cinematographer_source": "model",
@@ -164,7 +177,8 @@ def _init_section_state():
 
         # Composer
         "composer_active": True,
-        "composer_model": None,
+        "composer_model": default_music_model,  # Use first available model, not None
+        "composer_last_model": None,  # Track model changes to clear stale params
         "composer_params": {},
         "composer_schema": None,
         "composer_voice_source": None,
@@ -263,6 +277,17 @@ def render_cinematographer_section() -> Dict[str, Any]:
     model_id = video_models[selected_name]
     st.session_state.cinematographer_model = model_id
     config["model_id"] = model_id
+
+    # CRITICAL: Clear schema params when model changes (keep user content: prompt)
+    last_model = st.session_state.get("cinematographer_last_model")
+    if last_model and last_model != model_id:
+        # Model changed - preserve user content but clear model-specific params
+        user_prompt = st.session_state.cinematographer_params.get("prompt", "")
+        st.session_state.cinematographer_params = {}
+        if user_prompt:
+            st.session_state.cinematographer_params["prompt"] = user_prompt
+        st.session_state.cinematographer_clips = []  # Also clear multi-clip configs
+    st.session_state.cinematographer_last_model = model_id
 
     validator = get_asset_validator()
 
@@ -660,6 +685,20 @@ def render_composer_section() -> Dict[str, Any]:
     model_id = music_models[selected_name]
     st.session_state.composer_model = model_id
     config["model_id"] = model_id
+
+    # CRITICAL: Clear schema params when model changes (keep user content: prompt, lyrics)
+    last_model = st.session_state.get("composer_last_model")
+    if last_model and last_model != model_id:
+        # Model changed - preserve user content but clear model-specific params
+        user_prompt = st.session_state.composer_params.get("prompt", "")
+        user_lyrics = st.session_state.composer_params.get("lyrics", "")
+        st.session_state.composer_params = {}
+        if user_prompt:
+            st.session_state.composer_params["prompt"] = user_prompt
+        if user_lyrics:
+            st.session_state.composer_params["lyrics"] = user_lyrics
+        st.session_state.composer_tracks = []  # Also clear multi-track configs
+    st.session_state.composer_last_model = model_id
 
     validator = get_asset_validator()
 
