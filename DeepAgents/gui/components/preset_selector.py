@@ -192,11 +192,15 @@ def render_preset_selector(
 
             # Apply button
             if st.button("Apply Preset", key=f"{key_prefix}_apply", type="primary"):
+                # Set the external_update key that char_counter will pick up
+                # This MUST be set here because popover won't re-execute after rerun
+                st.session_state[f"{key_prefix}_external_update"] = selected_content
                 if on_select:
                     on_select(selected_content)
-                return selected_content
+                st.rerun()
 
-        return selected_content
+        # No longer need _applied_content check - external_update handles it
+        return None
 
 
 def lyrics_preset_selector(

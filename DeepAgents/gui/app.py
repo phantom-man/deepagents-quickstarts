@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from gui.agent_runner import AgentRunner
 from gui.history_manager import SessionManager
-from gui.presets import get_director_prompt_presets
+from gui.presets import DIRECTOR_PRESETS
 from agent_brain import AgentComms, AgentConfig
 
 # Configure logging (ASCII-safe for Windows cp1252)
@@ -219,19 +219,11 @@ with tab_agency:
     # DIRECTIVE INPUT
     # ─────────────────────────────────────────────────────────────────────────
     
-    presets = get_director_prompt_presets()
     preset_prompt_lookup = {}
     preset_display_options = ["Select a director preset"]
-    for preset in presets:
-        target_bits = []
-        video_models = preset.get("video_models") or []
-        audio_models = preset.get("audio_models") or []
-        if video_models:
-            target_bits.append("Video: " + ", ".join(video_models))
-        if audio_models:
-            target_bits.append("Audio: " + ", ".join(audio_models))
-        target_suffix = f" ({' | '.join(target_bits)})" if target_bits else ""
-        display_label = f"{preset['title']} - {preset['description']}{target_suffix}"
+    for preset in DIRECTOR_PRESETS:
+        # DirectorPreset has: name, description, genre, tone, content
+        display_label = f"{preset.name} - {preset.description} ({preset.genre}/{preset.tone})"
         preset_display_options.append(display_label)
         preset_prompt_lookup[display_label] = preset
 
@@ -243,17 +235,14 @@ with tab_agency:
 
     if selected_preset_label != preset_display_options[0]:
         selected_preset = preset_prompt_lookup[selected_preset_label]
-        models_info = []
-        if selected_preset.get("video_models"):
-            models_info.append("Video: " + ", ".join(selected_preset["video_models"]))
-        if selected_preset.get("audio_models"):
-            models_info.append("Audio: " + ", ".join(selected_preset["audio_models"]))
-        if models_info:
-            st.caption("Targets " + " | ".join(models_info))
-        if st.button("Use This Preset", key=f"use_preset_{selected_preset['key']}"):
-            st.session_state.agency_directive = selected_preset["prompt"]
-            st.session_state.selected_director_preset = selected_preset["key"]
-            st.session_state.director_preset_feedback = f"Loaded preset: {selected_preset['title']}"
+        # Show preset details
+        st.caption(f"Genre: {selected_preset.genre} | Tone: {selected_preset.tone}")
+        if selected_preset.music_style_hint:
+            st.caption(f"Music: {selected_preset.music_style_hint}")
+        if st.button("Use This Preset", key=f"use_preset_{selected_preset.id}"):
+            st.session_state.agency_directive = selected_preset.content
+            st.session_state.selected_director_preset = selected_preset.id
+            st.session_state.director_preset_feedback = f"Loaded preset: {selected_preset.name}"
 
     if st.session_state.get("director_preset_feedback"):
         st.info(st.session_state.director_preset_feedback)

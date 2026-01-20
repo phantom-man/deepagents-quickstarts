@@ -174,6 +174,9 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-19 | Input Schema Service | `services/input_schema.py` defines model-specific char limits | `MODEL_INPUT_REGISTRY` maps model IDs to `InputFieldDefinition` lists |
 | 2026-01-19 | File Analyzer Service | `services/file_analyzer.py` extracts audio/video metadata | Uses ffprobe→pydub→mutagen fallback chain; `calculate_video_segments()` for auto-config |
 | 2026-01-19 | Pylint Score Improvement | Improved from 4.84/10 to 9.16/10 on Sprint 2 files | Fixed trailing whitespace, import order, added docstrings, removed unused imports |
+| 2026-01-20 | Systematic Debugging Protocol | Added Four-Phase Framework to copilot-instructions | Prevents symptom-focused fixes, enforces root cause analysis before any code changes |
+| 2026-01-20 | Streamlit Popover Lifecycle | Code inside `with st.popover(...)` doesn't run after `st.rerun()` when popover closes | Use `on_select` callbacks that execute BEFORE rerun to persist state |
+| 2026-01-20 | Preset Apply Fix | Changed from return-value pattern to `on_select` callback pattern | Callbacks execute during button click, before rerun closes popover |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:
@@ -187,6 +190,92 @@ The `memory-bank/` folder contains historical markdown files for context:
 ### Prompt Processing
 - **Read First**: Read every new prompt from beginning to end before taking action.
 - **Clarify Ambiguity**: If a request is unclear, ask clarifying questions before implementing.
+
+---
+
+## Systematic Debugging Protocol (CRITICAL - Added 2026-01-20)
+
+### Core Principle
+**NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.**
+
+Never apply symptom-focused patches that mask underlying problems. Understand WHY something fails before attempting to fix it. Fixing the wrong layer wastes iterations and erodes user trust.
+
+### The Four-Phase Debugging Framework
+
+#### Phase 1: Evidence Collection (Before Touching Code)
+1. **Read error messages thoroughly** - Every word matters. The error message often points directly to the issue.
+2. **Identify the validation/check that failed** - Trace the error back to its SOURCE, not where it manifests.
+3. **Map the data flow** - Ask: "What value is being checked? Where does that value come from? What sets it?"
+4. **Reproduce mentally** - Walk through the exact user action step-by-step. What code runs? What doesn't?
+
+#### Phase 2: Hypothesis Generation
+Generate 3-5 plausible theories ranked by likelihood:
+1. **Data not being set** - Is the value ever written to the expected location?
+2. **Data being set but overwritten** - Is something else clearing or replacing it?
+3. **Timing/lifecycle issue** - Is the code running in the wrong order or not running at all?
+4. **Key mismatch** - Are we reading from key A but writing to key B?
+5. **Framework behavior** - Is the framework (Streamlit, React, etc.) doing something unexpected?
+
+#### Phase 3: Systematic Verification
+**DO NOT GUESS. VERIFY.**
+- Trace the COMPLETE execution path after the user action
+- For each hypothesis, identify what evidence would confirm or refute it
+- Check framework documentation for lifecycle behaviors (e.g., "Does code inside a closed popover execute on rerun?")
+- If uncertain, add temporary debug logging to see actual values
+
+#### Phase 4: Targeted Fix
+Only after root cause is confirmed:
+1. Fix addresses the ROOT CAUSE, not symptoms
+2. Fix is minimal and focused - don't refactor unrelated code
+3. Verify the fix by tracing the same path that failed before
+
+### Anti-Patterns to Avoid
+
+| Anti-Pattern | Why It Fails | Correct Approach |
+|--------------|--------------|------------------|
+| Fixing at the symptom layer | Treats the rash, ignores the infection | Trace error back to SOURCE |
+| Multiple fixes hoping one works | Wastes iterations, creates confusion | One hypothesis, one test, verify |
+| Assuming framework behavior | Frameworks have quirks (popover lifecycle, widget state) | Read docs, verify assumptions |
+| Ignoring the validation logic | "It should work" is not evidence | Read what the validator actually checks |
+| Fixing display when data is wrong | Pretty UI with bad data | Verify the data pipeline FIRST |
+
+### Debugging Checklist (Use Before Claiming Fixed)
+
+- [ ] Root cause identified and documented
+- [ ] Hypothesis formed based on evidence, not assumption  
+- [ ] Fix addresses root cause, not symptoms
+- [ ] Traced the complete execution path post-fix
+- [ ] Verified the original error no longer occurs
+- [ ] No "quick fix" rationalization used
+
+### Framework-Specific Gotchas
+
+#### Streamlit
+- **Popover/Expander Lifecycle**: Code inside `with st.popover(...)` or `with st.expander(...)` ONLY executes when open. After `st.rerun()`, they close and their code doesn't run.
+- **Widget State**: Widgets with `key="x"` store state in `st.session_state["x"]`. The `value=` parameter is only used on FIRST render.
+- **Return Values After State Update**: When you set `st.session_state[widget_key]` before a widget renders, the widget MAY still return the OLD value on that render cycle.
+- **Callbacks Execute Before Rerun**: `on_click`/`on_change` callbacks run BEFORE `st.rerun()`, so use them to persist critical state.
+
+#### LangChain/LangGraph
+- **Tool Call Verification**: If `tool_calls: []` is empty but agent outputs text describing tool results, add `tool_choice="any"` to force execution.
+- **Graph Recursion**: Agents with execution tools that route back to themselves cause `GraphRecursionError`. Separate delegation from execution.
+
+### Example: Correct Debugging Trace
+
+**Error**: "Music style prompt required (at least 10 characters)"
+
+**WRONG approach**: "The textarea isn't showing the preset, let me fix the display code"
+
+**CORRECT approach**:
+1. What validates this? → `validate_agency_config()` checks `composer.params.prompt`
+2. Where does that come from? → `get_agency_config()` reads `st.session_state.composer_params`  
+3. What sets `composer_params["prompt"]`? → `render_composer_section()` after `text_area_with_counter()` returns
+4. What does the text_area return? → Whatever value the widget has
+5. When preset is applied, what happens? → Button clicked → `st.rerun()` → Popover code doesn't run → `selected_prompt` is None → params never set
+6. ROOT CAUSE: The popover doesn't re-execute after rerun, so the intermediate code that was supposed to set params never runs
+7. FIX: Use `on_select` callback which executes BEFORE rerun, directly setting `composer_params`
+
+---
 
 ## Purpose
 

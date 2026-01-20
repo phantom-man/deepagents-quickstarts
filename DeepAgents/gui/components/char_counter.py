@@ -77,28 +77,42 @@ def text_input_with_counter(
     Returns:
         The current input value (truncated to max_chars if exceeded)
     """
-    # Get current value from session state or default
-    state_key = f"_char_input_{key}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = default_value
+    # Widget key - this is what Streamlit uses to track the widget's state
+    widget_key = f"{key}_widget"
+    
+    # Check if there's an external update to apply (from presets, etc.)
+    external_key = f"{key}_external_update"
+    external_update_applied = False
+    if external_key in st.session_state:
+        st.session_state[widget_key] = st.session_state[external_key]
+        del st.session_state[external_key]
+        external_update_applied = True
+
+    # Get current value - use widget key if exists, otherwise default
+    if widget_key in st.session_state:
+        current_value = st.session_state[widget_key]
+    else:
+        current_value = default_value
 
     # Create the input
-    value = st.text_input(
+    raw_value = st.text_input(
         label,
-        value=st.session_state[state_key],
-        key=f"{key}_widget",
+        value=current_value,
+        key=widget_key,
         placeholder=placeholder,
         help=help_text,
         disabled=disabled,
         max_chars=max_chars  # Streamlit's built-in hard limit
     )
 
-    # Handle None return (shouldn't happen but type-safe)
-    if value is None:
+    # IMPORTANT: If we just applied an external update, the widget might return
+    # the old value on this render cycle. Use current_value instead.
+    if external_update_applied:
+        value = current_value
+    elif raw_value is None:
         value = ""
-
-    # Update state
-    st.session_state[state_key] = value
+    else:
+        value = raw_value
 
     # Show character counter
     current_len = len(value)
@@ -143,12 +157,27 @@ def text_area_with_counter(
     Returns:
         The current textarea value (truncated to max_chars if exceeded)
     """
-    # Get current value from session state or default
-    state_key = f"_char_textarea_{key}"
-    if state_key not in st.session_state:
-        st.session_state[state_key] = default_value
+    # Widget key - this is what Streamlit uses to track the widget's state
+    widget_key = f"{key}_widget"
+    
+    # Check if there's an external update to apply (from presets, etc.)
+    # CRITICAL: We must update the WIDGET'S session state key, not a separate key
+    # Streamlit widgets ignore the `value` param after first render and use their own state
+    external_key = f"{key}_external_update"
+    external_update_applied = False
+    if external_key in st.session_state:
+        new_value = st.session_state[external_key]
+        # Update the widget's own session state key so it displays the new value
+        st.session_state[widget_key] = new_value
+        del st.session_state[external_key]
+        external_update_applied = True
 
-    current_value = st.session_state[state_key]
+    # Get current value - use widget key if it exists, otherwise default
+    if widget_key in st.session_state:
+        current_value = st.session_state[widget_key]
+    else:
+        current_value = default_value
+    
     current_len = len(current_value)
 
     # Build label with counter if max_chars specified
@@ -156,7 +185,7 @@ def text_area_with_counter(
     if max_chars and show_remaining:
         remaining = max_chars - current_len
         if remaining < 0:
-            display_label = f"{label} (⚠️ {-remaining} over limit!)"
+            display_label = f"{label} (over {-remaining} over limit!)"
         elif remaining <= 50:
             display_label = f"{label} ({remaining} chars left)"
 
@@ -165,7 +194,7 @@ def text_area_with_counter(
     raw_value = st.text_area(
         display_label,
         value=current_value,
-        key=f"{key}_widget",
+        key=widget_key,
         placeholder=placeholder,
         height=height,
         help=help_text,
@@ -173,15 +202,18 @@ def text_area_with_counter(
     )
 
     # Handle None return (shouldn't happen but type-safe)
-    value: str = raw_value if raw_value is not None else ""
+    # IMPORTANT: If we just applied an external update, the widget might return
+    # the old value on this render cycle. Use current_value instead.
+    if external_update_applied:
+        value = current_value
+    else:
+        value = raw_value if raw_value is not None else ""
 
     # HARD BLOCKING: Truncate if over limit
     if max_chars and len(value) > max_chars:
         value = value[:max_chars]
-        st.session_state[state_key] = value
+        st.session_state[widget_key] = value
         st.warning(f"Input truncated to {max_chars} characters (limit reached)")
-    else:
-        st.session_state[state_key] = value
 
     # Show character counter bar
     current_len = len(value)

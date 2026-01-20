@@ -330,15 +330,21 @@ def render_cinematographer_section() -> Dict[str, Any]:
 
         with col_preset:
             with st.popover("📋 Presets"):
-                selected_prompt = render_preset_selector(
+                def on_cinema_prompt_apply(content: str):
+                    """Callback when video prompt preset is applied."""
+                    if "cinematographer_params" not in st.session_state:
+                        st.session_state.cinematographer_params = {}
+                    st.session_state.cinematographer_params["prompt"] = content
+                    st.session_state.cinematographer_prompt_text = content
+
+                render_preset_selector(
                     preset_type="video",
                     key_prefix="cinema_prompt",
                     model_id=model_id,
                     max_chars=prompt_limit,
-                    show_preview=True
+                    show_preview=True,
+                    on_select=on_cinema_prompt_apply
                 )
-                if selected_prompt:
-                    st.session_state.cinematographer_prompt_text = selected_prompt
 
         with col_prompt:
             prompt_text = text_area_with_counter(
@@ -614,15 +620,22 @@ def render_composer_section() -> Dict[str, Any]:
 
         with col_preset:
             with st.popover("📋 Presets"):
-                selected_prompt = render_preset_selector(
+                def on_composer_prompt_apply(content: str):
+                    """Callback when composer prompt preset is applied."""
+                    # Set directly in params so validation passes immediately
+                    if "composer_params" not in st.session_state:
+                        st.session_state.composer_params = {}
+                    st.session_state.composer_params["prompt"] = content
+                    st.session_state.composer_prompt_text = content
+
+                render_preset_selector(
                     preset_type="composer",
                     key_prefix="composer_prompt",
                     model_id=model_id,
                     max_chars=prompt_limit,
-                    show_preview=True
+                    show_preview=True,
+                    on_select=on_composer_prompt_apply
                 )
-                if selected_prompt:
-                    st.session_state.composer_prompt_text = selected_prompt
 
         with col_prompt:
             prompt_text = text_area_with_counter(
@@ -648,15 +661,21 @@ def render_composer_section() -> Dict[str, Any]:
 
             with col_lyric_preset:
                 with st.popover("📋 Presets"):
-                    selected_lyrics = render_preset_selector(
+                    def on_composer_lyrics_apply(content: str):
+                        """Callback when lyrics preset is applied."""
+                        if "composer_params" not in st.session_state:
+                            st.session_state.composer_params = {}
+                        st.session_state.composer_params["lyrics"] = content
+                        st.session_state.composer_lyrics_text = content
+
+                    render_preset_selector(
                         preset_type="lyrics",
                         key_prefix="composer_lyrics",
                         model_id=model_id,
                         max_chars=lyrics_limit,
-                        show_preview=True
+                        show_preview=True,
+                        on_select=on_composer_lyrics_apply
                     )
-                    if selected_lyrics:
-                        st.session_state.composer_lyrics_text = selected_lyrics
 
             with col_lyrics:
                 lyrics_text = text_area_with_counter(
