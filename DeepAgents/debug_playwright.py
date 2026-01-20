@@ -1,5 +1,4 @@
 import time
-import sys
 from playwright.sync_api import sync_playwright
 
 def run_streamlit_test():

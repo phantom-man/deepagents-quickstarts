@@ -1,4 +1,3 @@
-import os
 import google.auth
 from google import genai
 
@@ -7,7 +6,7 @@ PROJECT_ID = "crafty-hook-483415-b3"
 LOCATION = "us-central1"
 MODEL_ID = "veo-3.1-fast-generate-001"
 
-print(f"--- Debugging Veo Generation ---")
+print("--- Debugging Veo Generation ---")
 print(f"Target Project: {PROJECT_ID}")
 print(f"Target Location: {LOCATION}")
 

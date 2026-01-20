@@ -1,6 +1,5 @@
 import replicate
 import os
-import json
 from dotenv import load_dotenv
 
 # Load Env
@@ -24,7 +23,7 @@ search_terms = [
     "ace-step"
 ]
 
-print(f"Searching Replicate for music models with lyrics/vocal support...")
+print("Searching Replicate for music models with lyrics/vocal support...")
 
 seen_models = set()
 
@@ -66,7 +65,7 @@ for term in search_terms:
                         print(f"  Lyrics Input Found: {has_lyrics_input} (Keys: {list(inputs.keys())})")
                         print(f"  Duration: Max={max_duration}, Default={default_duration}")
                         # print(f"  Run Count: {model.run_count}") # run_count might not be available on object
-            except Exception as e:
+            except Exception:
                 # print(f"  Could not fetch version details for {model.name}: {e}")
                 pass
 

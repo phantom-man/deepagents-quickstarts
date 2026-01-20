@@ -1,5 +1,3 @@
-import os
-import google.auth
 from google import genai
 from dotenv import load_dotenv
 
@@ -11,7 +9,7 @@ LOCATION = "us-central1"
 # Imagen 3 model
 MODEL_ID = "imagen-3.0-generate-001"
 
-print(f"--- Probing Image Generation (Storyboard Mode) ---")
+print("--- Probing Image Generation (Storyboard Mode) ---")
 print(f"Project: {PROJECT_ID}")
 
 try:

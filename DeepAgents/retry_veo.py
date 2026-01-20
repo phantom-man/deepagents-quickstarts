@@ -60,6 +60,6 @@ while True:
                 print(f"❌ Unexpected Error with {model}: {e}")
                 # Don't exit, try next model
 
-    print(f"⏳ Quota exceeded for all models. Retrying in 30 seconds...")
+    print("⏳ Quota exceeded for all models. Retrying in 30 seconds...")
     time.sleep(30)
     attempt += 1

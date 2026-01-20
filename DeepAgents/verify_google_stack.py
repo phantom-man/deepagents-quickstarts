@@ -1,7 +1,6 @@
 
 import os
 import time
-import base64
 import logging
 from google import genai
 from google.genai import types

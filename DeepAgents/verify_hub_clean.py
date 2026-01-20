@@ -1,5 +1,4 @@
 import os
-import sys
 from dotenv import load_dotenv
 from langsmith import Client
 from langchain_core.prompts import ChatPromptTemplate

@@ -368,7 +368,7 @@ class DynamicUIGenerator:
                 value = selected_file
                 # Validate would happen here
                 is_valid = True
-                st.success(f"✓ File selected")
+                st.success("✓ File selected")
             else:
                 if requirement.required:
                     st.warning("⚠ Required file not selected")

@@ -11,7 +11,7 @@ load_dotenv(".env")
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_root)
 
-from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool, create_composer_agent
+from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool
 
 logging.basicConfig(level=logging.INFO)
 

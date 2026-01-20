@@ -1,7 +1,6 @@
 
 import os
 import replicate
-import time
 import requests
 from dotenv import load_dotenv
 

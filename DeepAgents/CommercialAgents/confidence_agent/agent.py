@@ -8,7 +8,6 @@ Uses Research Agent as a tool.
 """
 
 import sys
-import os
 import uuid
 import logging
 from typing import cast
@@ -22,7 +21,6 @@ from langchain_anthropic import ChatAnthropic
 from DeepAgents.replicate_adapter import ChatReplicate
 from langchain.tools import tool
 from DeepAgents.agent_factory import create_deep_agent
-from DeepAgents.hub_manager import get_or_push_prompt
 
 from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
 from DeepAgents.agent_brain import AgentMemory

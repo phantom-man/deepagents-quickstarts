@@ -6,8 +6,10 @@ Orchestrates the Director Agent (Apollo) who manages the production pipeline.
 """
 import os
 import sys
+import time
 import argparse
 import logging
+import json
 from dotenv import load_dotenv
 from langsmith import Client
 from langchain_core.tracers.context import collect_runs  # For capturing Run ID
@@ -20,7 +22,6 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 # Load environment variables IMMEDIATELY
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 # Load Configuration (Single Source of Truth)
-import json
 CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "../data/agent_config.json"))
 try:
     with open(CONFIG_PATH, "r") as f:
@@ -158,7 +159,8 @@ def main():
         if os.environ.get("ATLAS_VOICE_ONLY_MODE") == "true": # Retry? No.
              return
         # Enter safe loop
-        while True: time.sleep(1)
+        while True:
+            time.sleep(1)
 
     # 4. Execute the Task
     print("🎬 Atlas is working...")

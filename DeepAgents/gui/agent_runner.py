@@ -59,7 +59,6 @@ class AgentRunner:
         """
         self.session.log_event("System", "info", f"Starting Studio Graph for: {directive}")
         
-        import queue
         import threading
         import time as time_module
         
@@ -109,7 +108,7 @@ class AgentRunner:
                                 # Only emit progress updates (not full content)
                                 if content and len(content) < 200:
                                     event_queue.put((gui_name, "progress", content))
-                except Exception as e:
+                except Exception:
                     pass  # Silently ignore polling errors
                 
                 time_module.sleep(0.5)  # Poll every 500ms
@@ -297,7 +296,6 @@ class AgentRunner:
         # ASYNC WRAPPER FOR GUI
         # Streamlit is synchronous, but our new architecture is Async.
         # We process events in a separate thread/loop and yield them via a Queue to allow usage of generators in UI.
-        import queue
         import threading
 
         event_queue = queue.Queue()
@@ -709,7 +707,6 @@ class AgentRunner:
             self.session.log_event("Cinematographer", "error", str(e))
             yield ("Cinematographer", "error", str(e))
         # Similar to Director, Cinematographer likely uses async calls or heavy I/O (Replicate polling).
-        import queue
         import threading
 
         cine_queue = queue.Queue()

@@ -2,8 +2,6 @@
 import os
 import time
 import logging
-import subprocess
-import shutil
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv

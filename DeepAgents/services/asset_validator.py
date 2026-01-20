@@ -13,7 +13,7 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, BinaryIO, Dict, Optional, Tuple, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from DeepAgents.services.schema_service import AssetRequirement

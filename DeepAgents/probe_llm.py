@@ -1,6 +1,4 @@
 
-import os
-import sys
 import logging
 from dotenv import load_dotenv
 from langchain_google_vertexai import ChatVertexAI

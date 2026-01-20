@@ -42,7 +42,6 @@ try:
     print("   -> Success.")
     
     print("6. Importing Agency Graph...")
-    from DeepAgents.graphs.agency_graph import app
     print("   -> Success.")
 
 except Exception as e:

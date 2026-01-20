@@ -1,4 +1,3 @@
-import os
 import sys
 import replicate
 from dotenv import load_dotenv

@@ -1,10 +1,9 @@
 import os
-import asyncio
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
-from langsmith import Client, evaluate
+from langsmith import evaluate
 from langsmith.schemas import Example, Run
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 

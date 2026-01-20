@@ -1,6 +1,4 @@
 
-import os
-import google.auth
 # Try both if installed
 try:
     from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,7 +10,7 @@ try:
 except ImportError:
     ChatVertexAI = None
 
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, PermissionDenied, NotFound
+from google.api_core.exceptions import ResourceExhausted, PermissionDenied, NotFound
 
 # Setup
 PROJECT_ID = "crafty-hook-483415-b3"

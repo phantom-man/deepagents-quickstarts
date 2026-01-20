@@ -15,7 +15,6 @@ try:
     print("DEBUG: Successfully imported agency_graph")
     
     print("DEBUG: Importing graph_app...")
-    import DeepAgents.graph_app as graph_app
     print("DEBUG: Successfully imported graph_app")
     
     # Try to load the graphs

@@ -335,7 +335,7 @@ def main():
             description="DeepAgents System Configuration - Full Model Registry Sync",
             is_public=False
         )
-        print(f"\n✓ Successfully pushed to Hub!")
+        print("\n✓ Successfully pushed to Hub!")
         print(f"  URL: {url}")
         
         # Also update local cache

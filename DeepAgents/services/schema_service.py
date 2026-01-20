@@ -17,7 +17,7 @@ import hashlib
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -25,7 +25,7 @@ import requests
 
 # Lazy import to avoid circular dependency
 if TYPE_CHECKING:
-    from DeepAgents.services.model_registry import ModelInfo, ModelProvider
+    pass
 
 logger = logging.getLogger(__name__)
 

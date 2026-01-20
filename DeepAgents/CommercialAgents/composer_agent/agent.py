@@ -13,9 +13,8 @@ import time
 import base64
 import uuid
 import logging
-import shutil
 from dotenv import load_dotenv
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 import requests
 import google.auth
@@ -26,7 +25,6 @@ from langchain_anthropic import ChatAnthropic
 from langchain.tools import tool
 
 from DeepAgents.replicate_adapter import ChatReplicate
-from DeepAgents.agent_factory import create_deep_agent
 from DeepAgents.asset_manager import AssetManager
 from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.system_config import SystemConfiguration
@@ -1248,7 +1246,7 @@ def run_composer_task(
         logger.info(f"[COMPOSER] Voice source: {voice_source}, file: {voice_file}, model: {voice_model_id}")
     
     try:
-        from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
+        from DeepAgents.approval_manager import is_asset_rejected
 
         # Build voice config dict for passing to factory
         voice_config = None

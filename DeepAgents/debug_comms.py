@@ -1,4 +1,3 @@
-import psycopg2
 from agent_brain import AgentComms
 
 print("🔍 Inspecting Agent Messages Table...")

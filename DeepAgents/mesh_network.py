@@ -4,10 +4,8 @@ Implements the "Zero Touch" agent-to-agent communication tool.
 """
 import importlib
 import logging
-import json
-from typing import Optional
 from langchain_core.tools import tool
-from DeepAgents.agency_registry import AGENCY_REGISTRY, find_agent_for_task
+from DeepAgents.agency_registry import AGENCY_REGISTRY
 
 logger = logging.getLogger("MeshNetwork")
 

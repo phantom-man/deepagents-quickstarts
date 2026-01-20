@@ -1,9 +1,7 @@
 
 import os
-import sys
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
 import logging
 
 # Setup
@@ -59,7 +57,7 @@ def probe_model(model_name):
 
 print("--- Starting Quota Candidate Probe ---")
 print(f"Project: {os.getenv('GOOGLE_CLOUD_PROJECT')}")
-print(f"Location: us-central1")
+print("Location: us-central1")
 
 successful = []
 for model in candidates:

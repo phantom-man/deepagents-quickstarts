@@ -7,10 +7,8 @@ These tools allow for deep narrative analysis and counterfactual history simulat
 import logging
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
-from langchain_google_vertexai import ChatVertexAI
 # from langchain_google_genai import ChatGoogleGenerativeAI # Deprecated
 from DeepAgents.replicate_adapter import ChatReplicate
-import os
 
 # Setup Logger
 logger = logging.getLogger("HistoryTools")

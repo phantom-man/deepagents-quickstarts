@@ -12,7 +12,6 @@ load_dotenv(env_path)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), ".")))
 
 from DeepAgents.CommercialAgents.composer_agent.agent import _handle_replicate_generation
-from DeepAgents.asset_manager import AssetManager
 
 logging.basicConfig(level=logging.INFO)
 

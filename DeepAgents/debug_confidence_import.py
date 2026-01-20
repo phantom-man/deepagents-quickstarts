@@ -7,7 +7,6 @@ print(f"Path: {sys.path[0]}")
 
 try:
     print("Importing Confidence Agent...")
-    from DeepAgents.CommercialAgents.confidence_agent import agent
     print("Success importing Confidence Agent")
 except Exception as e:
     print(f"Error: {e}")

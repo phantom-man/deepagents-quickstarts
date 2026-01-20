@@ -1,4 +1,3 @@
-import os
 import datetime
 from langsmith import Client
 from dotenv import load_dotenv

@@ -126,6 +126,8 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 
 | Date | Topic | Decision | Rationale |
 |------|-------|----------|----------|
+| 2026-01-20 | DevDb Integration | Configured `.vscode/settings.json` for Postgres and SQLite | Enables visual inspection of Agent Memory (PG) and Command Queue (SQLite) directly in VS Code |
+| 2026-01-20 | Linter Strategy | Adopted Ruff as primary linter/formatter; deprecated Pylance refactoring | Ruff provides instant feedback; Pylint reserved for deep logic checks only |
 | 2026-01-20 | Progress Event Display | Removed `continue` statement that filtered handoff events from event log | Handoff messages (e.g., "[HANDOFF] -> Composer") now appear in both progress bar AND event log immediately when routing occurs |
 | 2026-01-20 | Run Agency Button Validation | Changed button disable logic to check config validity in real-time | Button now properly enables/disables based on live validation; activates immediately when preset changes lyrics/prompt |
 | 2026-01-20 | Event Log Styling | Added `.event-progress` CSS class for handoff events | Blue, bold text distinguishes routing decisions from other event types (info, output, error, thinking) |

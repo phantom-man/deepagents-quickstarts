@@ -1,7 +1,6 @@
 
 from google.cloud import texttospeech
 from dotenv import load_dotenv
-import os
 
 load_dotenv("DeepAgents/.env")
 
@@ -32,7 +31,7 @@ def list_voices():
             elif "studio" in name.lower():
                 studio.append(voice)
 
-        print(f"\n--- Summary ---")
+        print("\n--- Summary ---")
         print(f"Gemini Voices: {len(gemini)}")
         print(f"Journey Voices: {len(journey)}")
         print(f"Neural2 Voices: {len(neural2)}")

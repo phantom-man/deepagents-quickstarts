@@ -48,7 +48,7 @@ def update_config_on_hub():
         
         # Try pushing to simple name
         url = client.push_prompt(target_repo, object=prompt)
-        logger.info(f"✅ Configuration Pushed Successfully!")
+        logger.info("✅ Configuration Pushed Successfully!")
         logger.info(f"URL: {url}")
         
     except Exception as e:

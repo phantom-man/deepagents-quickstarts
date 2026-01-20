@@ -1,8 +1,6 @@
 
 import os
 import time
-import random
-from typing import List
 from dotenv import load_dotenv
 
 # Load Environment
@@ -27,9 +25,9 @@ questions = [
 ]
 
 print(f"🧪 Starting Load Test for {model_id}...")
-print(f"   SDK: google.genai (Modern)")
+print("   SDK: google.genai (Modern)")
 print(f"   Questions: {len(questions)}")
-print(f"   Rate: 1 request / 5 seconds\n")
+print("   Rate: 1 request / 5 seconds\n")
 
 try:
     from google import genai

@@ -15,7 +15,7 @@ def run_test():
     timestamp = datetime.datetime.now().isoformat()
     repo_name = f"test-verification-{unique_id}"
     
-    print(f"🧪 Starting Real Push Test")
+    print("🧪 Starting Real Push Test")
     print(f"   Target Repo: {repo_name}")
     print(f"   Timestamp:   {timestamp}")
     
@@ -27,7 +27,7 @@ def run_test():
     ])
     
     # 3. PUSH (Real mutation)
-    print(f"\n🚀 Attempting Push...")
+    print("\n🚀 Attempting Push...")
     try:
         url = client.push_prompt(repo_name, object=prompt)
         print(f"   ✅ Push Success! URL: {url}")
@@ -36,7 +36,7 @@ def run_test():
         return False
 
     # 4. PULL (Verify Persistence)
-    print(f"\n📡 Attempting Verification Pull...")
+    print("\n📡 Attempting Verification Pull...")
     try:
         remote_prompt = client.pull_prompt(repo_name)
         
@@ -45,12 +45,12 @@ def run_test():
         remote_content = remote_prompt.messages[0].prompt.template
         
         if remote_content == content:
-            print(f"   ✅ Content Verified Match!")
+            print("   ✅ Content Verified Match!")
             print(f"      Sent: '{content}'")
             print(f"      Got:  '{remote_content}'")
             return True
         else:
-            print(f"   ❌ Content Mismatch!")
+            print("   ❌ Content Mismatch!")
             print(f"      Sent: '{content}'")
             print(f"      Got:  '{remote_content}'")
             return False

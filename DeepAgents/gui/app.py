@@ -514,7 +514,7 @@ with tab_agency:
             with col_final:
                 if has_final:
                     final_path = st.session_state.generated_final
-                    st.markdown(f"**Combined Video**")
+                    st.markdown("**Combined Video**")
                     if final_path.startswith("gs://"):
                         st.markdown(f"[🎬 Download Final Video]({final_path.replace('gs://', 'https://storage.googleapis.com/')})")
                     elif final_path.startswith("http"):
@@ -537,7 +537,7 @@ with tab_agency:
             with col_video:
                 if has_video:
                     video_path = st.session_state.generated_video
-                    st.markdown(f"**Video Only**")
+                    st.markdown("**Video Only**")
                     if video_path.startswith("gs://"):
                         st.markdown(f"[🎥 Download Video]({video_path.replace('gs://', 'https://storage.googleapis.com/')})")
                     elif video_path.startswith("http"):
@@ -559,7 +559,7 @@ with tab_agency:
             with col_audio:
                 if has_audio:
                     audio_path = st.session_state.generated_audio
-                    st.markdown(f"**Audio Only**")
+                    st.markdown("**Audio Only**")
                     if audio_path.startswith("gs://"):
                         st.markdown(f"[🎵 Download Audio]({audio_path.replace('gs://', 'https://storage.googleapis.com/')})")
                     elif audio_path.startswith("http"):

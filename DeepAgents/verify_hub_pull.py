@@ -1,8 +1,6 @@
 import os
-import sys
 from dotenv import load_dotenv
-from langsmith import Client, utils
-from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client
 
 # Force load the .env file in the same directory
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -16,7 +14,7 @@ print(f"Attempting Pull for '{target}'...")
 
 try:
     prompt = client.pull_prompt(target)
-    print(f"✅ Pull Success! Found prompt object.")
+    print("✅ Pull Success! Found prompt object.")
 except Exception as e:
     print(f"❌ Pull Failed: {e}")
     # Print the full error structure if possible
@@ -27,6 +25,6 @@ except Exception as e:
 print("\nAttempting Pull for 'director-system-prompt' (Simple Name)...")
 try:
     prompt = client.pull_prompt("director-system-prompt")
-    print(f"✅ Pull Success for director-system-prompt!")
+    print("✅ Pull Success for director-system-prompt!")
 except Exception as e:
     print(f"❌ Pull Failed for director-system-prompt: {e}")

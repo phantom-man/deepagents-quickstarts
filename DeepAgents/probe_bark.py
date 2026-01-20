@@ -1,5 +1,4 @@
 
-import os
 import replicate
 import time
 from dotenv import load_dotenv

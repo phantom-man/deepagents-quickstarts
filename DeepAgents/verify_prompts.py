@@ -25,7 +25,7 @@ def verify_pull(handle: str):
         # Check if it has content
         # Depending on type (ChatPromptTemplate), it might be prompt_obj.messages...
         if not prompt_obj:
-            print(f"❌ Failed: object is empty.")
+            print("❌ Failed: object is empty.")
             return False
             
         print(f"✅ Success: Retrieved {type(prompt_obj).__name__}")

@@ -109,7 +109,8 @@ class SystemDiagnostics:
                      # If Director is NOT Google, Google is not Critical
                      if config.get("Director", {}).get("provider") != "Google":
                          is_primary = False
-        except: pass
+        except:
+             pass
 
         self.log(f"🤖 Probing Google Vertex AI (Quota Check)... {'(Secondary)' if not is_primary else ''}")
         
@@ -127,9 +128,6 @@ class SystemDiagnostics:
         # List of models to try in order of preference/cost
         # Minimizing this list to avoid triggering spam filters
         models_to_test = ["gemini-2.0-flash-exp"]
-
-        project = os.getenv("GOOGLE_CLOUD_PROJECT")
-        location = os.getenv("GOOGLE_CLOUD_LOCATION")
 
         success = False
         for model_name in models_to_test:

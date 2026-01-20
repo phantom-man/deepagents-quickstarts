@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import google.auth
 from google import genai
@@ -12,7 +11,7 @@ MODEL_ID = "veo-3.1-fast-generate-001"
 # The path the user mentioned
 ADC_PATH = os.path.expanduser('~\\AppData\\Roaming\\gcloud\\application_default_credentials.json')
 
-print(f"--- Credential & Quota Diagnostics ---")
+print("--- Credential & Quota Diagnostics ---")
 
 # 1. Check Environment Variable
 env_creds = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')

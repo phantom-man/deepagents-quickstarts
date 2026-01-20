@@ -2,7 +2,6 @@
 Script to DELETE legacy *-main prompts from LangSmith Hub.
 """
 import os
-import sys
 from dotenv import load_dotenv
 from langsmith import Client
 

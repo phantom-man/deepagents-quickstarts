@@ -1,5 +1,4 @@
 import streamlit as st # type: ignore
-import time
 import os
 import sys
 from dotenv import load_dotenv
@@ -132,7 +131,7 @@ if mode == "Review History":
         st.sidebar.warning("No history found.")
 
 # Initialize Manager
-if not "current_session_id" in st.session_state:
+if "current_session_id" not in st.session_state:
     st.session_state.current_session_id = None
 
 manager = SessionManager(session_id if mode == "Review History" else st.session_state.current_session_id)
@@ -245,7 +244,7 @@ with tab_director:
                          if path_match:
                              path = path_match.group(1).strip()
                              st.session_state.final_asset_path = path
-                             st.success(f"🎬 FINAL CUT COMPLETE!")
+                             st.success("🎬 FINAL CUT COMPLETE!")
                              st.video(path)
                              st.markdown(f"**Path**: `{path}`")
 
@@ -280,7 +279,7 @@ with tab_director:
             
             if st.session_state.get("final_asset_path"):
                 st.divider()
-                st.success(f"🎬 FINAL CUT COMPLETE!")
+                st.success("🎬 FINAL CUT COMPLETE!")
                 st.video(st.session_state.final_asset_path)
                 st.markdown(f"**Path**: `{st.session_state.final_asset_path}`")
 
@@ -304,7 +303,7 @@ with tab_director:
                  st.info(f"Starting Manual Merge for Session: {session_id}...")
                  merge_result = runner.run_editor_merge(session_id)
                  if merge_result:
-                     st.success(f"🎬 FINAL CUT COMPLETE!")
+                     st.success("🎬 FINAL CUT COMPLETE!")
                      st.video(merge_result)
                      st.markdown(f"**Path**: `{merge_result}`")
                  else:
@@ -531,7 +530,7 @@ with tab_cinematographer:
                         with st.expander(f"💭 {agent} Thinking...", expanded=False):
                              st.markdown(content)
                     elif type_ == "output":
-                         st.markdown(f"### 🎥 Visual Output")
+                         st.markdown("### 🎥 Visual Output")
                          st.markdown(content)
                     elif type_ == "error":
                          st.error(content)
@@ -644,7 +643,7 @@ with tab_composer:
                 if type_ == "thinking":
                     st.caption(f"💭 {content}")
                 elif type_ == "output":
-                     st.markdown(f"### 🎻 Composition")
+                     st.markdown("### 🎻 Composition")
                      st.markdown(content)
                      # HITL INTERRUPT (Post-Run)
                      st.session_state.comp_pending_asset = content

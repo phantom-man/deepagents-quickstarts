@@ -1,6 +1,5 @@
 
 import os
-import sys
 from dotenv import load_dotenv
 
 # Load Env
@@ -9,7 +8,7 @@ load_dotenv("DeepAgents/.env")
 project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
 location = "us-central1" # User specified region
 
-print(f"🔍 Probing using google-genai SDK...")
+print("🔍 Probing using google-genai SDK...")
 print(f"   Project: {project_id}")
 print(f"   Location: {location}")
 

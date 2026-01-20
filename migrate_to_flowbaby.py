@@ -65,7 +65,7 @@ def ingest_memory(memory: dict, index: int) -> dict:
             return {"success": False, "topic": memory["topic"], "error": result.stderr}
             
     except subprocess.TimeoutExpired:
-        print(f"    [TIMEOUT] Ingestion took too long")
+        print("    [TIMEOUT] Ingestion took too long")
         return {"success": False, "topic": memory["topic"], "error": "Timeout"}
     except json.JSONDecodeError as e:
         print(f"    [FAIL] Invalid JSON response: {e}")
@@ -110,7 +110,7 @@ def main():
     print("\n" + "=" * 60)
     print(f"Migration Complete: {success_count}/{len(results)} succeeded")
     if fail_count > 0:
-        print(f"\nFailed memories:")
+        print("\nFailed memories:")
         for r in results:
             if not r["success"]:
                 print(f"  - {r['topic']}: {r.get('error', 'Unknown')[:50]}")

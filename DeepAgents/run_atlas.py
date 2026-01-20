@@ -2,15 +2,13 @@ import sys
 import os
 import threading
 import time
-import queue
-import logging
 import argparse
 from dotenv import load_dotenv
 
 # Path Setup
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from DeepAgents.atlas_link import link as atlas_link
-from DeepAgents.studio import main as studio_main_logic, voice_update
+from DeepAgents.studio import voice_update
 
 # Load Env
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))

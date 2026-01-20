@@ -1,8 +1,6 @@
 
-import os
-import google.auth
 from langchain_google_genai import ChatGoogleGenerativeAI
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, PermissionDenied
+from google.api_core.exceptions import ResourceExhausted, PermissionDenied
 
 # Setup
 PROJECT_ID = "crafty-hook-483415-b3"

@@ -5,11 +5,8 @@
 # 3. Internet Connectivity (Google ping)
 
 import os
-import sys
-import json
 import requests
 import google.auth
-from google.cloud import aiplatform
 from dotenv import load_dotenv
 
 load_dotenv()

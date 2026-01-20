@@ -60,11 +60,12 @@ def _safe_create(name, factory_func, **kwargs):
     try:
         return factory_func(**kwargs)
     except Exception as e:
-        print(f"CRITICAL ERROR creating graph '{name}': {e}")
+        err_msg = str(e)
+        print(f"CRITICAL ERROR creating graph '{name}': {err_msg}")
 
         # Dummy Graph
         def error_node(state):
-            return {"messages": [AIMessage(content=f"Error loading {name}: {e}")]}
+            return {"messages": [AIMessage(content=f"Error loading {name}: {err_msg}")]}
 
         bg = StateGraph(MessagesState)
         bg.add_node("error", error_node)
@@ -116,9 +117,10 @@ def _create_composer_graph():
         return builder.compile()
         
     except Exception as e:
-        print(f"FAILED to wrap Composer: {e}")
+        err_msg = str(e)
+        print(f"FAILED to wrap Composer: {err_msg}")
         def err_node(state): 
-            return {"messages": [AIMessage(content=f"Composer Failed: {e}")]}
+            return {"messages": [AIMessage(content=f"Composer Failed: {err_msg}")]}
         g = StateGraph(MessagesState) 
         g.add_node("error", err_node)
         g.set_entry_point("error")
@@ -174,9 +176,10 @@ def _create_cinematographer_graph():
         return builder.compile()
 
     except Exception as e:
-        print(f"FAILED to wrap Cinematographer: {e}")
+        err_msg = str(e)
+        print(f"FAILED to wrap Cinematographer: {err_msg}")
         def err_node(state):
-            return {"messages": [AIMessage(content=f"Cinematographer Failed: {e}")]}
+            return {"messages": [AIMessage(content=f"Cinematographer Failed: {err_msg}")]}
         g = StateGraph(MessagesState)
         g.add_node("error", err_node)
         g.set_entry_point("error")

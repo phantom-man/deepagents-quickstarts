@@ -17,7 +17,6 @@ from langchain_core.language_models import BaseChatModel
 from langchain_anthropic import ChatAnthropic
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_google_genai import ChatGoogleGenerativeAI 
-import os
 
 from DeepAgents.replicate_adapter import ChatReplicate
 from DeepAgents.agent_factory import create_deep_agent
@@ -30,11 +29,10 @@ try:
         DIRECTOR_INSTRUCTIONS,
         SCENE_VALIDATION_PROMPT
     )
-    from DeepAgents.editor_tools import merge_video_audio_logic
+    # from DeepAgents.editor_tools import merge_video_audio_logic # Removed unused import
 except ImportError:
     # Fallback to absolute if script run from subfolder without path
     from DeepAgents.CommercialAgents.director_agent.prompts import DIRECTOR_INSTRUCTIONS
-    from DeepAgents.editor_tools import merge_video_audio_logic
     # Note: If these fail in fallback, the script will crash, but environment should be consistent now.
     SCENE_VALIDATION_PROMPT = "CRITIQUE THIS SCENE: {scene_description}"
 

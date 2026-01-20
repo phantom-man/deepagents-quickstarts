@@ -6,8 +6,6 @@ Adheres strictly to the user's LangSmith environment.
 
 import os
 import argparse
-from datetime import datetime, timedelta
-from typing import Optional
 
 from langsmith import Client
 from dotenv import load_dotenv

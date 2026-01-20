@@ -66,7 +66,7 @@ try:
     if not operation.done:
         print(f'ERROR: Timed out after {max_wait}s')
     else:
-        print(f'\nOperation completed!')
+        print('\nOperation completed!')
         print(f'Response: {operation.response}')
         
         if operation.response and hasattr(operation.response, 'generated_videos'):
@@ -90,7 +90,7 @@ try:
                         print(f'    SAVED TO: {output_path}')
                         print(f'    File size: {output_path.stat().st_size:,} bytes')
         else:
-            print(f'No generated_videos in response')
+            print('No generated_videos in response')
             print(f'Full operation: {operation}')
             
 except Exception as e:

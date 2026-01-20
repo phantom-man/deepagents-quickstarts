@@ -15,14 +15,13 @@ import os
 import logging
 import requests
 import json
-from typing import Optional, Any, Callable, Dict, List, Union
+from typing import Optional, Any, Callable, Dict, List
 
 from dotenv import load_dotenv
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
-    AIMessage,
     ToolMessage,
 )
 from langchain_core.language_models import BaseChatModel
@@ -30,18 +29,16 @@ from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
-from langchain_core.tools import tool, StructuredTool
+from langchain_core.tools import StructuredTool
 from langsmith import traceable
 
 # Internal Data Structures
 from DeepAgents.asset_manager import AssetManager
 import replicate
-from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
     CINEMATOGRAPHER_INSTRUCTIONS,
 )
-from DeepAgents.inter_agent_comms import discover_agents
 from DeepAgents.system_config import SystemConfiguration
 
 # Cross-Agent Imports (REMOVED per strict isolation policy)
@@ -516,7 +513,7 @@ def create_cinematographer_agent(
         # We try to reason -> act -> finalize. Any error crashes the agent.
 
         # 1. Reason / Plan
-        yield ("thinking", f"🧠 Reasoning...")
+        yield ("thinking", "🧠 Reasoning...")
         try:
             response = llm_with_tools.invoke(messages)
             messages.append(response)  # Add AI response to history
@@ -661,7 +658,7 @@ def run_cinematographer_task(
         logger.info("[CINEMA] Model params: %s", model_params)
     
     try:
-        from DeepAgents.approval_manager import is_asset_approved, is_asset_rejected
+        from DeepAgents.approval_manager import is_asset_rejected
 
         # TODO: Pass model_id and model_params to the agent/tools
         # For now, the agent uses system config. Future: override with GUI config.

@@ -27,23 +27,15 @@ import re
 from pathlib import Path
 from typing import Annotated, TypedDict, List, Literal, Union, Any, Optional
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END
 from langgraph.types import Command
-from langchain_anthropic import ChatAnthropic
 
 # Import our Agents (as tools/nodes)
 from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
 from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
 from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
-from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
-    create_cinematographer_agent,
-)
-from DeepAgents.CommercialAgents.composer_agent.agent import (
-    run_composer_task,
-    create_composer_agent,
-)
 from DeepAgents.editor_tools import merge_video_audio_logic
 
 from DeepAgents.system_config import SystemConfiguration
@@ -174,25 +166,25 @@ def _route_from_handoffs(
         
         # Priority order for multiple handoffs
         if "end" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] Completing task")
+            _emit_progress(logger_context, "[HANDOFF] Completing task")
             return Command(update=state_update, goto=END)
         elif "director" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Director")
+            _emit_progress(logger_context, "[HANDOFF] -> Director")
             return Command(update=state_update, goto="director")
         elif "validator" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Confidence")
+            _emit_progress(logger_context, "[HANDOFF] -> Confidence")
             return Command(update=state_update, goto="validator")
         elif "researcher" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Researcher")
+            _emit_progress(logger_context, "[HANDOFF] -> Researcher")
             return Command(update=state_update, goto="researcher")
         elif "cinematographer" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Cinematographer")
+            _emit_progress(logger_context, "[HANDOFF] -> Cinematographer")
             return Command(update=state_update, goto="cinematographer")
         elif "composer" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Composer")
+            _emit_progress(logger_context, "[HANDOFF] -> Composer")
             return Command(update=state_update, goto="composer")
         elif "editor" in targets:
-            _emit_progress(logger_context, f"[HANDOFF] -> Editor")
+            _emit_progress(logger_context, "[HANDOFF] -> Editor")
             return Command(update=state_update, goto="editor")
     
     # Default routing (no explicit handoff, follow pipeline order)
