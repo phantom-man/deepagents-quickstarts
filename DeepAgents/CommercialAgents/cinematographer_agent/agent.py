@@ -34,6 +34,7 @@ from langsmith import traceable
 
 # Internal Data Structures
 from DeepAgents.asset_manager import AssetManager
+from DeepAgents.inter_agent_comms import AgentComms
 import replicate
 from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
@@ -414,6 +415,17 @@ def create_cinematographer_agent(
                 logger.info(f"[VIDEO] Using Zeroscope parameters: {input_args}")
 
             logger.info(f"[VIDEO] Calling Replicate model: {vid_model}")
+            
+            # Emit progress so UI knows we're waiting on API
+            try:
+                comms = AgentComms()
+                comms.connect()
+                model_short = vid_model.split("/")[-1].split(":")[0]
+                comms.send_message("Cinematographer", "GUI", f"Calling {model_short} API (this may take 1-3 minutes)...")
+                comms.close()
+            except Exception:
+                pass  # Non-critical
+            
             output = replicate.run(vid_model, input=input_args)
             video_url = output[0] if isinstance(output, list) else output
 

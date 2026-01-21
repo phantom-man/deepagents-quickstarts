@@ -253,10 +253,11 @@ class AgentRunner:
 
                 agent_name, evt_type, content = item
                 
-                # Log & Broadcast (skip progress events to avoid spam)
+                # Log events (skip progress events to avoid spam)
+                # NOTE: Don't broadcast via send_message here - _emit_progress in agency_graph.py already does it
+                # Double-emitting causes duplicate messages in the UI
                 if evt_type != "progress":
                     self.session.log_event(agent_name, evt_type, content)
-                    self.comms.send_message(agent_name, "All", f"{evt_type}: {content[:50]}...")
                 
                 yield item
             

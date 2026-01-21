@@ -29,6 +29,7 @@ from DeepAgents.asset_manager import AssetManager
 from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.system_config import SystemConfiguration
 from DeepAgents.model_schemas import get_model_schema
+from DeepAgents.inter_agent_comms import AgentComms
 
 try:
     from DeepAgents.CommercialAgents.composer_agent.prompts import (
@@ -392,7 +393,17 @@ def _safe_replicate_run(
     model_id: str, input_data: Dict[str, Any], wait_time: int = 5
 ) -> Any:
     """Runs Replicate prediction with rate limit hygiene."""
-    logger.info(f"⏳ Waiting {wait_time}s to avoid Rate Limits...")
+    # Emit progress so UI knows we're waiting on API
+    try:
+        comms = AgentComms()
+        comms.connect()
+        model_short = model_id.split("/")[-1].split(":")[0]  # Extract model name
+        comms.send_message("Composer", "GUI", f"Calling {model_short} API (this may take 1-3 minutes)...")
+        comms.close()
+    except Exception:
+        pass  # Non-critical
+    
+    logger.info(f"[API] Waiting {wait_time}s to avoid Rate Limits...")
     time.sleep(wait_time)
 
     if ":" not in model_id and "/" in model_id:
