@@ -29,7 +29,7 @@ from DeepAgents.asset_manager import AssetManager
 from DeepAgents.hub_manager import get_or_push_prompt
 from DeepAgents.system_config import SystemConfiguration
 from DeepAgents.model_schemas import get_model_schema
-from DeepAgents.inter_agent_comms import AgentComms
+from DeepAgents.agent_brain import AgentComms
 
 try:
     from DeepAgents.CommercialAgents.composer_agent.prompts import (

@@ -35,41 +35,44 @@ except ImportError:
     pass
 
 # Handle local vs package imports
-try:
-    from DeepAgents.atlas_db import add_command, init_db
-except ImportError:
-    try:
-         # Fallback for side-by-side
-        from atlas_db import add_command, init_db
-    except ImportError as e:
-        logging.error(f"Failed to import atlas_db: {e}")
-        sys.exit(1)
+# DEPRECATED: atlas_db is orphaned (SQLite removal 2026-01-20). 
+# Voice Bridge is now Output-Only (Speaker). Input handled by run_atlas.py
+# try:
+#     from DeepAgents.atlas_db import add_command, init_db
+# except ImportError:
+#     try:
+#          # Fallback for side-by-side
+#         from atlas_db import add_command, init_db
+#     except ImportError as e:
+#         logging.error(f"Failed to import atlas_db: {e}")
+#         sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("VoiceBridge")
 
 LOG_FILE = os.path.join(os.path.dirname(__file__), "voice_log.txt")
 
-def input_loop():
-    """Runs in a separate thread to capture user input."""
-    init_db()
-    print("🎤 Voice Bridge Interactive Mode Active.")
-    print("   Type a message and press ENTER to inject it into the running Agent (Atlas).")
-    print("   (Type 'exit' to quit voice bridge)")
+# def input_loop():
+#     """Runs in a separate thread to capture user input."""
+#     # DEPRECATED: atlas_db is orphaned. This loop is unreachable as run_atlas.py handles input.
+#     # init_db()
+#     print("🎤 Voice Bridge Interactive Mode Active.")
+#     print("   Type a message and press ENTER to inject it into the running Agent (Atlas).")
+#     print("   (Type 'exit' to quit voice bridge)")
     
-    while True:
-        try:
-            user_input = input(">> ")
-            if user_input.lower() in ["exit", "quit"]:
-                logger.info("Exiting Input Loop...")
-                os._exit(0) # Force exit main process
+#     while True:
+#         try:
+#             user_input = input(">> ")
+#             if user_input.lower() in ["exit", "quit"]:
+#                 logger.info("Exiting Input Loop...")
+#                 os._exit(0) # Force exit main process
                 
-            if user_input.strip():
-                add_command(user_input)
-                logger.info("💉 Injected User Command (Atlas DB): %s", user_input)
+#             if user_input.strip():
+#                 # add_command(user_input)
+#                 logger.info("💉 Injected User Command (Atlas DB): %s", user_input)
                 
-        except (EOFError, KeyboardInterrupt):
-            break
+#         except (EOFError, KeyboardInterrupt):
+#             break
 
 async def speak_text(text: str):
     """

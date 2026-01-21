@@ -34,7 +34,7 @@ from langsmith import traceable
 
 # Internal Data Structures
 from DeepAgents.asset_manager import AssetManager
-from DeepAgents.inter_agent_comms import AgentComms
+from DeepAgents.agent_brain import AgentComms
 import replicate
 from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (

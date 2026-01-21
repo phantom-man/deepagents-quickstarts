@@ -4,5 +4,14 @@
     "editor.insertSpaces": true,
     "files.trimTrailingWhitespace": true,
     "files.insertFinalNewline": true,
-    "python.analysis.typeCheckingMode": "basic"
+    "python.analysis.typeCheckingMode": "basic",
+    "python.disableDjango": true,
+    "python.linting.djangoEnabled": false,
+    "django.enabled": false,
+    "files.exclude": {
+        "**/*.pyc": true,
+        "**/__pycache__": true,
+        "**/*.sqlite3": true,
+        "**/*.db": true
+    }
 }
