@@ -191,6 +191,8 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-20 | Model Change Detection | Added `composer_last_model` and `cinematographer_last_model` tracking in session state | Clears stale schema params when switching models while preserving user content (prompt/lyrics) |
 | 2026-01-20 | Minimax Valid Params Whitelist | Added `MINIMAX_VALID_PARAMS = {"lyrics", "prompt", "bitrate", "sample_rate", "audio_format"}` in composer_agent | Filters out ACE-Step params (scheduler, guidance_type, etc.) that don't apply to Minimax Music-1.5 |
 | 2026-01-20 | Session State Pollution Bug | Root cause: switching models didn't clear old schema params | ACE-Step params persisted in `composer_params` after switching to Music-1.5, causing API to receive invalid params |
+| 2026-01-20 | Progress Bar Duplicate Fix | Removed duplicate `send_message()` from `agent_runner.py` line 259 | `_emit_progress()` in agency_graph already broadcasts; agent_runner was duplicating |
+| 2026-01-20 | API Wait Feedback | Added AgentComms progress emission before `replicate.run()` in composer_agent and cinematographer_agent | Users now see "Calling {model} API (this may take 1-3 minutes)..." during long waits |
 | 2026-01-17 | Multi-Provider Schema Service | Strategy pattern: VertexAI, GoogleGenAI, Replicate handlers | Auto-routes models to correct provider, prevents API mismatches |
 | 2026-01-17 | VS Code Crash Root Cause | Schema validation for non-Replicate models hit Replicate API | Added provider handlers to route Vertex/GenAI to pre-defined schemas |
 | 2026-01-17 | Lyria-2 Correction | `supports_lyrics=False`, instrumental only | Google Lyria generates instrumental music, no vocals |
