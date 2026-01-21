@@ -1194,13 +1194,21 @@ def calculate_cost_estimate(config: Dict[str, Any]) -> Dict[str, Any]:
     cinema = config.get("cinematographer", {})
     composer = config.get("composer", {})
 
-    # Video cost
+    # Video cost (multiply by clip count in multi-mode)
     if cinema.get("active") and cinema.get("source", "model") != "file" and cinema.get("model_id"):
         model = registry.get(cinema["model_id"])
         if model and model.cost_per_run:
-            costs["video"] = model.cost_per_run
-            costs["total"] += model.cost_per_run
-            costs["details"].append(f"Video ({model.name}): ${model.cost_per_run:.3f}")
+            clip_count = 1
+            if cinema.get("multi_mode"):
+                clips = cinema.get("clips", [])
+                clip_count = len(clips) if clips else 1
+            total_video_cost = model.cost_per_run * clip_count
+            costs["video"] = total_video_cost
+            costs["total"] += total_video_cost
+            if clip_count > 1:
+                costs["details"].append(f"Video ({model.name}) x{clip_count}: ${total_video_cost:.3f}")
+            else:
+                costs["details"].append(f"Video ({model.name}): ${total_video_cost:.3f}")
 
     # Storyboard cost (image model)
     if cinema.get("storyboard_active") and cinema.get("storyboard_model_id"):
@@ -1210,13 +1218,21 @@ def calculate_cost_estimate(config: Dict[str, Any]) -> Dict[str, Any]:
             costs["total"] += model.cost_per_run
             costs["details"].append(f"Storyboard ({model.name}): ${model.cost_per_run:.3f}")
 
-    # Music cost
+    # Music cost (multiply by track count in multi-mode)
     if composer.get("active") and composer.get("source", "model") != "file" and composer.get("model_id"):
         model = registry.get(composer["model_id"])
         if model and model.cost_per_run:
-            costs["music"] = model.cost_per_run
-            costs["total"] += model.cost_per_run
-            costs["details"].append(f"Music ({model.name}): ${model.cost_per_run:.3f}")
+            track_count = 1
+            if composer.get("multi_mode"):
+                tracks = composer.get("tracks", [])
+                track_count = len(tracks) if tracks else 1
+            total_music_cost = model.cost_per_run * track_count
+            costs["music"] = total_music_cost
+            costs["total"] += total_music_cost
+            if track_count > 1:
+                costs["details"].append(f"Music ({model.name}) x{track_count}: ${total_music_cost:.3f}")
+            else:
+                costs["details"].append(f"Music ({model.name}): ${total_music_cost:.3f}")
 
     # Voice generation cost
     if composer.get("voice_source") == "generate" and composer.get("voice_model_id"):
@@ -1293,12 +1309,13 @@ def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     if not path or not os.path.exists(path):
                         errors.append("Cinematographer: Uploaded video file missing on disk")
                         break
-        else:
-            # Model-based generation - require prompt
-            params = cinema.get("params", {})
-            prompt = params.get("prompt", "").strip()
-            if not prompt or len(prompt) < 10:
-                errors.append("Cinematographer: Video prompt required (at least 10 characters)")
+        # NOTE: Prompt is optional - if blank, Director agent will provide vision
+        # Only validate if prompt is provided but too short
+        # else:
+        #     params = cinema.get("params", {})
+        #     prompt = params.get("prompt", "").strip()
+        #     if prompt and len(prompt) < 10:
+        #         errors.append("Cinematographer: Video prompt too short (at least 10 characters if provided)")
 
     # Composer validation
     if composer.get("active"):
@@ -1313,12 +1330,13 @@ def validate_agency_config(config: Dict[str, Any]) -> Tuple[bool, List[str]]:
                     if not path or not os.path.exists(path):
                         errors.append("Composer: Uploaded audio file missing on disk")
                         break
-        else:
-            # Model-based generation - require style prompt
-            params = composer.get("params", {})
-            prompt = params.get("prompt", "").strip()
-            if not prompt or len(prompt) < 10:
-                errors.append("Composer: Music style prompt required (at least 10 characters)")
+        # NOTE: Prompt is optional - if blank, Director agent will provide vision
+        # Only validate if prompt is provided but too short
+        # else:
+        #     params = composer.get("params", {})
+        #     prompt = params.get("prompt", "").strip()
+        #     if prompt and len(prompt) < 10:
+        #         errors.append("Composer: Music style prompt too short (at least 10 characters if provided)")
 
         # Check voice requirement
         model_id = composer.get("model_id")
