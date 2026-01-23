@@ -4,6 +4,118 @@
 
 ## Before any coding decision or edit I will always consider if I am following the best practice for langchain/langsmith and zero touch and fail fast methodologies. If i do not know what the best practice is I will research what the best practice is and implement that to the best of my abilities.
 
+---
+
+## ACTIONABLE PROTOCOLS (Concrete Enforcement of Abstract Principles)
+
+These protocols translate vague directives into specific, verifiable actions.
+
+### Protocol 1: Best Practices Verification (Enforces "consider best practices")
+
+**Trigger:** Before writing ANY code that touches LangChain, LangGraph, or LangSmith
+
+**STOP. Complete this checklist:**
+1. [ ] Have I searched LangChain docs via `mcp_my-mcp-server_SearchDocsByLangChain`?
+2. [ ] Is this pattern used in the existing codebase? (`grep_search` for similar code)
+3. [ ] Am I using deprecated APIs? (Check imports against Known Issues section)
+
+**If implementing a NEW pattern not in codebase:**
+- Search LangChain docs for the pattern name
+- If docs show a different approach, use the docs version
+
+**Maximum 2 guesses before mandatory research.**
+
+---
+
+### Protocol 2: Prompt Reading Verification (Enforces "read prompt beginning to end")
+
+**Trigger:** Every new user message
+
+**Before responding, I MUST identify:**
+1. What is the PRIMARY request? (one sentence)
+2. Are there SECONDARY requests? (list them)
+3. Are there CONSTRAINTS mentioned? (e.g., "don't use X", "must be fast")
+4. Does this reference previous context I need to re-read?
+
+**If I cannot answer all 4 → Re-read the prompt.**
+
+**Anti-pattern:** Responding to the first sentence without reading the rest.
+
+---
+
+### Protocol 3: Code Quality Gate (Enforces "run validation after code creation")
+
+**Trigger:** After creating or modifying ANY Python file
+
+**Immediate actions (no exceptions):**
+1. Run `get_errors` on the modified file(s)
+2. If errors exist → Fix them before reporting "done"
+3. For files >50 lines modified → Run `pylint` check
+
+**"Done" means:**
+- [ ] No syntax errors
+- [ ] No undefined variables
+- [ ] No import errors
+- [ ] Type hints present on function signatures
+
+**I cannot say "I've made the changes" until this checklist passes.**
+
+---
+
+### Protocol 4: Model Integration Research (Enforces "read all available information")
+
+**Trigger:** When writing code that calls ANY AI model API (Replicate, Vertex, OpenAI, etc.)
+
+**Mandatory research steps:**
+1. [ ] Fetch the model's API documentation (`fetch_webpage`)
+2. [ ] Identify ALL required parameters
+3. [ ] Identify quality-affecting parameters (guidance_scale, num_steps, etc.)
+4. [ ] Check for rate limits, quotas, or usage restrictions
+
+**Minimum evidence required:**
+- I must cite the documentation URL
+- I must list the parameters I chose and WHY
+
+**Forbidden:** Using placeholder values like `guidance_scale=7` without doc verification.
+
+---
+
+### Protocol 5: Failure Escalation (Enforces "consult user if simple fixes fail")
+
+**Definition of "simple fix attempt":**
+- Checking a typo
+- Verifying a file path exists
+- Reading an error message and fixing the obvious cause
+
+**Escalation trigger:** After **2 failed attempts** at the same error
+
+**Escalation action:**
+1. STOP making changes
+2. Report to user:
+   - What I tried (list attempts)
+   - What the error says
+   - What I DON'T know that's blocking me
+3. Ask: "Should I research this further, or do you have context I'm missing?"
+
+**Anti-pattern:** Trying 6+ variations hoping one works (see 2026-01-22 incident).
+
+---
+
+### Protocol 6: MCP Tool Usage Threshold (Enforces "search and read as much as I can")
+
+**Trigger:** Any task involving technology I didn't write
+
+**Minimum search requirement:**
+- At least ONE `fetch_webpage` OR `mcp_*_search` call before proposing solutions
+- At least ONE `grep_search` or `semantic_search` to check existing codebase patterns
+
+**Evidence of compliance:**
+- My response must include: "According to [source]..." or "The codebase shows [pattern] at [file]..."
+
+**If I say "Try this..." without a source → I am violating this protocol.**
+
+---
+
 ## Project Architecture "The Truth"
 These are the immutable facts of the current project state. Copilot must prioritize these over general training data.
 
@@ -126,6 +238,7 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 
 | Date | Topic | Decision | Rationale |
 |------|-------|----------|----------|
+| 2026-01-22 | External Research Protocol | Added MANDATORY research checklist for third-party technologies | Copilot wasted 6+ iterations guessing VS Code extension settings instead of fetching docs; protocol makes research-first concrete |
 | 2026-01-20 | SQLite Removal | Removed SQLite (atlas.db) and orphaned `atlas_db.py` | Architecture uses `atlas_link.py` (In-Memory) for commands and Postgres for Agent Memory. SQLite was dead code. |
 | 2026-01-20 | DevDb Integration | Configured `.vscode/settings.json` for Postgres | Enables visual inspection of Agent Memory (Postgres). SQLite connection removed. |
 | 2026-01-20 | Linter Strategy | Adopted Ruff as primary linter/formatter; deprecated Pylance refactoring | Ruff provides instant feedback; Pylint reserved for deep logic checks only |
@@ -345,6 +458,38 @@ Only after root cause is confirmed:
 5. When preset is applied, what happens? → Button clicked → `st.rerun()` → Popover code doesn't run → `selected_prompt` is None → params never set
 6. ROOT CAUSE: The popover doesn't re-execute after rerun, so the intermediate code that was supposed to set params never runs
 7. FIX: Use `on_select` callback which executes BEFORE rerun, directly setting `composer_params`
+
+---
+
+## External Technology Research Protocol (MANDATORY)
+
+**Trigger:** When troubleshooting ANY technology I did not write (VS Code extensions, third-party APIs, external tools, npm packages, CLI tools)
+
+### STOP. Before proposing ANY solution, complete this checklist:
+
+- [ ] Have I fetched the official documentation? (`fetch_webpage`)
+- [ ] Have I searched for the specific setting/parameter/config name in docs?
+- [ ] Have I checked the tool's schema/package.json/manifest if applicable?
+- [ ] Can I cite the exact documentation URL that supports my solution?
+
+**If ANY checkbox is NO → DO NOT PROPOSE A FIX. Research first.**
+
+### Red Flag Phrases I Must NOT Say:
+- "Try this..." (without documentation link)
+- "The format should be..." (without verification)
+- "Let's see if this works..." (guessing)
+- "I believe the setting is..." (assumption)
+- "Based on my knowledge..." (stale training data)
+
+### Correct Pattern:
+```
+"Let me fetch the official documentation first..."
+→ fetch_webpage([official_docs_url])
+→ "According to [URL], the correct format is..."
+```
+
+### Why This Exists (2026-01-22 Incident):
+Copilot spent 6+ iterations guessing VS Code extension settings formats (`array` vs `object`, different key names) instead of immediately fetching Claude Code's official documentation. The user had to explicitly say "why don't you go look up what the right format is" before research was conducted. This violated existing instructions in Sections 2.A.6, 2.C, and 3.B but those were too abstract. This protocol makes the requirement concrete and actionable.
 
 ---
 
