@@ -1,5 +1,7 @@
 """Prompts for the Confidence Agent."""
+
 import logging
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -30,12 +32,14 @@ You MUST return a JSON object. Do not output Markdown.
 }
 """
 
+
 def _get_instructions():
     """Retrieves Confidence instructions from Hub using strict no-failover Logic."""
     return get_or_push_prompt(
-        repo_name="confidence-system-prompt", # RENAMED from -main
-        default_content=DEFAULT_CONFIDENCE_INSTRUCTIONS
+        repo_name="confidence-system-prompt",  # RENAMED from -main
+        default_content=DEFAULT_CONFIDENCE_INSTRUCTIONS,
     )
+
 
 # Exposed constant
 CONFIDENCE_INSTRUCTIONS = _get_instructions()

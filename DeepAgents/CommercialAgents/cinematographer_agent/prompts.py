@@ -1,5 +1,7 @@
 """Prompts for the Cinematographer Agent (Visual Specialist)."""
+
 import logging
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -44,12 +46,14 @@ WRONG: "Here's my plan for generating this video:"
 **REMEMBER: Your ONLY output should be a tool call. Text-only responses = FAILURE.**
 """
 
+
 def _get_instructions():
     """Retrieves Cinematographer instructions using strict Hub Logic."""
     return get_or_push_prompt(
         repo_name="cinematographer-system-prompt",  # RENAMED from -main
-        default_content=DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS
+        default_content=DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS,
     )
+
 
 # Exposed constant
 CINEMATOGRAPHER_INSTRUCTIONS = _get_instructions()

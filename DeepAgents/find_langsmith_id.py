@@ -1,4 +1,5 @@
 import os
+
 import requests
 from dotenv import load_dotenv
 
@@ -12,7 +13,7 @@ print("🔍 Searching for LangSmith Workspaces associated with Org-Scoped Key...
 endpoints = [
     "https://api.smith.langchain.com/workspaces",
     "https://api.smith.langchain.com/tenants",
-    "https://api.smith.langchain.com/orgs/current/workspaces"
+    "https://api.smith.langchain.com/orgs/current/workspaces",
 ]
 
 found_id = None
@@ -26,10 +27,15 @@ for url in endpoints:
             if isinstance(data, list) and len(data) > 0:
                 print(f"✅ Found Workspaces at {url}")
                 for w in data:
-                    print(f"   - Name: {w.get('display_name') or w.get('name')} | ID: {w.get('id')}")
-                    if not found_id: found_id = w.get('id')
+                    print(
+                        f"   - Name: {w.get('display_name') or w.get('name')} | ID: {w.get('id')}"
+                    )
+                    if not found_id:
+                        found_id = w.get("id")
             else:
-                print(f"⚠️ {url} returned 200 but empty/unknown format: {str(data)[:100]}")
+                print(
+                    f"⚠️ {url} returned 200 but empty/unknown format: {str(data)[:100]}"
+                )
         else:
             print(f"❌ {url}: {resp.status_code}")
     except Exception as e:
@@ -38,4 +44,6 @@ for url in endpoints:
 if found_id:
     print(f"\n✨ First Workspace ID found: {found_id}")
 else:
-    print("\n❌ Could not automatically discover Workspace ID. Please copy it from your LangSmith URL (e.g. app.langsmith.com/o/<org>/w/<this-guid>).")
+    print(
+        "\n❌ Could not automatically discover Workspace ID. Please copy it from your LangSmith URL (e.g. app.langsmith.com/o/<org>/w/<this-guid>)."
+    )

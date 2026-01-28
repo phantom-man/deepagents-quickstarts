@@ -7,23 +7,23 @@ Responsible for reviewing content for accuracy, safety, and brand alignment.
 Uses Research Agent as a tool.
 """
 
+import logging
 import sys
 import uuid
-import logging
 from typing import cast
 
 from dotenv import load_dotenv
-from langchain_core.runnables.config import RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.tools import tool
 
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_anthropic import ChatAnthropic
-from DeepAgents.replicate_adapter import ChatReplicate
-from langchain.tools import tool
-from DeepAgents.agent_factory import create_deep_agent
+from langchain_core.runnables.config import RunnableConfig
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
 from DeepAgents.agent_brain import AgentMemory
+from DeepAgents.agent_factory import create_deep_agent
+from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
+from DeepAgents.replicate_adapter import ChatReplicate
 
 # Import Research Agent to use as a tool function
 try:

@@ -6,16 +6,18 @@ parsed OpenAPI schemas from the SchemaService.
 
 Philosophy: Zero-Touch - UI auto-configures from model schemas.
 """
-import streamlit as st
-from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import logging
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import streamlit as st
 
 from DeepAgents.services.schema_service import (
+    AssetRequirement,
     ControlDefinition,
     ControlType,
     ModelSchema,
-    AssetRequirement,
-    get_schema_service
+    get_schema_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,9 +46,7 @@ class DynamicUIGenerator:
         return f"{self.key_prefix}_{control_name}"
 
     def render_control(
-        self,
-        control: ControlDefinition,
-        current_value: Any = None
+        self, control: ControlDefinition, current_value: Any = None
     ) -> Any:
         """
         Render a single control and return its value.
@@ -68,26 +68,21 @@ class DynamicUIGenerator:
 
         if control.control_type == ControlType.TEXT:
             return st.text_input(
-                control.label,
-                value=default or "",
-                key=key,
-                help=help_text
+                control.label, value=default or "", key=key, help=help_text
             )
 
         elif control.control_type == ControlType.TEXT_AREA:
             return st.text_area(
-                control.label,
-                value=default or "",
-                key=key,
-                help=help_text,
-                height=100
+                control.label, value=default or "", key=key, help=help_text, height=100
             )
 
         elif control.control_type == ControlType.NUMBER:
             # Determine if integer or float based on step and bounds
             # Must ensure ALL numeric args are same type (int or float)
             step_val = control.step if control.step is not None else 1
-            is_int = (isinstance(step_val, int) or step_val == int(step_val)) and step_val >= 1
+            is_int = (
+                isinstance(step_val, int) or step_val == int(step_val)
+            ) and step_val >= 1
 
             if is_int:
                 # All values must be int
@@ -109,7 +104,7 @@ class DynamicUIGenerator:
                 max_value=max_v,
                 step=step_v,
                 key=key,
-                help=help_text
+                help=help_text,
             )
 
         elif control.control_type == ControlType.SLIDER:
@@ -120,7 +115,9 @@ class DynamicUIGenerator:
             raw_step = control.step if control.step is not None else 1
 
             # Determine if integer based on step
-            is_int = (isinstance(raw_step, int) or raw_step == int(raw_step)) and raw_step >= 1
+            is_int = (
+                isinstance(raw_step, int) or raw_step == int(raw_step)
+            ) and raw_step >= 1
 
             if is_int:
                 # All values must be int
@@ -142,7 +139,7 @@ class DynamicUIGenerator:
                 value=default_val,
                 step=step_val,
                 key=key,
-                help=help_text
+                help=help_text,
             )
 
         elif control.control_type == ControlType.CHECKBOX:
@@ -150,7 +147,7 @@ class DynamicUIGenerator:
                 control.label,
                 value=bool(default) if default is not None else False,
                 key=key,
-                help=help_text
+                help=help_text,
             )
 
         elif control.control_type == ControlType.SELECT:
@@ -168,26 +165,27 @@ class DynamicUIGenerator:
                 options=options,
                 index=default_idx,
                 key=key,
-                help=help_text
+                help=help_text,
             )
 
-        elif control.control_type in (ControlType.FILE, ControlType.AUDIO_FILE,
-                                      ControlType.VIDEO_FILE, ControlType.IMAGE_FILE):
+        elif control.control_type in (
+            ControlType.FILE,
+            ControlType.AUDIO_FILE,
+            ControlType.VIDEO_FILE,
+            ControlType.IMAGE_FILE,
+        ):
             # File uploader with type hints
             type_map = {
                 ControlType.AUDIO_FILE: ["wav", "mp3", "flac", "ogg", "m4a"],
                 ControlType.VIDEO_FILE: ["mp4", "mov", "avi", "webm"],
                 ControlType.IMAGE_FILE: ["png", "jpg", "jpeg", "webp", "gif"],
-                ControlType.FILE: None  # Accept all
+                ControlType.FILE: None,  # Accept all
             }
 
             accepted = control.accepted_types or type_map.get(control.control_type)
 
             uploaded = st.file_uploader(
-                control.label,
-                type=accepted,
-                key=key,
-                help=help_text
+                control.label, type=accepted, key=key, help=help_text
             )
 
             return uploaded
@@ -198,7 +196,7 @@ class DynamicUIGenerator:
                 control.label,
                 value=str(default) if default else "",
                 key=key,
-                help=help_text
+                help=help_text,
             )
 
     def render_controls(
@@ -206,7 +204,7 @@ class DynamicUIGenerator:
         schema: ModelSchema,
         current_values: Optional[Dict[str, Any]] = None,
         exclude_params: Optional[List[str]] = None,
-        columns: int = 1
+        columns: int = 1,
     ) -> Dict[str, Any]:
         """
         Render all controls for a model schema.
@@ -225,7 +223,8 @@ class DynamicUIGenerator:
 
         # Filter controls
         visible_controls = [
-            c for c in schema.controls
+            c
+            for c in schema.controls
             if c.control_type != ControlType.HIDDEN and c.name not in excluded
         ]
 
@@ -241,15 +240,13 @@ class DynamicUIGenerator:
             for idx, control in enumerate(visible_controls):
                 with cols[idx % columns]:
                     values[control.name] = self.render_control(
-                        control,
-                        current_values.get(control.name)
+                        control, current_values.get(control.name)
                     )
         else:
             # Single column
             for control in visible_controls:
                 values[control.name] = self.render_control(
-                    control,
-                    current_values.get(control.name)
+                    control, current_values.get(control.name)
                 )
 
         return values
@@ -259,7 +256,7 @@ class DynamicUIGenerator:
         requirement: AssetRequirement,
         compatible_models: Optional[List[Dict[str, str]]] = None,
         on_generate: Optional[Callable] = None,
-        local_files: Optional[List[str]] = None
+        local_files: Optional[List[str]] = None,
     ) -> Tuple[Optional[str], Optional[Any], bool]:
         """
         Render UI for an asset requirement with generate/select options.
@@ -291,10 +288,7 @@ class DynamicUIGenerator:
             source_options.append("Select from Library")
 
         source = st.radio(
-            "Source",
-            options=source_options,
-            key=f"{key_base}_source",
-            horizontal=True
+            "Source", options=source_options, key=f"{key_base}_source", horizontal=True
         )
 
         is_valid = False
@@ -307,7 +301,7 @@ class DynamicUIGenerator:
             selected_name = st.selectbox(
                 "Generator Model",
                 options=list(model_options.keys()),
-                key=f"{key_base}_model"
+                key=f"{key_base}_model",
             )
             value = model_options.get(selected_name)
 
@@ -334,14 +328,14 @@ class DynamicUIGenerator:
             type_map = {
                 "audio": ["wav", "mp3", "flac", "ogg", "m4a"],
                 "video": ["mp4", "mov", "avi", "webm"],
-                "image": ["png", "jpg", "jpeg", "webp"]
+                "image": ["png", "jpg", "jpeg", "webp"],
             }
             accepted = type_map.get(requirement.asset_type, None)
 
             uploaded = st.file_uploader(
                 f"Upload {requirement.asset_type}",
                 type=accepted,
-                key=f"{key_base}_upload"
+                key=f"{key_base}_upload",
             )
 
             if uploaded:
@@ -359,9 +353,7 @@ class DynamicUIGenerator:
         elif source == "Select from Library" and local_files:
             source_type = "local"
             selected_file = st.selectbox(
-                "Select file",
-                options=[""] + local_files,
-                key=f"{key_base}_local"
+                "Select file", options=[""] + local_files, key=f"{key_base}_local"
             )
 
             if selected_file:
@@ -380,7 +372,7 @@ def render_model_config_panel(
     model_id: str,
     panel_key: str = "model_config",
     title: Optional[str] = None,
-    exclude_params: Optional[List[str]] = None
+    exclude_params: Optional[List[str]] = None,
 ) -> Tuple[Optional[ModelSchema], Dict[str, Any]]:
     """
     Convenience function to render a complete model configuration panel.
@@ -408,7 +400,11 @@ def render_model_config_panel(
         st.subheader(schema.name)
 
     if schema.description:
-        st.caption(schema.description[:200] + "..." if len(schema.description) > 200 else schema.description)
+        st.caption(
+            schema.description[:200] + "..."
+            if len(schema.description) > 200
+            else schema.description
+        )
 
     # Render controls
     values = generator.render_controls(schema, exclude_params=exclude_params)

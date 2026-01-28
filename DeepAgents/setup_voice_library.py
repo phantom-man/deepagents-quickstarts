@@ -6,11 +6,12 @@ Replicate API (Suno AI Bark). These references are used by the Composer/Singer a
 to steer generation (Minimax/Lyria) without needing real-time voice synthesis every time.
 """
 
+import logging
 import os
 import time
-import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
 import requests
 from dotenv import load_dotenv
 
@@ -22,8 +23,7 @@ except ImportError:
 
 # Configure Logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 # Silence noisy libraries
@@ -32,23 +32,25 @@ logging.getLogger("requests").setLevel(logging.WARNING)
 
 logger = logging.getLogger("VoiceLibraryGen")
 
+
 def _setup_environment() -> bool:
     """Loads environment variables and verifies API tokens."""
     # Resolve .env path relative to this script
     script_dir = Path(__file__).resolve().parent
-    env_path = script_dir.parent / '.env'
+    env_path = script_dir.parent / ".env"
 
     if env_path.exists():
         load_dotenv(env_path)
     else:
         # Fallback to local .env if script moved
-        load_dotenv(script_dir / '.env')
+        load_dotenv(script_dir / ".env")
 
     if not os.getenv("REPLICATE_API_TOKEN"):
         logger.error("❌ REPLICATE_API_TOKEN not found in environment.")
         return False
 
     return True
+
 
 def _get_voice_definitions() -> Dict[str, str]:
     """Returns the dictionary of voice types and their generation prompts."""
@@ -61,7 +63,6 @@ def _get_voice_definitions() -> Dict[str, str]:
         "female_rock_grit": "WOMAN, ROCK, POWERFUL, GRITTY, BELTING, INTENSE, LOUD",
         "female_alto_narrator": "WOMAN, ALTO, DEEP, CALM, NARRATION, AUDIOBOOK, TRUSTWORTHY",
         "female_whisper_ethereal": "WOMAN, WHISPER, ETHEREAL, AMBIENT, SOFT, BREATHY, MYSTERIOUS",
-
         # --- Male Voices ---
         "male_countertenor_pop": "MAN, COUNTERTENOR, HIGH PITCH, POP, FALSETTO, SMOOTH, RNB",
         "male_tenor_rock": "MAN, TENOR, ROCK, AGGRESSIVE, ENERGETIC, PUNCHY, GUITAR",
@@ -69,11 +70,11 @@ def _get_voice_definitions() -> Dict[str, str]:
         "male_bass_epic": "MAN, BASS, DEEP, EPIC, TRAILER, MOVIE, RESONANT, LOW",
         "male_narrator_clear": "MAN, NARRATOR, BROADCAST, NEWS, CLEAR, ARTICULATE, PROFESSIONAL",
         "male_rap_flow": "MAN, RAP, HIPHOP, RHYTHMIC, FLOW, LYRICAL, BEAT",
-
         # --- Experimental/Choir ---
         "choir_mixed_gospel": "CHOIR, GOSPEL, MIXED GROUP, HARMONY, UPLIFTING, SOUL",
-        "voice_robot_future": "ROBOT, CYBORG, AUTOTUNE, FUTURISTIC, SCI-FI, SYNTHETIC"
+        "voice_robot_future": "ROBOT, CYBORG, AUTOTUNE, FUTURISTIC, SCI-FI, SYNTHETIC",
     }
+
 
 def _download_file(url: str, dest_path: Path):
     """Downloads content from URL to path."""
@@ -93,6 +94,7 @@ def _download_file(url: str, dest_path: Path):
     except IOError as e:
         logger.error("   ❌ File IO error: %s", e)
 
+
 def _retrieve_result_url(output: Any) -> str | None:
     """Extracts the audio URL from the prediction output."""
     url = None
@@ -101,6 +103,7 @@ def _retrieve_result_url(output: Any) -> str | None:
     elif isinstance(output, str):
         url = output
     return str(url) if url else None
+
 
 def _process_prediction(name: str, pred: Any, output_dir: Path) -> bool:
     """Checks status of a prediction and handles completion. Returns True if done."""
@@ -122,6 +125,7 @@ def _process_prediction(name: str, pred: Any, output_dir: Path) -> bool:
         return True
 
     return False
+
 
 def generate_voice_library():
     """Main execution loop for generating the library."""
@@ -175,10 +179,7 @@ def generate_voice_library():
             # Use predictions.create to run async
             pred = replicate.predictions.create(
                 version=version,
-                input={
-                    "prompt": f"{prompt_desc}. {text_prompt}",
-                    "text_temp": 0.7
-                }
+                input={"prompt": f"{prompt_desc}. {text_prompt}", "text_temp": 0.7},
             )
             predictions[name] = pred
         # pylint: disable=broad-exception-caught
@@ -202,6 +203,7 @@ def generate_voice_library():
             time.sleep(5)  # Poll interval
 
     logger.info("🎉 All jobs processed.")
+
 
 if __name__ == "__main__":
     generate_voice_library()

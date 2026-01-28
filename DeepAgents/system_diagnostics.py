@@ -4,14 +4,16 @@ Performs "Pre-Flight" checks on critical resources (Network, APIs, Disk)
 to prevent runtime failures during production.
 """
 
-import os
-import logging
 import importlib.util
+import logging
+import os
+
 import requests
 from dotenv import load_dotenv
-from langchain_google_vertexai import ChatVertexAI
+
 # from langchain_google_genai import ChatGoogleGenerativeAI # Deprecated
 from langchain_core.messages import HumanMessage
+from langchain_google_vertexai import ChatVertexAI
 
 # Load env variables
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
@@ -23,6 +25,7 @@ logger = logging.getLogger("SystemDiagnostics")
 
 class SystemDiagnostics:
     """Performs pre-flight system checks."""
+
     def __init__(self):
         self.status = {
             "network": False,
@@ -72,7 +75,6 @@ class SystemDiagnostics:
             self.log(f"❌ Disk Error ({base_dir}): {e}", "ERROR")
             return False
 
-
     def probe_anthropic(self) -> bool:
         """Probes Anthropic API for Liveness."""
         if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -81,11 +83,12 @@ class SystemDiagnostics:
 
         self.log("🤖 Probing Anthropic API...")
         if os.environ.get("SKIP_PROBE", "false").lower() == "true":
-             self.log("⚠️ Skipping Anthropic Probe (SKIP_PROBE=true).")
-             return True
+            self.log("⚠️ Skipping Anthropic Probe (SKIP_PROBE=true).")
+            return True
 
         try:
             from langchain_anthropic import ChatAnthropic
+
             llm = ChatAnthropic(model_name="claude-3-haiku-20240307", max_retries=1)
             llm.invoke("ping")
             self.log("✅ Anthropic API Online.")
@@ -100,30 +103,37 @@ class SystemDiagnostics:
         """
         # Load Config loosely to check if we even care about Google
         import json
+
         is_primary = True
         try:
-             config_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "agent_config.json")
-             if os.path.exists(config_path):
-                 with open(config_path, "r") as f:
-                     config = json.load(f)
-                     # If Director is NOT Google, Google is not Critical
-                     if config.get("Director", {}).get("provider") != "Google":
-                         is_primary = False
+            config_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "data", "agent_config.json"
+            )
+            if os.path.exists(config_path):
+                with open(config_path, "r") as f:
+                    config = json.load(f)
+                    # If Director is NOT Google, Google is not Critical
+                    if config.get("Director", {}).get("provider") != "Google":
+                        is_primary = False
         except:
-             pass
+            pass
 
-        self.log(f"🤖 Probing Google Vertex AI (Quota Check)... {'(Secondary)' if not is_primary else ''}")
-        
+        self.log(
+            f"🤖 Probing Google Vertex AI (Quota Check)... {'(Secondary)' if not is_primary else ''}"
+        )
+
         # Optimization: Don't probe if user requested a Skip
         if os.environ.get("SKIP_PROBE", "false").lower() == "true":
-            self.log("⚠️ Skipping Google Vertex Probe (SKIP_PROBE=true). Assuming Online.")
+            self.log(
+                "⚠️ Skipping Google Vertex Probe (SKIP_PROBE=true). Assuming Online."
+            )
             self.status["google_vertex"] = True
             return True
 
         # If Google is NOT primary, we can skip or be lenient
         if not is_primary and not os.environ.get("GOOGLE_CLOUD_PROJECT"):
-             self.log("ℹ️ Google Project not set and not primary. Skipping.")
-             return True
+            self.log("ℹ️ Google Project not set and not primary. Skipping.")
+            return True
 
         # List of models to try in order of preference/cost
         # Minimizing this list to avoid triggering spam filters
@@ -133,11 +143,11 @@ class SystemDiagnostics:
         for model_name in models_to_test:
             try:
                 llm = ChatVertexAI(
-                    model=model_name, 
+                    model=model_name,
                     temperature=0.0,
                     # project=project, # Vertex uses google-auth default or env
                     # location=location, # Auto-detect usually best, or use kwarg
-                    max_retries=0 # Do not retry 429s during a probe
+                    max_retries=0,  # Do not retry 429s during a probe
                 )
                 # Simple "Hello" query
                 self.log(f"   > Pinging model: {model_name}...")
@@ -146,15 +156,15 @@ class SystemDiagnostics:
                 self.status["google_vertex"] = True
                 self.log(f"✅ Google Vertex AI Online (Model: {model_name})")
                 success = True
-                break # Stop on first success
+                break  # Stop on first success
             except Exception as e:
                 self.log(f"⚠️ Quota Exceeded/Error for {model_name}: {e}")
-        
+
         if not success:
-             level = "ERROR" if is_primary else "WARNING"
-             self.log("❌ Google Vertex Probe Failed.", level)
-             # Only return False if it was Critical (Primary)
-             return not is_primary
+            level = "ERROR" if is_primary else "WARNING"
+            self.log("❌ Google Vertex Probe Failed.", level)
+            # Only return False if it was Critical (Primary)
+            return not is_primary
         return True
 
     def probe_replicate(self) -> bool:
@@ -221,7 +231,7 @@ class SystemDiagnostics:
         vertex = self.probe_google_vertex()
         # New Anthropic Probe
         anthropic = self.probe_anthropic()
-        
+
         self.probe_replicate()
 
         print("---------------------------------------")
@@ -233,7 +243,7 @@ class SystemDiagnostics:
         if not disk:
             print("🛑 ABORT: Disk Failure (Cannot save assets).")
             return False
-        
+
         # Determine Brain Health
         # If Anthropic is active, we rely on it.
         brain_ok = anthropic if os.environ.get("ANTHROPIC_API_KEY") else vertex

@@ -3,12 +3,12 @@ GUI Agent Runner Module.
 Provides the entry point and execution logic for running agents via the GUI.
 """
 
-import sys
-import os
-import io
-import contextlib
 import asyncio
+import contextlib
+import io
+import os
 import queue
+import sys
 
 # pylint: disable=line-too-long, missing-module-docstring, import-error, wrong-import-position
 # pylint: disable=no-name-in-module, missing-class-docstring, unused-argument, unused-variable
@@ -19,16 +19,16 @@ import queue
 # Import Agents directly creates dependency issues if we not careful with paths
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
-from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
-from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
+from DeepAgents.agent_brain import AgentComms, AgentConfig, AgentMemory
 from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
     create_cinematographer_agent,
 )
+from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
+from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
+from DeepAgents.CommercialAgents.research_agent.agent import run_research_task
+
 # NEW: Import The Studio Graph
 from DeepAgents.graphs.agency_graph import app as studio_graph
-
-from DeepAgents.agent_brain import AgentConfig, AgentMemory, AgentComms
 from DeepAgents.persistence import get_postgres_checkpointer
 
 
@@ -37,38 +37,40 @@ class AgentRunner:
         self.session = session_manager
         self.config = AgentConfig()  # Load config
         self.brain = AgentMemory()  # Load memory for Composer
-        
+
         # Init Neural Fabric Comms
         self.comms = AgentComms()
         self.comms.connect()
 
         # OTLP Configuration removed to favor standard LangChain Tracing (HTTP)
         # This prevents ConnectionRefusedError if no local OTLP collector is running.
-        
+
     def stream_agency_graph(self, directive: str, agency_config: dict = None):
         """
         Runs the full LangGraph Studio Pipeline (Director->Research->Validation->Prod).
         Yields standard GUI events: (AgentName, Type, Content).
         Uses AgentComms polling for real-time progress updates.
-        
+
         Args:
             directive: The creative directive from the user
             agency_config: Optional dict with agent configuration from GUI:
                 - cinematographer: {active, model_id, params, storyboard_active, storyboard_model_id}
                 - composer: {active, model_id, params, voice_source, voice_file, voice_model_id}
         """
-        self.session.log_event("System", "info", f"Starting Studio Graph for: {directive}")
-        
+        self.session.log_event(
+            "System", "info", f"Starting Studio Graph for: {directive}"
+        )
+
         import threading
         import time as time_module
-        
+
         event_queue = queue.Queue()
         stop_polling = threading.Event()
         last_message_id = [0]  # Use list to allow modification in nested function
-        
+
         # Get the start time to filter messages
         run_start_time = time_module.time()
-        
+
         def poll_agent_comms():
             """Poll AgentComms database for new messages to update progress bar."""
             while not stop_polling.is_set():
@@ -78,6 +80,7 @@ class AgentRunner:
                             # Get messages newer than last seen AND from current session (timestamp filter)
                             # Only fetch messages created after this run started
                             from datetime import datetime
+
                             start_datetime = datetime.fromtimestamp(run_start_time)
                             cur.execute(
                                 """SELECT id, sender, content, timestamp 
@@ -85,79 +88,109 @@ class AgentRunner:
                                    WHERE id > %s AND timestamp >= %s
                                    ORDER BY timestamp ASC, id ASC 
                                    LIMIT 10""",
-                                (last_message_id[0], start_datetime)
+                                (last_message_id[0], start_datetime),
                             )
                             rows = cur.fetchall()
                             for row in rows:
                                 msg_id, sender, content, timestamp = row
                                 last_message_id[0] = msg_id
-                                
+
                                 # Map sender to GUI agent name
                                 agent_map = {
                                     "Director": "Director",
-                                    "Researcher": "Researcher", 
+                                    "Researcher": "Researcher",
                                     "Confidence": "Confidence",
                                     "Validator": "Confidence",
                                     "Cinematographer": "Cinematographer",
                                     "Composer": "Composer",
                                     "Editor": "Editor",
-                                    "System": "System"
+                                    "System": "System",
                                 }
                                 gui_name = agent_map.get(sender, sender)
-                                
+
                                 # Only emit progress updates (not full content)
                                 if content and len(content) < 200:
                                     event_queue.put((gui_name, "progress", content))
                 except Exception:
                     pass  # Silently ignore polling errors
-                
+
                 time_module.sleep(0.5)  # Poll every 500ms
-        
+
         async def run_loop():
             try:
                 # Use Persistence
                 async with get_postgres_checkpointer() as checkpointer:
-                    # Note: Our studio_graph is pre-compiled. To use checkpointer, 
-                    # we should have compiled it with checkpointer. 
+                    # Note: Our studio_graph is pre-compiled. To use checkpointer,
+                    # we should have compiled it with checkpointer.
                     # Re-compiling or using the global one if configured for Postgres.
                     # Current `agency_graph.py` uses MemorySaver or None by default.
-                    
+
                     # For now, we run it as is, or pass checkpointer if refactored.
                     # We will use the standard invoke for simplicity in this version,
                     # mapping graph events to UI events.
-                    
+
                     # Build configurable dict with agency settings
                     configurable = {
                         "thread_id": f"studio_{self.session.session_id}",
                         "require_validation": True,
                         "merge_output": True,
                     }
-                    
+
                     # Inject agency configuration from GUI
                     if agency_config:
                         # Cinematographer settings
                         cinema_cfg = agency_config.get("cinematographer", {})
-                        configurable["cinematographer_active"] = cinema_cfg.get("active", True)
-                        configurable["cinematographer_model"] = cinema_cfg.get("model_id")
-                        configurable["cinematographer_params"] = cinema_cfg.get("params", {})
-                        configurable["cinematographer_source"] = cinema_cfg.get("source", "model")
-                        configurable["cinematographer_files"] = cinema_cfg.get("file_paths", [])
-                        configurable["cinematographer_file_metadata"] = cinema_cfg.get("file_metadata", [])
-                        configurable["storyboard_active"] = cinema_cfg.get("storyboard_active", False)
-                        configurable["storyboard_model"] = cinema_cfg.get("storyboard_model_id")
-                        
+                        configurable["cinematographer_active"] = cinema_cfg.get(
+                            "active", True
+                        )
+                        configurable["cinematographer_model"] = cinema_cfg.get(
+                            "model_id"
+                        )
+                        configurable["cinematographer_params"] = cinema_cfg.get(
+                            "params", {}
+                        )
+                        configurable["cinematographer_source"] = cinema_cfg.get(
+                            "source", "model"
+                        )
+                        configurable["cinematographer_files"] = cinema_cfg.get(
+                            "file_paths", []
+                        )
+                        configurable["cinematographer_file_metadata"] = cinema_cfg.get(
+                            "file_metadata", []
+                        )
+                        configurable["storyboard_active"] = cinema_cfg.get(
+                            "storyboard_active", False
+                        )
+                        configurable["storyboard_model"] = cinema_cfg.get(
+                            "storyboard_model_id"
+                        )
+
                         # Composer settings
                         composer_cfg = agency_config.get("composer", {})
-                        configurable["composer_active"] = composer_cfg.get("active", True)
+                        configurable["composer_active"] = composer_cfg.get(
+                            "active", True
+                        )
                         configurable["composer_model"] = composer_cfg.get("model_id")
                         configurable["composer_params"] = composer_cfg.get("params", {})
-                        configurable["composer_source"] = composer_cfg.get("source", "model")
-                        configurable["composer_files"] = composer_cfg.get("file_paths", [])
-                        configurable["composer_file_metadata"] = composer_cfg.get("file_metadata", [])
-                        configurable["composer_voice_source"] = composer_cfg.get("voice_source")
-                        configurable["composer_voice_file"] = composer_cfg.get("voice_file")
-                        configurable["composer_voice_model"] = composer_cfg.get("voice_model_id")
-                    
+                        configurable["composer_source"] = composer_cfg.get(
+                            "source", "model"
+                        )
+                        configurable["composer_files"] = composer_cfg.get(
+                            "file_paths", []
+                        )
+                        configurable["composer_file_metadata"] = composer_cfg.get(
+                            "file_metadata", []
+                        )
+                        configurable["composer_voice_source"] = composer_cfg.get(
+                            "voice_source"
+                        )
+                        configurable["composer_voice_file"] = composer_cfg.get(
+                            "voice_file"
+                        )
+                        configurable["composer_voice_model"] = composer_cfg.get(
+                            "voice_model_id"
+                        )
+
                     config = {
                         "configurable": configurable,
                         "tags": ["deep-agents-studio", "gui-triggered"],
@@ -166,14 +199,13 @@ class AgentRunner:
                     # We use astream to get node outputs as they complete
                     # Track which nodes we've sent "starting" events for
                     started_nodes = set()
-                    
+
                     async for event in studio_graph.astream(
                         {"messages": [("user", directive)]},
                         config=config,
                     ):
                         # Event Format: {'node_name': {'key': val, ...}}
                         for node_name, state_update in event.items():
-                            
                             # Map Node -> GUI Agent Name
                             agent_map = {
                                 "director": "Director",
@@ -181,48 +213,78 @@ class AgentRunner:
                                 "validator": "Confidence",
                                 "cinematographer": "Cinematographer",
                                 "composer": "Composer",
-                                "editor": "Editor"
+                                "editor": "Editor",
                             }
                             gui_name = agent_map.get(node_name, node_name.capitalize())
-                            
+
                             # FIX: Send "starting" event FIRST before any output
                             # This allows progress bar to update at the START of each agent
                             if node_name not in started_nodes:
                                 started_nodes.add(node_name)
                                 # Use "progress" type so it updates the bar immediately without adding to log
-                                event_queue.put((gui_name, "progress", f"Initializing {gui_name}..."))
-                                event_queue.put((gui_name, "info", f"Starting {gui_name} processing..."))
-                            
+                                event_queue.put(
+                                    (
+                                        gui_name,
+                                        "progress",
+                                        f"Initializing {gui_name}...",
+                                    )
+                                )
+                                event_queue.put(
+                                    (
+                                        gui_name,
+                                        "info",
+                                        f"Starting {gui_name} processing...",
+                                    )
+                                )
+
                             # Extract Content
                             # Our graph nodes return 'messages', 'director_plan', etc.
-                            
+
                             # 1. Look for AI Messages (Chat Output)
                             if "messages" in state_update:
                                 msgs = state_update["messages"]
                                 if msgs:
                                     last_msg = msgs[-1]
-                                    if hasattr(last_msg, "content") and last_msg.content:
+                                    if (
+                                        hasattr(last_msg, "content")
+                                        and last_msg.content
+                                    ):
                                         content = last_msg.content
                                         event_queue.put((gui_name, "output", content))
-                            
+
                             # 2. Look for specific structured updates (Thinking/Status)
                             if "validation_status" in state_update:
                                 status = state_update["validation_status"]
-                                event_queue.put((gui_name, "output", f"**Validation Status**: {status}"))
-                                
+                                event_queue.put(
+                                    (
+                                        gui_name,
+                                        "output",
+                                        f"**Validation Status**: {status}",
+                                    )
+                                )
+
                             if "final_output" in state_update:
                                 path = state_update["final_output"]
-                                event_queue.put((gui_name, "output", f"**FINAL MERGE**: {path}"))
+                                event_queue.put(
+                                    (gui_name, "output", f"**FINAL MERGE**: {path}")
+                                )
 
             except Exception as e:
                 import traceback
-                event_queue.put(("System", "error", f"Graph Error: {str(e)}\n{traceback.format_exc()}"))
+
+                event_queue.put(
+                    (
+                        "System",
+                        "error",
+                        f"Graph Error: {str(e)}\n{traceback.format_exc()}",
+                    )
+                )
             finally:
                 event_queue.put(None)
 
         # Sync-to-Async Bridge
         try:
-             # Win32 Policy fix
+            # Win32 Policy fix
             if sys.platform == "win32":
                 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -236,7 +298,7 @@ class AgentRunner:
             # Start the polling thread for AgentComms
             poll_thread = threading.Thread(target=poll_agent_comms, daemon=True)
             poll_thread.start()
-            
+
             thread = threading.Thread(target=start_loop)
             thread.start()
 
@@ -247,26 +309,26 @@ class AgentRunner:
                     item = event_queue.get(timeout=0.2)
                 except queue.Empty:
                     continue
-                    
+
                 if item is None:
                     break
 
                 agent_name, evt_type, content = item
-                
+
                 # Log events (skip progress events to avoid spam)
                 # NOTE: Don't broadcast via send_message here - _emit_progress in agency_graph.py already does it
                 # Double-emitting causes duplicate messages in the UI
                 if evt_type != "progress":
                     self.session.log_event(agent_name, evt_type, content)
-                
+
                 yield item
-            
+
             # Stop polling thread
             stop_polling.set()
 
         except Exception as e:
-             stop_polling.set()
-             yield ("System", "error", str(e))
+            stop_polling.set()
+            yield ("System", "error", str(e))
 
     async def _run_agent_async(self, agent_factory, inputs, config):
         """Helper to run agents async with persistence."""
@@ -447,9 +509,11 @@ class AgentRunner:
 
                 # Broadcast to Neural Fabric (Comms Tab)
                 if evt_type == "output":
-                     self.comms.send_message(agent_name, "All", f"Global Update: {content[:100]}...")
+                    self.comms.send_message(
+                        agent_name, "All", f"Global Update: {content[:100]}..."
+                    )
                 elif evt_type == "thinking" and "Calling Tool" in content:
-                     self.comms.send_message(agent_name, "System", f"Action: {content}")
+                    self.comms.send_message(agent_name, "System", f"Action: {content}")
 
                 # Log and Yield
                 if evt_type == "output":
@@ -477,9 +541,9 @@ class AgentRunner:
         res_conf = self.config.get_agent_config("Researcher")
         # Research agent factory likely doesn't support provider yet, so we default to what keys allow
         # Ideally we update run_research_task to accept model too, but avoiding deep refactor of Researcher for now unless requested.
-        
+
         # Defensive config loading
-        model = res_conf.get("model", "claude-3-haiku-20240307") 
+        model = res_conf.get("model", "claude-3-haiku-20240307")
         self.session.log_event(
             "Researcher", "info", f"Starting research on: {topic} (Model: {model})"
         )
@@ -499,46 +563,48 @@ class AgentRunner:
             res = run_research_task(topic, extra_config=extra_config, model_name=model)
 
         output = f.getvalue()
-        
+
         # Deduplication Strategy:
         # run_research_task often prints its final result to stdout AND returns it.
         # This causes the 'double output' issue in the GUI.
         # We check if the returned 'res' is effectively contained in the captured 'output'.
-        # If 'res' is just a string summary, we log it. 
+        # If 'res' is just a string summary, we log it.
         # But if 'output' is the full report, we prefer that.
 
         if output:
             # Clean ANSI codes if any (though StringIO usually clean)
             self.session.log_event("Researcher", "output", output)
             yield ("Researcher", "output", output)
-        
+
         # Only yield 'res' if it's substantially different or output was empty
         # and 'res' is not None/Empty
         if res and str(res).strip() not in output:
-             self.session.log_event("Researcher", "output", str(res))
-             yield ("Researcher", "output", str(res))
+            self.session.log_event("Researcher", "output", str(res))
+            yield ("Researcher", "output", str(res))
 
     def run_confidence_task(self, content):
         """Runs the confidence audit agent."""
-        from DeepAgents.CommercialAgents.confidence_agent.agent import run_confidence_audit
-        
+        from DeepAgents.CommercialAgents.confidence_agent.agent import (
+            run_confidence_audit,
+        )
+
         conf = self.config.get_agent_config("Confidence")
         self.session.log_event("Confidence", "info", "Starting Audit...")
         yield ("Confidence", "thinking", "Auditing content for accuracy and safety...")
-        
-        # Capture Stdout again? 
+
+        # Capture Stdout again?
         # Confidence agent prints a lot, but returns final string.
         # We can just run it.
         try:
-             # Just run synchronously for now as it's a simple chain usually,
-             # though it calls research internally.
-             # Ideally we run in thread if it blocks for long.
-             res = run_confidence_audit(content)
-             if res:
-                 self.session.log_event("Confidence", "output", res)
-                 yield ("Confidence", "output", res)
-             else:
-                 yield ("Confidence", "error", "No report generated.")
+            # Just run synchronously for now as it's a simple chain usually,
+            # though it calls research internally.
+            # Ideally we run in thread if it blocks for long.
+            res = run_confidence_audit(content)
+            if res:
+                self.session.log_event("Confidence", "output", res)
+                yield ("Confidence", "output", res)
+            else:
+                yield ("Confidence", "error", "No report generated.")
         except Exception as e:
             yield ("Confidence", "error", str(e))
 
@@ -581,7 +647,7 @@ class AgentRunner:
 
             # Comms Update
             self.comms.send_message("Composer", "Director", "Soundtrack Complete.")
-            
+
             self.session.log_event("Composer", "output", result)
             yield ("Composer", "output", result)
 
@@ -600,7 +666,7 @@ class AgentRunner:
         assets = am.list_assets(session_id)
 
         # Filter Assets
-        # Ensure we filter for THIS specific run's assets if possible, 
+        # Ensure we filter for THIS specific run's assets if possible,
         # or just ALL assets for this session ID.
         videos = [a["path"] for a in assets if a["asset_type"] == "video"]
         audio_assets = [a["path"] for a in assets if a["asset_type"] == "audio"]
@@ -615,13 +681,13 @@ class AgentRunner:
         # 3. Silent
         best_audio = "SILENT"
         if audio_override and os.path.exists(audio_override):
-             best_audio = audio_override
+            best_audio = audio_override
         elif audio_assets:
-             best_audio = audio_assets[0]
+            best_audio = audio_assets[0]
 
         # Sort videos ensuring consistent order (e.g. by filename or DB timestamp)
         videos.sort()
-        
+
         print(f"Editor: Merging {len(videos)} clips with audio: {best_audio}")
 
         try:
@@ -641,7 +707,13 @@ class AgentRunner:
             return None
 
     def run_cinematographer(
-        self, director_output, mode="both", max_shots=None, duration_sec=None, resume_history=None, user_feedback=None
+        self,
+        director_output,
+        mode="both",
+        max_shots=None,
+        duration_sec=None,
+        resume_history=None,
+        user_feedback=None,
     ):
         if not director_output and not resume_history:
             yield ("Cinematographer", "error", "No context to visualize.")
@@ -663,46 +735,48 @@ class AgentRunner:
             # Create Generator directly (Sync wrapper)
             # Ensure we pass the session_id correcty
             agent_gen_func = create_cinematographer_agent(
-                 model_config=conf,
-                 brain=self.brain,
-                 session_id=self.session.session_id
+                model_config=conf, brain=self.brain, session_id=self.session.session_id
             )
-            
+
             # Comms Check-in
-            self.comms.send_message("Cinematographer", "Director", "Received script. Beginning visualization.")
+            self.comms.send_message(
+                "Cinematographer",
+                "Director",
+                "Received script. Beginning visualization.",
+            )
 
             # Execute Generator
             # Note: run_agent signature updated to accept resume_history/user_feedback
             gen = agent_gen_func(
-                director_output, 
-                mode=mode, 
-                max_shots=max_shots, 
+                director_output,
+                mode=mode,
+                max_shots=max_shots,
                 duration_sec=duration_sec,
                 resume_history=resume_history,
-                user_feedback=user_feedback
+                user_feedback=user_feedback,
             )
-            
+
             for event_type, payload in gen:
                 # payload might be tuple or string
                 # Map to Runner format: (AgentName, Type, Content)
-                
+
                 if event_type == "review_required":
                     # Payload is the asset path/string
                     yield ("Cinematographer", "review_required", payload)
                 elif event_type == "state_dump":
-                     # Payload is the messages list
-                     yield ("Cinematographer", "state_dump", payload)
+                    # Payload is the messages list
+                    yield ("Cinematographer", "state_dump", payload)
                 elif event_type == "output":
-                     self.session.log_event("Cinematographer", "output", payload)
-                     yield ("Cinematographer", "output", payload)
+                    self.session.log_event("Cinematographer", "output", payload)
+                    yield ("Cinematographer", "output", payload)
                 elif event_type == "thinking":
-                     yield ("Cinematographer", "thinking", payload)
+                    yield ("Cinematographer", "thinking", payload)
                 elif event_type == "error":
-                     self.session.log_event("Cinematographer", "error", payload)
-                     yield ("Cinematographer", "error", payload)
+                    self.session.log_event("Cinematographer", "error", payload)
+                    yield ("Cinematographer", "error", payload)
                 else:
-                     # 'done' etc
-                     yield ("Cinematographer", event_type, payload)
+                    # 'done' etc
+                    yield ("Cinematographer", event_type, payload)
 
         except Exception as e:
             self.session.log_event("Cinematographer", "error", str(e))

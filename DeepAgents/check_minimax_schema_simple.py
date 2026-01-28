@@ -1,4 +1,3 @@
-
 import replicate
 from dotenv import load_dotenv
 
@@ -10,8 +9,13 @@ try:
     version = model.latest_version
     if version:
         print("Version ID:", version.id)
-        if 'openapi_schema' in dir(version):
-             print("Schema Inputs:", version.openapi_schema['components']['schemas']['Input']['properties'].keys())
+        if "openapi_schema" in dir(version):
+            print(
+                "Schema Inputs:",
+                version.openapi_schema["components"]["schemas"]["Input"][
+                    "properties"
+                ].keys(),
+            )
     else:
         print("No versions found.")
 except Exception as e:

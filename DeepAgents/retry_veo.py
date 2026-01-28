@@ -1,7 +1,8 @@
 import os
 import time
-from google import genai
+
 from dotenv import load_dotenv
+from google import genai
 
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -26,18 +27,22 @@ models_to_try = ["veo-3.1-fast-generate-001", "veo-2.0-generate-001"]
 
 while True:
     timestamp = time.strftime("%H:%M:%S")
-    
+
     for model in models_to_try:
-        print(f"[{timestamp}] Attempt {attempt} ({model}): Requesting video generation...")
-        
+        print(
+            f"[{timestamp}] Attempt {attempt} ({model}): Requesting video generation..."
+        )
+
         try:
             response = client.models.generate_content(
-                model=model,
-                contents=prompt,
-                config={'response_mime_type': 'video/mp4'}
+                model=model, contents=prompt, config={"response_mime_type": "video/mp4"}
             )
-            
-            if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
+
+            if (
+                response.candidates
+                and response.candidates[0].content
+                and response.candidates[0].content.parts
+            ):
                 part = response.candidates[0].content.parts[0]
                 if part.inline_data and part.inline_data.data:
                     # Success!
@@ -46,7 +51,7 @@ while True:
                     with open(output_path, "wb") as f:
                         f.write(part.inline_data.data)
                     print(f"\n✅ SUCCESS! Video saved to: {output_path}")
-                    exit(0) # Exit fully
+                    exit(0)  # Exit fully
                 else:
                     print(f"⚠️ Response received but no inline data. Part: {part}")
             else:

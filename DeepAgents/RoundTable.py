@@ -5,15 +5,16 @@
 The Round Table (DeepAgents Ruminations).
 Simulates a strategic meeting between the 5 Core Agents (Atlas, Apollo, Lumiere, Delphi, Argus).
 """
-import os
-import sys
+
 import datetime
 import logging
+import os
+import sys
 from typing import Dict
 
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Ensure path visibility
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
@@ -25,6 +26,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("RoundTable")
 
+
 class RoundTable:
     """Orchestrates a discussion between the DeepAgents personae."""
 
@@ -34,7 +36,7 @@ class RoundTable:
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash-exp",
             project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-            location=os.getenv("GOOGLE_CLOUD_LOCATION")
+            location=os.getenv("GOOGLE_CLOUD_LOCATION"),
         )
         self.roster = {
             "ATLAS": "The Engineer & Chairman. Rational, architectural, focused on structure.",
@@ -42,7 +44,7 @@ class RoundTable:
             "LUMIERE": "The Cinematographer. Visual, technical, focused on image fidelity.",
             "DELPHI": "The Researcher. Fact-based, skeptical, focused on truth and data.",
             "ARGUS": "The Confidence Agent (Safety). Protective, cautious, focused on brand safety.",
-            "ORPHEUS": "The Composer. Emotional, rhythmic, focused on soundscapes and harmony."
+            "ORPHEUS": "The Composer. Emotional, rhythmic, focused on soundscapes and harmony.",
         }
         self.ontologies = self._load_ontologies()
 
@@ -54,13 +56,15 @@ class RoundTable:
             "LUMIERE": "Cinematographer_Ontology.md",
             "DELPHI": "Research_Agent_Ontology.md",
             "ARGUS": "Confidence_Agent_Ontology.md",
-            "ORPHEUS": "Composer_Ontology.md"
+            "ORPHEUS": "Composer_Ontology.md",
         }
         loaded = {}
         base_path = os.path.join(os.path.dirname(__file__), "../Canon")
         for agent, filename in mapping.items():
             try:
-                with open(os.path.join(base_path, filename), "r", encoding="utf-8") as f:
+                with open(
+                    os.path.join(base_path, filename), "r", encoding="utf-8"
+                ) as f:
                     loaded[agent] = f.read()
             except FileNotFoundError:
                 loaded[agent] = f"You are {agent}. (Ontology file missing)."
@@ -73,18 +77,18 @@ class RoundTable:
         filepath = os.path.join(self.output_dir, filename)
 
         print(f"🏰 Convening the Round Table: {filename}")
-        
+
         # 1. Initialize the Transcript
         transcript = [
             f"# Meeting at the Round Table: {timestamp}",
             f"**Topic:** {topic}\n",
-            "---"
+            "---",
         ]
 
         # 2. Atlas Opens
         opening_prompt = f"""
         You are [ATLAS].
-        Your Ontology:\n{self.ontologies['ATLAS']}
+        Your Ontology:\n{self.ontologies["ATLAS"]}
         
         SITUATION: You have called a meeting of the High Council (The Round Table).
         TOPIC: {topic}
@@ -96,14 +100,14 @@ class RoundTable:
         opening_stm = response.content
         transcript.append(f"### 🛡️ [ATLAS] (Opening)\n{opening_stm}\n")
         print(f"🛡️ [ATLAS]: {opening_stm[:100]}...")
-        
+
         # history for context
         history = f"[ATLAS]: {opening_stm}\n"
 
         # 3. Round Robin Discussion
         # Order: Delphi (Research) -> Apollo (Vision) -> Lumiere (Visuals) -> Orpheus (Sound) -> Argus (Safety)
         speakers = ["DELPHI", "APOLLO", "LUMIERE", "ORPHEUS", "ARGUS"]
-        
+
         for speaker in speakers:
             print(f"⏳ Waiting for {speaker}...")
             prompt = f"""
@@ -119,7 +123,7 @@ class RoundTable:
             Propose improvements or request tools that would help YOUR specific role.
             Maintain your persona (Skeptical for Delphi, Visionary for Apollo, etc.).
             """
-            
+
             response = self.llm.invoke([HumanMessage(content=prompt)])
             stmt = response.content
             transcript.append(f"### 👤 [{speaker}]\n{stmt}\n")
@@ -143,9 +147,12 @@ class RoundTable:
         # 5. Save
         with open(filepath, "w", encoding="utf-8") as f:
             f.write("\n".join(transcript))
-        
+
         print(f"✅ Meeting Adjourned. Log saved to {filepath}")
+
 
 if __name__ == "__main__":
     rt = RoundTable()
-    rt.convene_meeting("Future Improvements and Tool Requests for the DeepAgents System")
+    rt.convene_meeting(
+        "Future Improvements and Tool Requests for the DeepAgents System"
+    )

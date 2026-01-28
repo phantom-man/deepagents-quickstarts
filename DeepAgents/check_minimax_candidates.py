@@ -1,15 +1,16 @@
-import replicate
 import json
 import os
+
+import replicate
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 candidates = [
     "cjwbw/minimax-speech-01",
-    "minimax/speech-01", 
+    "minimax/speech-01",
     "minimax/text-to-speech",
-    "replicate/minimax-speech"
+    "replicate/minimax-speech",
 ]
 
 print("Checking specific candidates...")

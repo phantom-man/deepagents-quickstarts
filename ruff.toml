@@ -5,13 +5,13 @@ fix = true
 # Exclude these rules from being automatically fixed
 # F401: Unused imports
 # F841: Unused variables
-# I: Import sorting (isort)
-unfixable = ["F401", "F841", "I"]
+unfixable = ["F401", "F841"]
 
 # Ignore specific rules
 # E402: Module level import not at top of file
 # E722: Do not use bare 'except'
-ignore = ["E402", "E722"]
+# E501: Line too long (handled by formatter)
+ignore = ["E402", "E722", "E501"]
 
 # Select specific rules
 select = ["E", "F", "I"]

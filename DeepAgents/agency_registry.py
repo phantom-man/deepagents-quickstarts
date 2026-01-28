@@ -17,7 +17,7 @@ AGENCY_REGISTRY = {
         ],
         "module": "DeepAgents.CommercialAgents.director_agent.agent",
         "entry_point": "create_director_agent",
-        "tool_wrapper": "None (Top Level)"
+        "tool_wrapper": "None (Top Level)",
     },
     "research_agent": {
         "name": "Delphi (Researcher)",
@@ -31,7 +31,7 @@ AGENCY_REGISTRY = {
         ],
         "module": "DeepAgents.CommercialAgents.research_agent.agent",
         "entry_point": "run_research_task",
-        "tool_wrapper": "consult_research_agent"
+        "tool_wrapper": "consult_research_agent",
     },
     "composer_agent": {
         "name": "Orpheus (Composer)",
@@ -45,7 +45,7 @@ AGENCY_REGISTRY = {
         ],
         "module": "DeepAgents.CommercialAgents.composer_agent.agent",
         "entry_point": "run_composer_task",
-        "tool_wrapper": "consult_composer_agent"
+        "tool_wrapper": "consult_composer_agent",
     },
     "cinematographer_agent": {
         "name": "Lumiere (Cinematographer)",
@@ -60,7 +60,7 @@ AGENCY_REGISTRY = {
         ],
         "module": "DeepAgents.CommercialAgents.cinematographer_agent.agent",
         "entry_point": "run_cinematographer_task",
-        "tool_wrapper": "consult_cinematographer_agent"
+        "tool_wrapper": "consult_cinematographer_agent",
     },
     "editor_tools": {
         "name": "Editor (Tool Suite)",
@@ -73,9 +73,10 @@ AGENCY_REGISTRY = {
         ],
         "module": "DeepAgents.editor_tools",
         "entry_point": "merge_video_audio",
-        "tool_wrapper": "assemble_final_cut"
-    }
+        "tool_wrapper": "assemble_final_cut",
+    },
 }
+
 
 def get_agent_descriptions() -> str:
     """Returns a formatted string of all agents and their skills."""
@@ -86,6 +87,7 @@ def get_agent_descriptions() -> str:
         output += f"- **Skills**: {', '.join(data['skills'])}\n\n"
     return output
 
+
 def find_agent_for_task(task_description: str) -> str:
     """
     Simple keyword matching to suggest an agent.
@@ -93,30 +95,35 @@ def find_agent_for_task(task_description: str) -> str:
     """
     task = task_description.lower()
     matches = []
-    
+
     for key, data in AGENCY_REGISTRY.items():
         score = 0
         # Check if skills are requested
         # We split skills into keywords to be more flexible
-        for skill in data['skills']:
+        for skill in data["skills"]:
             # If significant words from skill appear in task
             keywords = [w for w in skill.lower().split() if len(w) > 3]
             for kw in keywords:
                 if kw in task:
                     score += 1
-                    
+
         # Check role/description
-        desc_keywords = [w for w in data['description'].lower().split() if len(w) > 3]
+        desc_text = (
+            data["description"]
+            if isinstance(data["description"], str)
+            else " ".join(data["description"])
+        )
+        desc_keywords = [w for w in desc_text.lower().split() if len(w) > 3]
         for kw in desc_keywords:
             if kw in task:
                 score += 1
-                
+
         if score > 0:
-            matches.append((score, data['name']))
-            
+            matches.append((score, data["name"]))
+
     matches.sort(key=lambda x: x[0], reverse=True)
-    
+
     if matches:
         return f"Best Match: {matches[0][1]}. (Also consider: {[m[1] for m in matches[1:]]})"
-    
+
     return "No direct match found. Try splitting the task into smaller parts or look up 'all'."

@@ -1,5 +1,7 @@
 """Prompts for the Director Agent (Video Specialist)."""
+
 import logging
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -127,6 +129,7 @@ Then list the segments.
 **DO NOT** hallucinate file paths. You have not filmed anything yet.
 """
 
+
 def _get_instructions():
     """
     Fetches the Director's system instructions from the Hub.
@@ -134,8 +137,9 @@ def _get_instructions():
     """
     return get_or_push_prompt(
         repo_name="director-system-prompt",
-        default_content=DEFAULT_DIRECTOR_INSTRUCTIONS
+        default_content=DEFAULT_DIRECTOR_INSTRUCTIONS,
     )
+
 
 # Exposed constants
 # We expose the raw string for force-updates if needed
@@ -156,11 +160,12 @@ If YES, respond only with: PASS
 If NO, list the specific logical errors.
 """
 
+
 def _get_validation_prompt():
     return get_or_push_prompt(
         repo_name="director-scene-validation-prompt",
-        default_content=DEFAULT_SCENE_VALIDATION_PROMPT
+        default_content=DEFAULT_SCENE_VALIDATION_PROMPT,
     )
 
-SCENE_VALIDATION_PROMPT = _get_validation_prompt()
 
+SCENE_VALIDATION_PROMPT = _get_validation_prompt()

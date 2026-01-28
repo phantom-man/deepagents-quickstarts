@@ -1,4 +1,5 @@
 """Preset creative directives for the Streamlit GUI."""
+
 from typing import Dict, List
 
 _DIRECTOR_PROMPT_PRESETS: List[Dict[str, object]] = [

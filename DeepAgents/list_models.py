@@ -1,6 +1,7 @@
 import os
-from google import genai
+
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
 project_id = os.getenv("GOOGLE_CLOUD_PROJECT")

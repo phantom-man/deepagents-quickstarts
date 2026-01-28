@@ -1,5 +1,6 @@
 import os
 import sys
+
 from dotenv import load_dotenv
 from langsmith import Client
 
@@ -23,7 +24,7 @@ try:
     obj = client.pull_prompt(repo_name)
     print(f"✅ Pull '{repo_name}' Success!")
     # Use standard attribute access instead of checking internals if possible, but for debugging we look at repr
-    print(f"Object: {obj}") 
+    print(f"Object: {obj}")
 except Exception as e:
     print(f"❌ Pull '{repo_name}' Failed: {e}")
 

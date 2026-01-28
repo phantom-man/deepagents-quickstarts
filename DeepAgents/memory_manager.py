@@ -4,10 +4,10 @@ Handles persistent logging of agent interactions (Postgres) and global learning 
 Strict adherence to "The Jewel Standard" (Pylint 10/10).
 """
 
+import datetime
 import json
 import logging
-import datetime
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 # Architecture Imports
 from DeepAgents.agent_brain import AgentComms
@@ -17,28 +17,29 @@ from DeepAgents.knowledge_store import KnowledgeStore
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("MemoryManager")
 
+
 class AgentMemoryManager:
     """
     Manages persistent memory and learning for agents.
     Uses Postgres for interaction history and LanceDB for semantic learnings.
     """
+
     def __init__(self, agent_name: str):
         self.agent_name = agent_name
-        
+
         # Initialize Nervous System (Postgres)
         self.comms = AgentComms()
         if not self.comms.connect():
             logger.error("❌ Failed to connect to Memory System (Postgres)")
         else:
             self.comms.setup_tables()
-            
+
         # Initialize Knowledge Base (LanceDB)
         self.knowledge = KnowledgeStore()
 
-    def log_interaction(self,
-                        prompt: str,
-                        response: str,
-                        metadata: Optional[Dict[str, Any]] = None):
+    def log_interaction(
+        self, prompt: str, response: str, metadata: Optional[Dict[str, Any]] = None
+    ):
         """
         Logs a single interaction to the Postgres 'agent_messages' table.
         Recipient is marked as 'HISTORY' for retrieval.
@@ -47,13 +48,9 @@ class AgentMemoryManager:
             logger.warning("Memory offline. Interaction lost.")
             return
 
-        payload = {
-            "prompt": prompt,
-            "response": response,
-            "metadata": metadata or {}
-        }
+        payload = {"prompt": prompt, "response": response, "metadata": metadata or {}}
         content_json = json.dumps(payload)
-        
+
         # We overload the messaging system: Sender=Agent, Recipient=HISTORY
         self.comms.send_message(self.agent_name, "HISTORY", content_json)
 
@@ -66,8 +63,8 @@ class AgentMemoryManager:
             "metadata": {
                 "agent": self.agent_name,
                 "timestamp": datetime.datetime.now().isoformat(),
-                "type": "learning"
-            }
+                "type": "learning",
+            },
         }
         self.knowledge.add_documents([document])
 
@@ -90,7 +87,7 @@ class AgentMemoryManager:
                     (self.agent_name, limit),
                 )
                 rows = cur.fetchall()
-                
+
             context = ""
             # Rows are (content, timestamp), returned in DESC order (newest first)
             # We want to display them oldest to newest for context window
@@ -98,12 +95,14 @@ class AgentMemoryManager:
                 content_json = row[0]
                 try:
                     data = json.loads(content_json)
-                    context += f"User: {data['prompt']}\nAgent: {data['response']}\n---\n"
+                    context += (
+                        f"User: {data['prompt']}\nAgent: {data['response']}\n---\n"
+                    )
                 except json.JSONDecodeError:
-                    continue # Skip malformed legacy data
+                    continue  # Skip malformed legacy data
             return context
 
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to recall memory: %s", e)
             return "Memory error."
 

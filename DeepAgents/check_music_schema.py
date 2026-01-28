@@ -1,6 +1,7 @@
-import replicate
-import os
 import json
+import os
+
+import replicate
 from dotenv import load_dotenv
 
 # Load Env

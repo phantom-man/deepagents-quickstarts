@@ -3,12 +3,14 @@
 DeepAgents Core Execution Script.
 Orchestrates the Director Agent (Apollo) who manages the production pipeline.
 """
+
+import argparse
+import asyncio
+import logging
 import os
 import sys
 import uuid
-import asyncio
-import argparse
-import logging
+
 from dotenv import load_dotenv
 
 # Setup LangSmith Tracing
@@ -20,17 +22,21 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 
 # Verify LangChain API Key for Tracing; disable if missing
-if os.environ.get("LANGCHAIN_TRACING_V2") == "true" and not os.environ.get("LANGCHAIN_API_KEY"):
-    logging.warning("⚠️ LANGCHAIN_TRACING_V2 is set but LANGCHAIN_API_KEY is missing. Disabling Tracing.")
+if os.environ.get("LANGCHAIN_TRACING_V2") == "true" and not os.environ.get(
+    "LANGCHAIN_API_KEY"
+):
+    logging.warning(
+        "⚠️ LANGCHAIN_TRACING_V2 is set but LANGCHAIN_API_KEY is missing. Disabling Tracing."
+    )
     os.environ.pop("LANGCHAIN_TRACING_V2", None)
 
 # Import the Brain
 try:
-    from agent_brain import AgentMemory, AgentComms
+    from agent_brain import AgentComms, AgentMemory
     from persistence import get_postgres_checkpointer
 except ImportError:
     try:
-        from DeepAgents.agent_brain import AgentMemory, AgentComms
+        from DeepAgents.agent_brain import AgentComms, AgentMemory
         from DeepAgents.persistence import get_postgres_checkpointer
     except ImportError:
         AgentMemory = None
@@ -86,11 +92,11 @@ async def main():
     # 1. Initialize The Brain (Memory & Nervous System)
     brain = None
     nervous_system = None
-    
+
     if AgentMemory:
         print("🧠 Connecting to Studio Memory (Hippocampus)...")
         brain = AgentMemory()
-    
+
     if AgentComms:
         print("📡 Connecting to Nervous System (Postgres)...")
         nervous_system = AgentComms()
@@ -105,25 +111,23 @@ async def main():
     if brain:
         lessons = brain.recall("Director strategy content production", limit=2)
         if lessons:
-            lesson_text = "\n".join([f"- {m.get('text','')}" for m in lessons])
+            lesson_text = "\n".join([f"- {m.get('text', '')}" for m in lessons])
             print(f"🧠 Studio Memory: Retrieved {len(lessons)} production lessons.")
 
     # 3. Create the Director Agent (Apollo) with Persistence
     # Apollo is equipped with tools to call Research, Music, and Editor.
     print(f"🤖 Initializing Director (Apollo) on {args.provider}...")
-    
-    # Generate a unique thread ID for this run to keep it clean, 
+
+    # Generate a unique thread ID for this run to keep it clean,
     # or hardcode if we wanted to resume a specific project.
     # For now, we use a new thread to avoid state pollution unless specified.
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
-    
+
     # We use the Async Persistence Context
     async with get_postgres_checkpointer() as checkpointer:
         director = create_director_agent(
-            provider=args.provider, 
-            model_name=args.model,
-            checkpointer=checkpointer
+            provider=args.provider, model_name=args.model, checkpointer=checkpointer
         )
 
         # 4. Execute the Task
@@ -139,7 +143,8 @@ async def main():
         try:
             # Stream the output asynchronously
             async for event in director.astream(
-                {"messages": [("user", final_prompt)]}, config=config  # type: ignore
+                {"messages": [("user", final_prompt)]},
+                config=config,  # type: ignore
             ):
                 # Parse LangGraph events
                 for key, value in event.items():
@@ -159,9 +164,10 @@ async def main():
             logger.error("Orchestration Error: %s", e)
             print(f"❌ Error during execution: {e}")
 
+
 if __name__ == "__main__":
     # Fix for Windows Asyncio + Psycopg (SelectorEventLoop required)
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     try:

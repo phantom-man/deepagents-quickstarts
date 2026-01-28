@@ -2,6 +2,7 @@
 """
 Script to download reference documentation for DeepAgents context.
 """
+
 import os
 import urllib.request
 
@@ -44,4 +45,3 @@ def download_references():
 
 if __name__ == "__main__":
     download_references()
-

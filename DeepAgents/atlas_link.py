@@ -1,8 +1,10 @@
-import os
 import logging
+import os
+
 from langsmith import Client
 
 logger = logging.getLogger("AtlasLink")
+
 
 class AtlasLink:
     def __init__(self):
@@ -17,7 +19,7 @@ class AtlasLink:
         """
         # 1. Local (Fast Path)
         self.local_queue.append(text)
-        
+
         # 2. LangSmith (Traceability/Ontology Path)
         try:
             self.client.create_run(
@@ -25,7 +27,7 @@ class AtlasLink:
                 inputs={"command": text},
                 run_type="chain",
                 project_name=self.project_name,
-                tags=["interruption", "urgent", "user-override"]
+                tags=["interruption", "urgent", "user-override"],
             )
             logger.info(f"[LangSmith] Logged interruption: {text}")
         except Exception as e:
@@ -40,6 +42,7 @@ class AtlasLink:
         if self.local_queue:
             return self.local_queue.pop(0)
         return None
+
 
 # Singleton instance for simple import
 link = AtlasLink()

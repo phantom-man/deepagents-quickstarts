@@ -1,5 +1,7 @@
 """Prompts for the Composer Agent [ORPHEUS]."""
+
 import logging
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -59,12 +61,14 @@ WRONG: `{\"audio_path\": \"Artifacts/audio_...\"}` (hallucinating a path without
 **REMEMBER: Your ONLY output should be a tool call. Text-only responses = FAILURE.**
 """
 
+
 def _get_instructions():
     """Retrieves Composer instructions from Hub using strict no-failover Logic."""
     return get_or_push_prompt(
         repo_name="composer-system-prompt-opt-v1",  # RENAMED from -main for optimization
-        default_content=DEFAULT_COMPOSER_INSTRUCTIONS
+        default_content=DEFAULT_COMPOSER_INSTRUCTIONS,
     )
+
 
 COMPOSER_INSTRUCTIONS = _get_instructions()
 
@@ -148,11 +152,12 @@ REQUIRED OUTPUT FORMAT:
 STYLE: <The optimized prompt string. E.g., 'A cinematic orchestral score with swelling strings and deep percussion, epic, heroic, 140bpm'>
 """
 
+
 def _get_schema(repo_name, default_text):
     """Retrieves schema template from Hub."""
     return get_or_push_prompt(repo_name, default_text)
 
+
 ACE_STEP_SCHEMA = _get_schema("composer-ace-step-schema", DEFAULT_ACE_STEP_SCHEMA)
 MINIMAX_SCHEMA = _get_schema("composer-minimax-schema", DEFAULT_MINIMAX_SCHEMA)
 LYRIA_SCHEMA = _get_schema("composer-lyria-schema", DEFAULT_LYRIA_SCHEMA)
-

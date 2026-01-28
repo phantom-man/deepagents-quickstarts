@@ -2,9 +2,10 @@
 """
 Custom URL fetcher to bypass basic bot detection or handle headers.
 """
+
 import sys
-import urllib.request
 import urllib.error
+import urllib.request
 
 
 def fetch_url(target_url, target_file):

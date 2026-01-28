@@ -4,9 +4,11 @@ LangGraph Application Entry Point - Lazy Loading Edition
 This module uses lazy initialization to avoid slow startup times.
 Graphs are only created when first accessed, not at import time.
 """
+
 import os
 import sys
 from functools import lru_cache
+
 from dotenv import load_dotenv
 
 # Ensure root (one level up) is in path so "DeepAgents" package resolves correctly
@@ -17,11 +19,13 @@ load_dotenv()
 # --- Lazy Import Helpers ---
 # These defer heavy imports until actually needed
 
+
 @lru_cache(maxsize=1)
 def _get_langgraph_imports():
     """Lazy load LangGraph components."""
-    from langgraph.graph import StateGraph, MessagesState, END
     from langchain_core.messages import AIMessage
+    from langgraph.graph import END, MessagesState, StateGraph
+
     return StateGraph, MessagesState, END, AIMessage
 
 
@@ -29,6 +33,7 @@ def _get_langgraph_imports():
 def _get_system_config():
     """Lazy load SystemConfiguration."""
     from DeepAgents.system_config import SystemConfiguration
+
     return SystemConfiguration()
 
 
@@ -36,11 +41,22 @@ def _get_system_config():
 def _get_agent_factories():
     """Lazy load all agent factory functions."""
     try:
-        from DeepAgents.CommercialAgents.director_agent.agent import create_director_agent
-        from DeepAgents.CommercialAgents.research_agent.agent import create_research_agent
-        from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
-        from DeepAgents.CommercialAgents.confidence_agent.agent import create_confidence_agent
-        from DeepAgents.CommercialAgents.cinematographer_agent.agent import create_cinematographer_agent
+        from DeepAgents.CommercialAgents.cinematographer_agent.agent import (
+            create_cinematographer_agent,
+        )
+        from DeepAgents.CommercialAgents.composer_agent.agent import (
+            create_composer_agent,
+        )
+        from DeepAgents.CommercialAgents.confidence_agent.agent import (
+            create_confidence_agent,
+        )
+        from DeepAgents.CommercialAgents.director_agent.agent import (
+            create_director_agent,
+        )
+        from DeepAgents.CommercialAgents.research_agent.agent import (
+            create_research_agent,
+        )
+
         return {
             "director": create_director_agent,
             "research": create_research_agent,
@@ -76,6 +92,7 @@ def _safe_create(name, factory_func, **kwargs):
 # --- Lazy Graph Factories ---
 # Each graph is created ONLY when first accessed via the property
 
+
 @lru_cache(maxsize=1)
 def _create_director_graph():
     """Lazy factory for Director graph."""
@@ -97,13 +114,15 @@ def _create_composer_graph():
     StateGraph, MessagesState, END, AIMessage = _get_langgraph_imports()
     sys_conf = _get_system_config()
     factories = _get_agent_factories()
-    
+
     try:
         c_prov, c_mod = sys_conf.get_agent_params("Composer")
-        
+
         # This returns a RunnableLambda, NOT a Graph
-        composer_runnable = factories["composer"](model_config={"provider": c_prov, "model": c_mod})
-        
+        composer_runnable = factories["composer"](
+            model_config={"provider": c_prov, "model": c_mod}
+        )
+
         def composer_node_adapter(state):
             # RunnableLambda expects a dict, which MessagesState is compatible with
             return composer_runnable.invoke(state)
@@ -113,15 +132,17 @@ def _create_composer_graph():
         builder.add_node("composer", composer_node_adapter)
         builder.set_entry_point("composer")
         builder.add_edge("composer", END)
-        
+
         return builder.compile()
-        
+
     except Exception as e:
         err_msg = str(e)
         print(f"FAILED to wrap Composer: {err_msg}")
-        def err_node(state): 
+
+        def err_node(state):
             return {"messages": [AIMessage(content=f"Composer Failed: {err_msg}")]}
-        g = StateGraph(MessagesState) 
+
+        g = StateGraph(MessagesState)
         g.add_node("error", err_node)
         g.set_entry_point("error")
         return g.compile()
@@ -134,10 +155,7 @@ def _create_confidence_graph():
     factories = _get_agent_factories()
     conf_prov, conf_mod = sys_conf.get_agent_params("Confidence")
     return _safe_create(
-        "Confidence", 
-        factories["confidence"], 
-        provider=conf_prov, 
-        model_name=conf_mod
+        "Confidence", factories["confidence"], provider=conf_prov, model_name=conf_mod
     )
 
 
@@ -146,7 +164,7 @@ def _create_cinematographer_graph():
     """Lazy factory for Cinematographer graph (wrapped in StateGraph)."""
     StateGraph, MessagesState, END, AIMessage = _get_langgraph_imports()
     factories = _get_agent_factories()
-    
+
     try:
         # Get the cinematographer function
         cinema_func = factories["cinematographer"](model_config=None)
@@ -178,8 +196,12 @@ def _create_cinematographer_graph():
     except Exception as e:
         err_msg = str(e)
         print(f"FAILED to wrap Cinematographer: {err_msg}")
+
         def err_node(state):
-            return {"messages": [AIMessage(content=f"Cinematographer Failed: {err_msg}")]}
+            return {
+                "messages": [AIMessage(content=f"Cinematographer Failed: {err_msg}")]
+            }
+
         g = StateGraph(MessagesState)
         g.add_node("error", err_node)
         g.set_entry_point("error")

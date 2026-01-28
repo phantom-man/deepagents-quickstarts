@@ -7,35 +7,43 @@ Features:
 - Model compatibility badges
 - Apply button to fill input fields
 """
+
 from typing import Callable, Optional, Union
 
 import streamlit as st
 
-from DeepAgents.gui.presets.lyrics_presets import (
-    LYRICS_PRESETS,
-    LyricsPreset,
-    get_lyrics_for_model,
-    get_all_genres as get_lyrics_genres
-)
 from DeepAgents.gui.presets.composer_presets import (
     COMPOSER_PRESETS,
     ComposerPreset,
     get_composer_for_model,
-    get_all_genres as get_composer_genres
 )
-from DeepAgents.gui.presets.video_presets import (
-    VIDEO_PRESETS,
-    VideoPreset,
-    get_video_for_model,
-    get_all_categories as get_video_categories
+from DeepAgents.gui.presets.composer_presets import (
+    get_all_genres as get_composer_genres,
 )
 from DeepAgents.gui.presets.director_presets import (
     DIRECTOR_PRESETS,
     DirectorPreset,
     get_director_for_model,
-    get_all_genres as get_director_genres
 )
-
+from DeepAgents.gui.presets.director_presets import (
+    get_all_genres as get_director_genres,
+)
+from DeepAgents.gui.presets.lyrics_presets import (
+    LYRICS_PRESETS,
+    LyricsPreset,
+    get_lyrics_for_model,
+)
+from DeepAgents.gui.presets.lyrics_presets import (
+    get_all_genres as get_lyrics_genres,
+)
+from DeepAgents.gui.presets.video_presets import (
+    VIDEO_PRESETS,
+    VideoPreset,
+    get_video_for_model,
+)
+from DeepAgents.gui.presets.video_presets import (
+    get_all_categories as get_video_categories,
+)
 
 PresetType = Union[LyricsPreset, ComposerPreset, VideoPreset, DirectorPreset]
 
@@ -46,7 +54,7 @@ def render_preset_selector(
     model_id: str = "",
     on_select: Optional[Callable[[str], None]] = None,
     show_preview: bool = True,
-    max_chars: Optional[int] = None
+    max_chars: Optional[int] = None,
 ) -> Optional[str]:
     """
     Render a preset selector with filtering and preview.
@@ -113,7 +121,7 @@ def render_preset_selector(
             filter_value = st.selectbox(
                 filter_label,
                 options=["All"] + filter_options,
-                key=f"{key_prefix}_filter"
+                key=f"{key_prefix}_filter",
             )
 
         with col2:
@@ -123,7 +131,8 @@ def render_preset_selector(
                 # Filter by genre or category depending on preset type
                 filter_attr = "category" if preset_type == "video" else "genre"
                 filtered_presets = [
-                    p for p in all_presets
+                    p
+                    for p in all_presets
                     if getattr(p, filter_attr, None) == filter_value
                 ]
             st.metric("Available", len(filtered_presets))
@@ -132,8 +141,7 @@ def render_preset_selector(
         if filter_value != "All":
             filter_attr = "category" if preset_type == "video" else "genre"
             all_presets = [
-                p for p in all_presets
-                if getattr(p, filter_attr, None) == filter_value
+                p for p in all_presets if getattr(p, filter_attr, None) == filter_value
             ]
 
         # Build options list (video uses category, others use genre)
@@ -153,7 +161,7 @@ def render_preset_selector(
             label,
             options=range(len(options)),
             format_func=lambda x: options[x],
-            key=f"{key_prefix}_selector"
+            key=f"{key_prefix}_selector",
         )
 
         # Get selected preset
@@ -174,8 +182,10 @@ def render_preset_selector(
                     else:
                         status_color = "red"
 
-                    st.markdown(f"**{selected_preset.char_count}** / {char_limit} chars "
-                               f"(:{status_color}[{char_pct:.0f}%])")
+                    st.markdown(
+                        f"**{selected_preset.char_count}** / {char_limit} chars "
+                        f"(:{status_color}[{char_pct:.0f}%])"
+                    )
 
                     # Tags
                     if selected_preset.tags:
@@ -187,7 +197,7 @@ def render_preset_selector(
                         value=selected_preset.content,
                         height=150,
                         disabled=True,
-                        key=f"{key_prefix}_preview"
+                        key=f"{key_prefix}_preview",
                     )
 
             # Apply button - show it whenever a preset is selected
@@ -204,7 +214,7 @@ def render_preset_selector(
 def lyrics_preset_selector(
     key: str = "lyrics",
     model_id: str = "minimax/music-1.5",
-    on_select: Optional[Callable[[str], None]] = None
+    on_select: Optional[Callable[[str], None]] = None,
 ) -> Optional[str]:
     """
     Simplified lyrics preset selector.
@@ -223,14 +233,14 @@ def lyrics_preset_selector(
         key_prefix=key,
         model_id=model_id,
         on_select=on_select,
-        max_chars=600 if "music-1.5" in model_id else 3000
+        max_chars=600 if "music-1.5" in model_id else 3000,
     )
 
 
 def composer_preset_selector(
     key: str = "composer",
     model_id: str = "minimax/music-1.5",
-    on_select: Optional[Callable[[str], None]] = None
+    on_select: Optional[Callable[[str], None]] = None,
 ) -> Optional[str]:
     """
     Simplified composer prompt preset selector.
@@ -249,14 +259,14 @@ def composer_preset_selector(
         key_prefix=key,
         model_id=model_id,
         on_select=on_select,
-        max_chars=300 if "music-1.5" in model_id else 500
+        max_chars=300 if "music-1.5" in model_id else 500,
     )
 
 
 def video_preset_selector(
     key: str = "video",
     model_id: str = "wan-video/wan-2.5-t2v-fast",
-    on_select: Optional[Callable[[str], None]] = None
+    on_select: Optional[Callable[[str], None]] = None,
 ) -> Optional[str]:
     """
     Simplified video prompt preset selector.
@@ -282,14 +292,14 @@ def video_preset_selector(
         key_prefix=key,
         model_id=model_id,
         on_select=on_select,
-        max_chars=max_chars
+        max_chars=max_chars,
     )
 
 
 def director_preset_selector(
     key: str = "director",
     model_id: str = "",
-    on_select: Optional[Callable[[str], None]] = None
+    on_select: Optional[Callable[[str], None]] = None,
 ) -> Optional[str]:
     """
     Simplified director story concept preset selector.
@@ -308,7 +318,7 @@ def director_preset_selector(
         key_prefix=key,
         model_id=model_id,
         on_select=on_select,
-        max_chars=1000  # Director prompts can be longer
+        max_chars=1000,  # Director prompts can be longer
     )
 
 
@@ -332,7 +342,9 @@ def get_preset_stats() -> dict:
             "total": len(COMPOSER_PRESETS),
             "fits_music15": len([p for p in COMPOSER_PRESETS if p.fits_music15]),
             "genres": len(get_composer_genres()),
-            "avg_chars": sum(composer_chars) // len(composer_chars) if composer_chars else 0,
+            "avg_chars": sum(composer_chars) // len(composer_chars)
+            if composer_chars
+            else 0,
             "min_chars": min(composer_chars) if composer_chars else 0,
             "max_chars": max(composer_chars) if composer_chars else 0,
         },
@@ -348,8 +360,10 @@ def get_preset_stats() -> dict:
         "director": {
             "total": len(DIRECTOR_PRESETS),
             "genres": len(get_director_genres()),
-            "avg_chars": sum(director_chars) // len(director_chars) if director_chars else 0,
+            "avg_chars": sum(director_chars) // len(director_chars)
+            if director_chars
+            else 0,
             "min_chars": min(director_chars) if director_chars else 0,
             "max_chars": max(director_chars) if director_chars else 0,
-        }
+        },
     }

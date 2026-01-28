@@ -1,5 +1,6 @@
-import time
 import os
+import time
+
 from dotenv import load_dotenv
 
 # Load env vars before imports that might check them
@@ -14,17 +15,18 @@ if "GOOGLE_CLOUD_LOCATION" in os.environ:
 
 from DeepAgents.memory_manager import AgentMemoryManager
 
+
 def verify():
     print("--- Starting Memory Verification ---")
-    
+
     # 1. Initialize
     agent = AgentMemoryManager("VerificationBot")
-    
+
     # 2. Log Interaction (Postgres)
     print("Writing to Postgres History...")
     agent.log_interaction("Test Prompt", "Test Response")
-    time.sleep(1) # Allow for DB commit if async (it's not but safe)
-    
+    time.sleep(1)  # Allow for DB commit if async (it's not but safe)
+
     # 3. Recall (Postgres)
     print("Reading from Postgres History...")
     history = agent.recall_recent(limit=1)
@@ -43,9 +45,12 @@ def verify():
         if "star" in results:
             print("✅ LanceDB Knowledge Verification Passed")
         else:
-            print(f"❌ LanceDB Verification Failed (Result might be empty if embedding failed). Got: {results}")
+            print(
+                f"❌ LanceDB Verification Failed (Result might be empty if embedding failed). Got: {results}"
+            )
     except Exception as e:
         print(f"❌ LanceDB Error: {e}")
+
 
 if __name__ == "__main__":
     verify()

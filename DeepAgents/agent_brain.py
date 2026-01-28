@@ -4,22 +4,22 @@ Handles the 'Hippocampus' (Memory) and 'Telepathy' (Communication)
 systems for the Agent Swarm.
 """
 
-import os
-import time
 import json
 import logging
+import os
+import time
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-from dotenv import load_dotenv
+from typing import Any, Dict, List, Optional
 
 import lancedb
 import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from dotenv import load_dotenv
 from lancedb.pydantic import LanceModel, Vector
-# from lancedb.embeddings import get_registry
 
+# from lancedb.embeddings import get_registry
 # from sentence_transformers import SentenceTransformer
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 # Load env vars
 load_dotenv()
@@ -33,7 +33,7 @@ logger = logging.getLogger("AgentBrain")
 EMBEDDER = GoogleGenerativeAIEmbeddings(
     model="models/text-embedding-004",
     project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-    location=os.getenv("GOOGLE_CLOUD_LOCATION")
+    location=os.getenv("GOOGLE_CLOUD_LOCATION"),
 )
 # EMBEDDER = SentenceTransformer("all-MiniLM-L6-v2")
 
@@ -132,10 +132,11 @@ class AgentConfig:
     Now serves as a wrapper around SystemConfiguration (LangSmith-backed).
     """
 
-    def __init__(self, config_path: str = None):
+    def __init__(self, config_path: Optional[str] = None):
         # Config path is deprecated but kept for signature compatibility
         try:
             from DeepAgents.system_config import SystemConfiguration
+
             self.sys_config = SystemConfiguration()
             self.config = self._load_config()
         except ImportError:
@@ -160,7 +161,9 @@ class AgentConfig:
             "Cinematographer": {
                 "provider": "Google",
                 "model": "gemini-2.0-flash-001",
-                "capabilities": [{"type": "video_generation", "models": [{"id": "haiper/v2"}]}]
+                "capabilities": [
+                    {"type": "video_generation", "models": [{"id": "haiper/v2"}]}
+                ],
             },
             "Composer": {"provider": "Google", "model": "gemini-2.0-flash-001"},
         }
@@ -175,7 +178,7 @@ class AgentConfig:
         """Returns config for specific agent, adapting new schema to old."""
         # 1. Get raw data from System Config
         agent_data = self.config.get(agent_role, {}).copy()
-        
+
         # 2. Polyfill 'model' from 'intelligence_model'
         if "intelligence_model" in agent_data and "model" not in agent_data:
             # Format: 'provider/model-id' (e.g. anthropic/claude-3-haiku...)
@@ -191,9 +194,12 @@ class AgentConfig:
 
         # 3. Polyfill 'provider' fallback
         if "provider" not in agent_data:
-             if "anthropic" in agent_data.get("model", "").lower(): agent_data["provider"] = "Anthropic"
-             elif "gemini" in agent_data.get("model", "").lower(): agent_data["provider"] = "Google"
-             else: agent_data["provider"] = "Anthropic" # Default
+            if "anthropic" in agent_data.get("model", "").lower():
+                agent_data["provider"] = "Anthropic"
+            elif "gemini" in agent_data.get("model", "").lower():
+                agent_data["provider"] = "Google"
+            else:
+                agent_data["provider"] = "Anthropic"  # Default
 
         return agent_data
 
@@ -201,7 +207,9 @@ class AgentConfig:
         self, agent_role: str, provider: str, model: str, **kwargs
     ) -> None:
         """Updates config for specific agent."""
-        logger.warning("Attempted to set local config. This is disabled in Dynamic mode.")
+        logger.warning(
+            "Attempted to set local config. This is disabled in Dynamic mode."
+        )
 
 
 class AgentComms:
@@ -212,10 +220,10 @@ class AgentComms:
 
     def __init__(
         self,
-        db_name: str = None,
-        user: str = None,
-        password: str = None,
-        host: str = None,
+        db_name: Optional[str] = None,
+        user: Optional[str] = None,
+        password: Optional[str] = None,
+        host: Optional[str] = None,
     ):
         # Load from env or use defaults
         self.conn_params = {
@@ -288,9 +296,11 @@ class AgentComms:
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to send message: %s", e)
 
-    def get_all_recent_messages(self, limit: int = 50, since: datetime = None) -> List[Dict[str, Any]]:
+    def get_all_recent_messages(
+        self, limit: int = 50, since: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
         """Dashboard: Get latest messages from everyone.
-        
+
         Args:
             limit: Maximum number of messages to return
             since: If provided, only return messages after this timestamp (session filtering)

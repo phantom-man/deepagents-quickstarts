@@ -1,12 +1,13 @@
-
 # pylint: disable=broad-exception-caught
 """
 Verification Script for Orpheus (Composer Agent).
 Tests direct audio generation capabilities.
 """
+
+import logging
 import os
 import sys
-import logging
+
 from dotenv import load_dotenv
 
 # Setup Logging
@@ -60,4 +61,3 @@ def verify_orpheus():
 
 if __name__ == "__main__":
     verify_orpheus()
-

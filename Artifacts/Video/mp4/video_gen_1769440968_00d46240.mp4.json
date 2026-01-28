@@ -1,0 +1,16 @@
+{
+  "prompt": "Close-up shot of a person in an office cubicle. Gray, sterile environment. Their eyes widen slightly. A faint golden light emanates from within them. Camera slowly zooms in on their face.",
+  "timestamp": 1769440968,
+  "date": "2026-01-26 08:22:55",
+  "asset_type": "video",
+  "subtype": null,
+  "filename": "video_gen_1769440968_00d46240.mp4",
+  "local_path": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\Artifacts\\Video\\mp4\\video_gen_1769440968_00d46240.mp4",
+  "cloud_url": "https://storage.googleapis.com/deepagents-artifacts-uscentral1/history/2026/01/video_gen_1769440968_00d46240.mp4",
+  "session_id": "default",
+  "metadata": {
+    "model": "wan-video/wan-2.5-t2v-fast",
+    "provider": "Replicate",
+    "optimized_prompt": "Cinematic close-up. A person sits in a gray office cubicle, bathed in sterile, cold light. Their eyes subtly widen in surprise. A soft, faint golden light emanates from within, subtly illuminating their face. Smooth camera slowly zooms in, focusing on their expression. Slow motion, dramatic lighting, professional cinematography."
+  }
+}

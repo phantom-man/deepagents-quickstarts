@@ -5,8 +5,10 @@ These tools allow for deep narrative analysis and counterfactual history simulat
 """
 
 import logging
+
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
+
 # from langchain_google_genai import ChatGoogleGenerativeAI # Deprecated
 from DeepAgents.replicate_adapter import ChatReplicate
 
@@ -29,7 +31,7 @@ def get_history_llm():
         try:
             _HISTORY_LLM = ChatReplicate(
                 model="meta/meta-llama-3-70b-instruct",
-                model_kwargs={"temperature": 0.7}
+                model_kwargs={"temperature": 0.7},
             )
         except Exception:
             _HISTORY_LLM = None

@@ -1,6 +1,6 @@
-
 import os
 import time
+
 from dotenv import load_dotenv
 
 # Load Environment
@@ -21,7 +21,7 @@ questions = [
     "What is the capital of Assyria?",
     "Why is the sky blue?",
     "Write a Python function to reverse a string.",
-    "What comes after a million?"
+    "What comes after a million?",
 ]
 
 print(f"🧪 Starting Load Test for {model_id}...")
@@ -31,34 +31,27 @@ print("   Rate: 1 request / 5 seconds\n")
 
 try:
     from google import genai
-    
-    client = genai.Client(
-        vertexai=True,
-        project=project_id,
-        location=location
-    )
-    
+
+    client = genai.Client(vertexai=True, project=project_id, location=location)
+
     success_count = 0
-    
+
     for i, q in enumerate(questions, 1):
         print(f"[{i}/{len(questions)}] Asking: {q}")
         start_time = time.time()
-        
+
         try:
-            response = client.models.generate_content(
-                model=model_id,
-                contents=q
-            )
+            response = client.models.generate_content(model=model_id, contents=q)
             elapsed = time.time() - start_time
             print(f"   ✅ Answered in {elapsed:.2f}s: {response.text[:50]}...")
             success_count += 1
         except Exception as e:
             print(f"   ❌ FAILED: {e}")
-            
+
         if i < len(questions):
             print("   ⏳ Waiting 5s...")
             time.sleep(5)
-            
+
     print(f"\n✅ Test Complete. Success: {success_count}/{len(questions)}")
 
 except ImportError:

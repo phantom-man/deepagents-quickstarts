@@ -1,7 +1,8 @@
 import os
+
 from dotenv import load_dotenv
-from langsmith import Client
 from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client
 
 # Force load the .env file in the same directory
 env_path = os.path.join(os.path.dirname(__file__), ".env")

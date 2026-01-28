@@ -9,27 +9,29 @@ This service extends the Schema Service to provide:
 
 Works with char_counter.py for UI rendering.
 """
+
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class InputType(Enum):
     """Types of user inputs for AI models."""
-    TEXT = "text"               # Short text (< 200 chars typically)
-    TEXTAREA = "textarea"       # Long text (prompts, descriptions)
-    LYRICS = "lyrics"           # Music lyrics with structure markers
-    PROMPT = "prompt"           # Generation prompt
+
+    TEXT = "text"  # Short text (< 200 chars typically)
+    TEXTAREA = "textarea"  # Long text (prompts, descriptions)
+    LYRICS = "lyrics"  # Music lyrics with structure markers
+    PROMPT = "prompt"  # Generation prompt
     NEGATIVE_PROMPT = "negative_prompt"  # What to avoid
-    TAGS = "tags"               # Comma-separated keywords
-    FILE_AUDIO = "file_audio"   # Audio file upload
-    FILE_VIDEO = "file_video"   # Video file upload
-    FILE_IMAGE = "file_image"   # Image file upload
-    SELECT = "select"           # Dropdown selection
-    NUMBER = "number"           # Numeric input
+    TAGS = "tags"  # Comma-separated keywords
+    FILE_AUDIO = "file_audio"  # Audio file upload
+    FILE_VIDEO = "file_video"  # Video file upload
+    FILE_IMAGE = "file_image"  # Image file upload
+    SELECT = "select"  # Dropdown selection
+    NUMBER = "number"  # Numeric input
 
 
 @dataclass
@@ -40,18 +42,19 @@ class InputFieldDefinition:
     Used by UI components to render appropriate controls
     with validation and character counting.
     """
-    name: str                           # API parameter name
-    input_type: InputType               # Type of input
-    label: str                          # Display label
-    description: str = ""               # Help text
+
+    name: str  # API parameter name
+    input_type: InputType  # Type of input
+    label: str  # Display label
+    description: str = ""  # Help text
 
     # Character limits
-    max_chars: Optional[int] = None     # Hard limit
-    min_chars: Optional[int] = None     # Soft minimum
+    max_chars: Optional[int] = None  # Hard limit
+    min_chars: Optional[int] = None  # Soft minimum
 
     # Validation
     required: bool = False
-    pattern: Optional[str] = None       # Regex pattern
+    pattern: Optional[str] = None  # Regex pattern
 
     # Default/placeholder
     default: Any = None
@@ -67,13 +70,13 @@ class InputFieldDefinition:
     min_duration_seconds: Optional[float] = None
 
     # UI hints
-    height: int = 100                   # For textareas
-    order: int = 0                      # Display order
-    collapsible: bool = False           # Can be collapsed
-    advanced: bool = False              # Show in advanced section
+    height: int = 100  # For textareas
+    order: int = 0  # Display order
+    collapsible: bool = False  # Can be collapsed
+    advanced: bool = False  # Show in advanced section
 
     # Preset support
-    supports_presets: bool = False      # Can load from presets
+    supports_presets: bool = False  # Can load from presets
     preset_category: Optional[str] = None  # Which preset category
 
 
@@ -95,7 +98,7 @@ MINIMAX_MUSIC_INPUTS: List[InputFieldDefinition] = [
         height=100,
         order=1,
         supports_presets=True,
-        preset_category="composer_prompt"
+        preset_category="composer_prompt",
     ),
     InputFieldDefinition(
         name="lyrics",
@@ -109,7 +112,7 @@ MINIMAX_MUSIC_INPUTS: List[InputFieldDefinition] = [
         height=200,
         order=2,
         supports_presets=True,
-        preset_category="lyrics"
+        preset_category="lyrics",
     ),
 ]
 
@@ -126,7 +129,7 @@ ACE_STEP_INPUTS: List[InputFieldDefinition] = [
         height=80,
         order=1,
         supports_presets=True,
-        preset_category="composer_tags"
+        preset_category="composer_tags",
     ),
     InputFieldDefinition(
         name="lyrics",
@@ -140,7 +143,7 @@ ACE_STEP_INPUTS: List[InputFieldDefinition] = [
         height=250,
         order=2,
         supports_presets=True,
-        preset_category="lyrics"
+        preset_category="lyrics",
     ),
 ]
 
@@ -158,7 +161,7 @@ LYRIA_INPUTS: List[InputFieldDefinition] = [
         height=120,
         order=1,
         supports_presets=True,
-        preset_category="instrumental_prompt"
+        preset_category="instrumental_prompt",
     ),
 ]
 
@@ -175,7 +178,7 @@ MUSICGEN_INPUTS: List[InputFieldDefinition] = [
         height=100,
         order=1,
         supports_presets=True,
-        preset_category="instrumental_prompt"
+        preset_category="instrumental_prompt",
     ),
 ]
 
@@ -193,7 +196,7 @@ WAN_VIDEO_INPUTS: List[InputFieldDefinition] = [
         height=120,
         order=1,
         supports_presets=True,
-        preset_category="video_prompt"
+        preset_category="video_prompt",
     ),
     InputFieldDefinition(
         name="negative_prompt",
@@ -205,7 +208,7 @@ WAN_VIDEO_INPUTS: List[InputFieldDefinition] = [
         placeholder="blurry, low quality, distorted faces, text, watermark",
         height=80,
         order=2,
-        advanced=True
+        advanced=True,
     ),
 ]
 
@@ -222,7 +225,7 @@ LUMA_VIDEO_INPUTS: List[InputFieldDefinition] = [
         height=150,
         order=1,
         supports_presets=True,
-        preset_category="video_prompt"
+        preset_category="video_prompt",
     ),
 ]
 
@@ -239,7 +242,7 @@ VEO_VIDEO_INPUTS: List[InputFieldDefinition] = [
         height=150,
         order=1,
         supports_presets=True,
-        preset_category="video_prompt"
+        preset_category="video_prompt",
     ),
 ]
 
@@ -255,7 +258,6 @@ MODEL_INPUT_REGISTRY: Dict[str, List[InputFieldDefinition]] = {
     "lucataco/ace-step": ACE_STEP_INPUTS,
     "google/lyria-2": LYRIA_INPUTS,
     "meta/musicgen": MUSICGEN_INPUTS,
-
     # Video models
     "wan-video/wan-2.5-t2v-fast": WAN_VIDEO_INPUTS,
     "luma/ray-flash-2-540p": LUMA_VIDEO_INPUTS,
@@ -295,7 +297,7 @@ def get_input_fields_for_model(model_id: str) -> List[InputFieldDefinition]:
             required=True,
             placeholder="Enter your generation prompt...",
             height=120,
-            order=1
+            order=1,
         )
     ]
 
@@ -319,9 +321,7 @@ def get_max_chars_for_field(model_id: str, field_name: str) -> Optional[int]:
 
 
 def validate_input(
-    model_id: str,
-    field_name: str,
-    value: str
+    model_id: str, field_name: str, value: str
 ) -> Tuple[bool, Optional[str]]:
     """
     Validate an input value against model constraints.
@@ -344,11 +344,17 @@ def validate_input(
 
             # Check max chars
             if field.max_chars and len(value) > field.max_chars:
-                return False, f"{field.label} exceeds {field.max_chars} character limit ({len(value)} chars)"
+                return (
+                    False,
+                    f"{field.label} exceeds {field.max_chars} character limit ({len(value)} chars)",
+                )
 
             # Check min chars
             if field.min_chars and value.strip() and len(value) < field.min_chars:
-                return False, f"{field.label} needs at least {field.min_chars} characters"
+                return (
+                    False,
+                    f"{field.label} needs at least {field.min_chars} characters",
+                )
 
             return True, None
 
@@ -357,9 +363,7 @@ def validate_input(
 
 
 def filter_presets_by_char_limit(
-    presets: List[Dict[str, Any]],
-    max_chars: int,
-    content_field: str = "content"
+    presets: List[Dict[str, Any]], max_chars: int, content_field: str = "content"
 ) -> List[Dict[str, Any]]:
     """
     Filter presets to only those that fit within a character limit.
@@ -372,10 +376,7 @@ def filter_presets_by_char_limit(
     Returns:
         Filtered list of presets that fit within limit
     """
-    return [
-        p for p in presets
-        if len(p.get(content_field, "")) <= max_chars
-    ]
+    return [p for p in presets if len(p.get(content_field, "")) <= max_chars]
 
 
 def get_fields_supporting_presets(model_id: str) -> List[InputFieldDefinition]:

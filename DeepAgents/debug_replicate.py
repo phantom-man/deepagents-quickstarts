@@ -1,4 +1,5 @@
 import sys
+
 import replicate
 from dotenv import load_dotenv
 
@@ -12,7 +13,7 @@ print(f"DEBUG: Testing {model}...")
 # Test 1: Full inputs (Prompt + Lyrics)
 inputs_full = {
     "prompt": "Orchestral epic music, 80s synthwave style.",
-    "lyrics": "This is a test song / We are checking the API / Minimax please work"
+    "lyrics": "This is a test song / We are checking the API / Minimax please work",
 }
 
 try:
@@ -24,9 +25,7 @@ except Exception as e:
     print("FAILED:", e)
 
 # Test 2: Prompt Only
-inputs_prompt = {
-    "prompt": "Orchestral epic music, 80s synthwave style."
-}
+inputs_prompt = {"prompt": "Orchestral epic music, 80s synthwave style."}
 
 try:
     print("\nAttempt 2: Prompt Only")

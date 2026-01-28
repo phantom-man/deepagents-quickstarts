@@ -7,9 +7,11 @@ Tests 10 edge cases with budget constraints:
 - Voice: Kokoro ($0.005), XTTS-v2 ($0.01)
 - Total budget per test: < $0.50 for non-Google, minimal runs overall
 """
+
 import asyncio
 import os
-from playwright.async_api import async_playwright, Page
+
+from playwright.async_api import Page, async_playwright
 
 STREAMLIT_URL = "http://localhost:8501"
 
@@ -60,7 +62,7 @@ async def select_streamlit_dropdown(page: Page, option_text: str):
 
 async def fill_streamlit_textarea(page: Page, text: str, index: int = 0):
     """Fill a Streamlit textarea by index."""
-    textareas = page.locator('textarea')
+    textareas = page.locator("textarea")
     count = await textareas.count()
     if index < count:
         await textareas.nth(index).fill(text)
@@ -162,7 +164,7 @@ async def test_case_3_video_and_music_budget(page: Page):
     print(f"{OK} Music model: Music-1.5")
 
     # Fill prompts - video is first textarea, music is later
-    textareas = page.locator('textarea')
+    textareas = page.locator("textarea")
     count = await textareas.count()
     if count >= 1:
         await textareas.nth(0).fill("Ocean waves at sunset")
@@ -202,7 +204,7 @@ async def test_case_4_lyria_instrumental(page: Page):
     await page.wait_for_timeout(1000)
 
     # Check for "instrumental music only" message
-    instrumental_msg = page.locator('text=instrumental music only')
+    instrumental_msg = page.locator("text=instrumental music only")
     if await instrumental_msg.count() > 0:
         print(f"{OK} Instrumental-only message displayed")
 
@@ -299,7 +301,7 @@ async def test_case_7_validation_empty_prompt(page: Page):
     await wait_for_streamlit(page)
 
     # Check for textarea (prompt field)
-    textareas = page.locator('textarea')
+    textareas = page.locator("textarea")
     count = await textareas.count()
 
     if count > 0:
@@ -331,7 +333,7 @@ async def test_case_8_preset_popover(page: Page):
         await page.wait_for_timeout(500)
     else:
         # Maybe it's text instead
-        preset_text = page.locator('text=Presets')
+        preset_text = page.locator("text=Presets")
         if await preset_text.count() > 0:
             print(f"{OK} Presets option available")
             has_preset = True
@@ -350,7 +352,7 @@ async def test_case_9_cost_estimate(page: Page):
     await wait_for_streamlit(page)
 
     # Look for cost-related text
-    cost_text = page.locator('text=Estimated Cost')
+    cost_text = page.locator("text=Estimated Cost")
     has_cost = await cost_text.count() > 0
 
     if has_cost:
@@ -359,7 +361,7 @@ async def test_case_9_cost_estimate(page: Page):
         print(f"{WARN} Cost estimate not visible")
 
     # Look for dollar signs
-    dollar = page.locator('text=/\\$/')
+    dollar = page.locator("text=/\\$/")
     dollar_count = await dollar.count()
     if dollar_count > 0:
         print(f"{OK} Found {dollar_count} price references")
@@ -397,10 +399,10 @@ async def test_case_10_run_button(page: Page):
 
 async def main():
     """Run all 10 test cases."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("AGENCY UI EDGE CASE TESTING")
     print("Budget Constraints: Video < $0.50, No long runs")
-    print("="*60)
+    print("=" * 60)
 
     # Create screenshots directory
     os.makedirs("tests/screenshots", exist_ok=True)
@@ -445,7 +447,7 @@ async def main():
             except Exception as e:
                 print(f"{FAIL} {name} failed with error: {e}")
                 results.append((name, False))
-                fname = name.replace(' ', '_').replace(':', '')
+                fname = name.replace(" ", "_").replace(":", "")
                 await page.screenshot(path=f"tests/screenshots/error_{fname}.png")
 
             # Small delay between tests
@@ -454,9 +456,9 @@ async def main():
         await browser.close()
 
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("TEST SUMMARY")
-    print("="*60)
+    print("=" * 60)
     passed = sum(1 for _, r in results if r)
     failed = len(results) - passed
 
@@ -465,7 +467,7 @@ async def main():
         print(f"  {status}: {name}")
 
     print(f"\nTotal: {passed}/{len(results)} passed, {failed} failed")
-    print("="*60)
+    print("=" * 60)
 
 
 if __name__ == "__main__":

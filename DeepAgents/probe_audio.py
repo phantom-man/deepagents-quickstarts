@@ -1,6 +1,7 @@
 import os
-from google import genai
+
 from dotenv import load_dotenv
+from google import genai
 
 load_dotenv()
 project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
@@ -17,9 +18,7 @@ for model_id in models_to_test:
         response = client.models.generate_content(
             model=model_id,
             contents="Generate a short 5-second audio clip of a jazz saxophone solo.",
-            config={
-                'response_mime_type': 'audio/wav'
-            }
+            config={"response_mime_type": "audio/wav"},
         )
         # Check if we got audio back
         if response.candidates and response.candidates[0].content.parts:
@@ -31,8 +30,8 @@ for model_id in models_to_test:
                     f.write(part.inline_data.data)
                     print(f"   Saved to test_audio_{model_id}.wav")
             else:
-                 print("⚠️ Model returned text (or other) instead of audio data.")
-                 print(f"   Response: {part.text}")
+                print("⚠️ Model returned text (or other) instead of audio data.")
+                print(f"   Response: {part.text}")
         else:
             print("❌ No candidates returned.")
 

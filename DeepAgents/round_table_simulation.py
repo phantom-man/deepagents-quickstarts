@@ -5,10 +5,12 @@ This module simulates a round-table discussion between AI Agents to select their
 
 import json
 import logging
-from DeepAgents.replicate_adapter import ChatReplicate
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import HumanMessage
+
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+from DeepAgents.replicate_adapter import ChatReplicate
 
 load_dotenv("DeepAgents/.env")
 
@@ -20,14 +22,11 @@ logger = logging.getLogger("RoundTable1")
 # Switched from Gemini 3 Pro (Preview) due to quota issues
 try:
     llm = ChatReplicate(
-        model="meta/meta-llama-3-70b-instruct",
-        model_kwargs={"temperature": 0.8}
+        model="meta/meta-llama-3-70b-instruct", model_kwargs={"temperature": 0.8}
     )
 except Exception:
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-pro-001",
-        temperature=0.8,
-        location="global"
+        model="gemini-1.5-pro-001", temperature=0.8, location="global"
     )
 
 # AVAILABLE VOICES (From Probe)
@@ -52,6 +51,7 @@ AGENTS = [
     {"name": "Research", "role": "Factual, precise, digging for info."},
     {"name": "Copilot", "role": "Engineering lead, practical, technical."},
 ]
+
 
 def convene_voice_selection_table():
     """Convenes the round table to select voices."""
@@ -104,7 +104,9 @@ def convene_voice_selection_table():
 
     try:
         dialogue = json.loads(content)
-        with open("DeepAgents/round_table_1_transcript.json", "w", encoding="utf-8") as f:
+        with open(
+            "DeepAgents/round_table_1_transcript.json", "w", encoding="utf-8"
+        ) as f:
             json.dump(dialogue, f, indent=2)
         logger.info("✅ Transcript saved to DeepAgents/round_table_1_transcript.json")
         return dialogue
@@ -112,6 +114,7 @@ def convene_voice_selection_table():
     except Exception as e:
         logger.error("Failed to parse JSON: %s", e)
         return []
+
 
 if __name__ == "__main__":
     convene_voice_selection_table()

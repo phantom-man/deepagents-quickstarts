@@ -2,11 +2,12 @@
 Verifies the communication loop between Director and Cinematographer agents.
 Invokes both agents as subprocesses and checks for message exchange in DB.
 """
-import subprocess
-import time
-import sys
-import os
+
 import logging
+import os
+import subprocess
+import sys
+import time
 
 try:
     from agent_brain import AgentComms
@@ -14,13 +15,14 @@ except ImportError:
     # Fallback to local import if run from root without module context
     from DeepAgents.agent_brain import AgentComms
 
+
 def run_verification():
     """
     Main verification logic.
     Launches Cinematographer (bg) and Director (fg).
     Monitors Postgres for communication.
     """
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     logger = logging.getLogger("Verifier")
 
     logger.info("🧪 --- Starting Agent Mesh Verification ---")
@@ -39,8 +41,8 @@ def run_verification():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        encoding='utf-8',
-        env=env
+        encoding="utf-8",
+        env=env,
     )
 
     logger.info("⏳ Waiting 10s for Cinematographer to hydrate and connect...")
@@ -49,7 +51,9 @@ def run_verification():
     # Check if it died
     if cine_process.poll() is not None:
         stdout, stderr = cine_process.communicate()
-        logger.error("❌ Cinematographer died early!\nSTDOUT: %s\nSTDERR: %s", stdout, stderr)
+        logger.error(
+            "❌ Cinematographer died early!\nSTDOUT: %s\nSTDERR: %s", stdout, stderr
+        )
         return
 
     # 2. Start Director (Foreground)
@@ -68,7 +72,9 @@ def run_verification():
 
     comms = AgentComms(password="d1204l0723")
     if not comms.connect():
-        logger.error("❌ CRITICAL: Could not connect to Postgres DB. Is the server running?")
+        logger.error(
+            "❌ CRITICAL: Could not connect to Postgres DB. Is the server running?"
+        )
         cine_process.terminate()
         return
 
@@ -91,7 +97,9 @@ def run_verification():
                 row = cur.fetchone()
 
             if row:
-                logger.info("✅ VERIFIED! Message received from Cinematographer: '%s'", row[0])
+                logger.info(
+                    "✅ VERIFIED! Message received from Cinematographer: '%s'", row[0]
+                )
                 found = True
                 break
         else:
@@ -106,8 +114,11 @@ def run_verification():
     cine_process.terminate()
     try:
         outs, errs = cine_process.communicate(timeout=5)
-        logger.info("--- Cinematographer Logs ---\n%s\n%s\n----------------------------",
-                   outs, errs)
+        logger.info(
+            "--- Cinematographer Logs ---\n%s\n%s\n----------------------------",
+            outs,
+            errs,
+        )
     except subprocess.TimeoutExpired:
         cine_process.kill()
         logger.info("Killed forcefully.")
@@ -118,6 +129,7 @@ def run_verification():
     else:
         logger.error("❌ TEST FAILED: Loop did not complete.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     run_verification()

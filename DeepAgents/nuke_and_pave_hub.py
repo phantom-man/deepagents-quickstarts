@@ -1,6 +1,7 @@
 import os
-import sys
 import subprocess
+import sys
+
 from dotenv import load_dotenv
 from langsmith import Client
 
@@ -23,7 +24,7 @@ repos = [
     "researcher-system-prompt",
     "cinematographer-system-prompt",
     "composer-system-prompt",
-    "confidence-system-prompt"
+    "confidence-system-prompt",
 ]
 
 client = Client()
@@ -47,7 +48,9 @@ for repo in repos:
 print("\n--- 🏗️ PAVING (Re-Pushing Fresh Prompts) ---")
 # Invoke the push script to recreate them
 try:
-    result = subprocess.run([sys.executable, "DeepAgents/push_prompts.py"], capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "DeepAgents/push_prompts.py"], capture_output=True, text=True
+    )
     print(result.stdout)
     if result.stderr:
         print("Standard Error Output:")

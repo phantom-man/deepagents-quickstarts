@@ -10,6 +10,7 @@ Each preset includes:
 Music-1.5 limit: 600 chars
 ACE-Step limit: 3000 chars
 """
+
 from dataclasses import dataclass, field
 from typing import List
 
@@ -17,6 +18,7 @@ from typing import List
 @dataclass
 class LyricsPreset:
     """A curated lyrics preset."""
+
     id: str
     name: str
     content: str
@@ -76,9 +78,8 @@ Tonight we take back the night
 Rise up, rise up from the ashes
 Break the chains that held us down
 Rise up, rise up, nothing stops us
-We wear our scars like a crown"""
+We wear our scars like a crown""",
     ),
-
     # 2. Pop/Love - 520 chars
     LyricsPreset(
         id="pop_electric_hearts",
@@ -109,9 +110,8 @@ With you I'll never be alone
 Electric hearts beating as one
 Dancing under neon sun
 You and me, we've just begun
-Electric hearts, never come undone"""
+Electric hearts, never come undone""",
     ),
-
     # 3. Country - 550 chars
     LyricsPreset(
         id="country_backroads",
@@ -144,9 +144,8 @@ Backroads and bonfires
 Old friends and heart's desires
 Nothing but time on our hands
 Living life with no plans
-Just backroads and bonfires"""
+Just backroads and bonfires""",
     ),
-
     # 4. Hip-Hop - 590 chars
     LyricsPreset(
         id="hiphop_grind",
@@ -179,9 +178,8 @@ Success don't come quick
 
 [Chorus]
 This is the grind, we don't stop
-Started from nothing, now we at the top"""
+Started from nothing, now we at the top""",
     ),
-
     # 5. EDM/Dance - 480 chars
     LyricsPreset(
         id="edm_tonight",
@@ -214,9 +212,8 @@ Can you feel it tonight
 We're burning so bright
 Hands up to the sky
 We're ready to fly
-Feel it tonight"""
+Feel it tonight""",
     ),
-
     # 6. R&B/Soul - 570 chars
     LyricsPreset(
         id="rnb_stay",
@@ -253,9 +250,8 @@ Just stay
 Stay with me through the night
 Hold me close, hold me tight
 In your arms I found my peace
-A love that will never cease"""
+A love that will never cease""",
     ),
-
     # 7. Indie/Alternative - 540 chars
     LyricsPreset(
         id="indie_wanderer",
@@ -291,9 +287,8 @@ Following an unknown song
 
 [Outro]
 Keep walking, keep searching
-The answer's just around the bend"""
+The answer's just around the bend""",
     ),
-
     # 8. Metal/Hard Rock - 585 chars
     LyricsPreset(
         id="metal_unbreakable",
@@ -330,9 +325,8 @@ Unbreakable
 
 [Bridge]
 Nothing breaks these chains
-Victory runs through our veins"""
+Victory runs through our veins""",
     ),
-
     # 9. Folk/Acoustic - 530 chars
     LyricsPreset(
         id="folk_seasons",
@@ -367,9 +361,8 @@ Life keeps moving, moving on
 
 [Outro]
 Round and round the world turns
-Every ending, something learns"""
+Every ending, something learns""",
     ),
-
     # 10. Blues - 560 chars
     LyricsPreset(
         id="blues_midnight",
@@ -402,9 +395,8 @@ Got the midnight blues again
 Drowning in the might-have-beens
 Heart's been broken, soul's been torn
 Feeling tired, feeling worn
-These midnight blues"""
+These midnight blues""",
     ),
-
     # 11. Reggae - 510 chars
     LyricsPreset(
         id="reggae_sunshine",
@@ -436,9 +428,8 @@ Peace and love is what we found
 Island sunshine on my face
 Everything falls into place
 No worries, no stress today
-Reggae music leads the way"""
+Reggae music leads the way""",
     ),
-
     # 12. Punk - 490 chars
     LyricsPreset(
         id="punk_rebel",
@@ -469,9 +460,8 @@ Revolution is our choice
 Rebel heart won't be contained
 Breaking free from every chain
 Scream it loud, let them hear
-Rebel hearts feel no fear"""
+Rebel hearts feel no fear""",
     ),
-
     # 13. Jazz/Swing - 545 chars
     LyricsPreset(
         id="jazz_night",
@@ -506,9 +496,8 @@ Just give me one more night
 
 [Outro]
 One more night, that's all I need
-One more night with you"""
+One more night with you""",
     ),
-
     # 14. Electronic/Synthwave - 500 chars
     LyricsPreset(
         id="synth_neon",
@@ -540,9 +529,8 @@ We could be anywhere
 Neon dreams in the dark
 Digital fire, electric spark
 Running through the city glow
-Everywhere we want to go"""
+Everywhere we want to go""",
     ),
-
     # 15. Gospel/Inspirational - 580 chars
     LyricsPreset(
         id="gospel_grace",
@@ -579,9 +567,8 @@ Amazing grace
 
 [Outro]
 Grace that saved a soul like me
-Grace that set my spirit free"""
+Grace that set my spirit free""",
     ),
-
     # 16. Latin/Salsa - 520 chars
     LyricsPreset(
         id="latin_fuego",
@@ -618,9 +605,8 @@ Fuego
 
 [Outro]
 Light the fire, feel the flame
-Nothing ever stays the same"""
+Nothing ever stays the same""",
     ),
-
     # 17. Acoustic Ballad - 590 chars
     LyricsPreset(
         id="ballad_remember",
@@ -657,9 +643,8 @@ Frozen in those golden days
 [Bridge]
 Though years have passed us by
 Some loves will never die
-Remember when"""
+Remember when""",
     ),
-
     # 18. Disco/Funk - 510 chars
     LyricsPreset(
         id="disco_groove",
@@ -691,9 +676,8 @@ This is where you want to be
 Get your groove on, move your feet
 Feel the rhythm, feel the beat
 Nothing's gonna bring us down
-Funkiest night in this town"""
+Funkiest night in this town""",
     ),
-
     # 19. Singer-Songwriter - 570 chars
     LyricsPreset(
         id="acoustic_honest",
@@ -730,9 +714,8 @@ The only truth I can see
 [Bridge]
 Strip away the pretense
 What remains makes sense
-Just honest words, nothing less"""
+Just honest words, nothing less""",
     ),
-
     # 20. Epic/Cinematic - 595 chars
     LyricsPreset(
         id="epic_heroes",
@@ -771,13 +754,11 @@ Heroes rise
 From the ashes we are born
 Every battle we have worn
 Like armor on our souls
-Makes us forever whole"""
+Makes us forever whole""",
     ),
-
     # =========================================================================
     # ADDITIONAL LYRICS PRESETS (21-100)
     # =========================================================================
-
     # 21. Alternative Rock - 575 chars
     LyricsPreset(
         id="alt_broken_mirror",
@@ -808,9 +789,8 @@ In the chambers of my heart
 I'm not who I used to be
 Shattered glass won't set me free
 Looking for the missing parts
-Scattered pieces of my heart"""
+Scattered pieces of my heart""",
     ),
-
     # 22. Acoustic Folk - 540 chars
     LyricsPreset(
         id="folk_river_song",
@@ -839,9 +819,8 @@ Safe from the world and all its harms
 
 [Chorus]
 Sing me a river song tonight
-Where the water meets the light"""
+Where the water meets the light""",
     ),
-
     # 23. Soul/R&B - 565 chars
     LyricsPreset(
         id="soul_one_more_chance",
@@ -871,9 +850,8 @@ Without a fight to hold our ground
 
 [Chorus]
 Give me one more chance to prove
-That my heart beats just for you"""
+That my heart beats just for you""",
     ),
-
     # 24. Pop Rock - 550 chars
     LyricsPreset(
         id="pop_rock_unstoppable",
@@ -905,9 +883,8 @@ Breaking every single rule
 I'm unstoppable tonight
 Burning brighter than the light
 Nothing's gonna hold me back
-I'm on the attack"""
+I'm on the attack""",
     ),
-
     # 25. Country Pop - 560 chars
     LyricsPreset(
         id="country_small_town",
@@ -936,9 +913,8 @@ So I packed my bags and hit the road
 With nothing but a heart of gold
 
 [Chorus]
-Small town dreams and big city lights"""
+Small town dreams and big city lights""",
     ),
-
     # 26. Indie Pop - 530 chars
     LyricsPreset(
         id="indie_paper_planes",
@@ -969,9 +945,8 @@ It lives in us today
 Paper planes and childhood games
 Nothing ever stays the same
 But somewhere up above the clouds
-Our dreams are flying proud"""
+Our dreams are flying proud""",
     ),
-
     # 27. Hard Rock - 580 chars
     LyricsPreset(
         id="hard_rock_thunder",
@@ -1007,9 +982,8 @@ No walls around this town
 Thunder road, take me home
 Where the wild ones always roam
 Burn the night with gasoline
-Living fast, living mean"""
+Living fast, living mean""",
     ),
-
     # 28. Dance Pop - 490 chars
     LyricsPreset(
         id="dance_all_night",
@@ -1038,9 +1012,8 @@ Move your body, lose your mind
 Leave your worries far behind
 
 [Chorus]
-Dance all night until the sun"""
+Dance all night until the sun""",
     ),
-
     # 29. Acoustic Ballad - 570 chars
     LyricsPreset(
         id="acoustic_goodbye",
@@ -1072,9 +1045,8 @@ Showed me how much someone cared
 Goodbye for now, but not forever
 Our hearts are tied by more than weather
 Though miles may come between us two
-I'll always find my way to you"""
+I'll always find my way to you""",
     ),
-
     # 30. Emo/Post-Punk - 575 chars
     LyricsPreset(
         id="emo_black_roses",
@@ -1109,9 +1081,8 @@ But these wounds still burn and sting
 [Chorus]
 Black roses in the rain
 Reminders of the pain
-You painted love in shades of gray"""
+You painted love in shades of gray""",
     ),
-
     # 31. Tropical House - 500 chars
     LyricsPreset(
         id="tropical_paradise",
@@ -1141,9 +1112,8 @@ In paradise each and every day
 
 [Chorus]
 Found my paradise at last
-Leaving all my worries past"""
+Leaving all my worries past""",
     ),
-
     # 32. Progressive Rock - 590 chars
     LyricsPreset(
         id="prog_time_machine",
@@ -1179,9 +1149,8 @@ Beginning where we should have end
 In my time machine I ride
 Through dimensions far and wide
 Past and future intertwine
-Everything is by design"""
+Everything is by design""",
     ),
-
     # 33. Nu Metal - 565 chars
     LyricsPreset(
         id="nu_metal_break",
@@ -1215,9 +1184,8 @@ Every doubt and every fear
 [Chorus]
 Break the silence, hear me scream
 Nothing's ever what it seems
-Tear it down and start again"""
+Tear it down and start again""",
     ),
-
     # 34. Soft Rock - 545 chars
     LyricsPreset(
         id="soft_rock_seasons",
@@ -1247,9 +1215,8 @@ Holding close through every night
 
 [Chorus]
 Through all the seasons of our love
-You're everything I'm dreaming of"""
+You're everything I'm dreaming of""",
     ),
-
     # 35. Funk - 520 chars
     LyricsPreset(
         id="funk_groove_thing",
@@ -1279,9 +1246,8 @@ Let that funky feeling keep on flowing
 
 [Chorus]
 You got that groove thing going on
-Keep on dancing till the dawn"""
+Keep on dancing till the dawn""",
     ),
-
     # 36. Power Pop - 510 chars
     LyricsPreset(
         id="power_pop_summer",
@@ -1311,9 +1277,8 @@ Better than all the rest
 
 [Chorus]
 Summer crush under the sun
-Feels like love has just begun"""
+Feels like love has just begun""",
     ),
-
     # 37. Grunge - 570 chars
     LyricsPreset(
         id="grunge_torn_jeans",
@@ -1348,9 +1313,8 @@ Until then I'll stay estranged
 [Chorus]
 Torn jeans and faded dreams
 Life is harder than it seems
-Lost somewhere in between"""
+Lost somewhere in between""",
     ),
-
     # 38. Ska Punk - 530 chars
     LyricsPreset(
         id="ska_friday_night",
@@ -1380,9 +1344,8 @@ Got the weekend in the bank
 
 [Chorus]
 It's Friday night and we're alive
-Dancing like we're twenty-five"""
+Dancing like we're twenty-five""",
     ),
-
     # 39. Electro Pop - 485 chars
     LyricsPreset(
         id="electro_digital_love",
@@ -1412,9 +1375,8 @@ Nothing's changed the way I feel
 
 [Chorus]
 Digital love across the wire
-Binary code and pure desire"""
+Binary code and pure desire""",
     ),
-
     # 40. Psychedelic - 555 chars
     LyricsPreset(
         id="psych_kaleidoscope",
@@ -1448,9 +1410,8 @@ And watch the colors flow
 
 [Chorus]
 Kaleidoscope eyes see the truth
-Visions of eternal youth"""
+Visions of eternal youth""",
     ),
-
     # 41. Christian Rock - 560 chars
     LyricsPreset(
         id="christian_light",
@@ -1482,9 +1443,8 @@ Following His perfect plans
 Walk in light, walk in grace
 Feel the warmth of His embrace
 Every step along the way
-He guides me through each day"""
+He guides me through each day""",
     ),
-
     # 42. Classic Rock - 575 chars
     LyricsPreset(
         id="classic_highway",
@@ -1518,9 +1478,8 @@ We live and ride, come what may
 
 [Chorus]
 Highway riders, born to roam
-Every mile becomes our home"""
+Every mile becomes our home""",
     ),
-
     # 43. New Wave - 505 chars
     LyricsPreset(
         id="new_wave_midnight",
@@ -1550,9 +1509,8 @@ We dance like we're insane
 
 [Chorus]
 Midnight radio calling out
-Spinning records filled with doubt"""
+Spinning records filled with doubt""",
     ),
-
     # 44. Indie Folk - 545 chars
     LyricsPreset(
         id="indie_folk_cabin",
@@ -1584,9 +1542,8 @@ Peace that never has to end
 In my cabin in the woods
 Living simply, living good
 Far from chaos, far from noise
-Finding peace and simple joys"""
+Finding peace and simple joys""",
     ),
-
     # 45. Hardcore Punk - 480 chars
     LyricsPreset(
         id="hardcore_no_future",
@@ -1616,9 +1573,8 @@ Together we can have it all
 
 [Chorus]
 No future, that's what they say
-But we're gonna find a way"""
+But we're gonna find a way""",
     ),
-
     # 46. Synthpop - 510 chars
     LyricsPreset(
         id="synthpop_electric",
@@ -1648,9 +1604,8 @@ Learning how to cope
 
 [Chorus]
 Electric dreams of you and me
-A future that we'd never see"""
+A future that we'd never see""",
     ),
-
     # 47. Americana - 565 chars
     LyricsPreset(
         id="americana_crossroads",
@@ -1684,9 +1639,8 @@ Just different verses of the same song
 
 [Chorus]
 At the crossroads of my life
-Cut through the doubt like a knife"""
+Cut through the doubt like a knife""",
     ),
-
     # 48. Shoegaze - 540 chars
     LyricsPreset(
         id="shoegaze_waves",
@@ -1717,9 +1671,8 @@ Lost on this distorted shore
 [Chorus]
 Waves of static fill my ears
 Washing away all my fears
-Drifting through this endless sea"""
+Drifting through this endless sea""",
     ),
-
     # 49. Southern Rock - 570 chars
     LyricsPreset(
         id="southern_whiskey",
@@ -1753,9 +1706,8 @@ Living fast and living free
 
 [Chorus]
 Whiskey river running wild
-Been this way since I was a child"""
+Been this way since I was a child""",
     ),
-
     # 50. Trip Hop - 515 chars
     LyricsPreset(
         id="trip_hop_shadows",
@@ -1785,9 +1737,8 @@ A world you'll never understand
 
 [Chorus]
 City shadows come alive
-In the darkness we survive"""
+In the darkness we survive""",
     ),
-
     # 51. Dream Pop - 525 chars
     LyricsPreset(
         id="dream_pop_stardust",
@@ -1818,9 +1769,8 @@ Of a billion stars tonight
 [Chorus]
 We are stardust, you and I
 Scattered across the evening sky
-Infinite and undefined"""
+Infinite and undefined""",
     ),
-
     # 52. Post-Rock - 555 chars
     LyricsPreset(
         id="post_rock_horizons",
@@ -1851,9 +1801,8 @@ This is who we're meant to be
 [Chorus]
 Distant horizons call to me
 A world of possibility
-Every note a step ahead"""
+Every note a step ahead""",
     ),
-
     # 53. Glam Rock - 540 chars
     LyricsPreset(
         id="glam_superstar",
@@ -1884,9 +1833,8 @@ On this stage I was meant to have
 [Chorus]
 I'm a superstar tonight
 Burning brighter than the light
-Glitter falling like the rain"""
+Glitter falling like the rain""",
     ),
-
     # 54. Britpop - 520 chars
     LyricsPreset(
         id="britpop_london",
@@ -1916,9 +1864,8 @@ Always wanting something more
 
 [Chorus]
 London's calling me tonight
-Through the rain and neon lights"""
+Through the rain and neon lights""",
     ),
-
     # 55. Industrial - 510 chars
     LyricsPreset(
         id="industrial_machine",
@@ -1948,9 +1895,8 @@ This is what we have become
 
 [Chorus]
 Machine heart beats in my chest
-Put your weakness to the test"""
+Put your weakness to the test""",
     ),
-
     # 56. Celtic Rock - 565 chars
     LyricsPreset(
         id="celtic_emerald",
@@ -1983,9 +1929,8 @@ The pipes are calling, can you hear
 The sound that washes away fear
 
 [Chorus]
-Emerald isle, my heart's true home"""
+Emerald isle, my heart's true home""",
     ),
-
     # 57. Garage Rock - 490 chars
     LyricsPreset(
         id="garage_loud",
@@ -2015,9 +1960,8 @@ Playing our songs on the brink
 
 [Chorus]
 Loud and proud, that's our way
-Got something real to say"""
+Got something real to say""",
     ),
-
     # 58. Melodic Hardcore - 545 chars
     LyricsPreset(
         id="melodic_hc_burning",
@@ -2048,9 +1992,8 @@ Everything has turned to black
 [Chorus]
 Burning bridges as I go
 Leaving everything I know
-Can't go back to what we had"""
+Can't go back to what we had""",
     ),
-
     # 59. Math Rock - 535 chars
     LyricsPreset(
         id="math_rock_patterns",
@@ -2080,9 +2023,8 @@ Beauty found in the arcane
 
 [Chorus]
 Patterns weaving through my mind
-Rhythms of a different kind"""
+Rhythms of a different kind""",
     ),
-
     # 60. Gothic Metal - 580 chars
     LyricsPreset(
         id="gothic_eternal",
@@ -2116,9 +2058,8 @@ Where salvation meets the sin
 
 [Chorus]
 In eternal night I dwell
-Between the realms of heaven and hell"""
+Between the realms of heaven and hell""",
     ),
-
     # 61. Reggaeton - 495 chars
     LyricsPreset(
         id="reggaeton_fuego",
@@ -2148,9 +2089,8 @@ This is gonna be our night
 
 [Chorus]
 Puro fuego when we dance
-Give me just one more chance"""
+Give me just one more chance""",
     ),
-
     # 62. Metalcore - 555 chars
     LyricsPreset(
         id="metalcore_awakening",
@@ -2184,9 +2124,8 @@ See through all their lies
 
 [Chorus]
 This is the awakening
-The moment we've been waiting"""
+The moment we've been waiting""",
     ),
-
     # 63. Chillwave - 505 chars
     LyricsPreset(
         id="chillwave_sunset",
@@ -2216,9 +2155,8 @@ Wish that we could always stay
 
 [Chorus]
 Sunset drive along the coast
-With the one I love the most"""
+With the one I love the most""",
     ),
-
     # 64. Screamo - 520 chars
     LyricsPreset(
         id="screamo_silence",
@@ -2248,9 +2186,8 @@ Finally becoming me
 
 [Chorus]
 Silence screaming in my head
-All the words I should have said"""
+All the words I should have said""",
     ),
-
     # 65. Blues Rock - 560 chars
     LyricsPreset(
         id="blues_rock_devil",
@@ -2284,9 +2221,8 @@ I'll keep what I already got
 
 [Chorus]
 On the devil's highway I ride
-Got nothing left to hide"""
+Got nothing left to hide""",
     ),
-
     # 66. Afrobeat - 530 chars
     LyricsPreset(
         id="afrobeat_rhythm",
@@ -2316,9 +2252,8 @@ This is our destiny
 
 [Chorus]
 This is the rhythm of life
-Cutting through the darkness like a knife"""
+Cutting through the darkness like a knife""",
     ),
-
     # 67. Stoner Rock - 555 chars
     LyricsPreset(
         id="stoner_desert",
@@ -2352,9 +2287,8 @@ Reality bursts at the seams
 
 [Chorus]
 Desert fuzz surrounds us now
-Don't ask why, don't ask how"""
+Don't ask why, don't ask how""",
     ),
-
     # 68. Dancehall - 490 chars
     LyricsPreset(
         id="dancehall_island",
@@ -2384,9 +2318,8 @@ Blessings from the sky above
 
 [Chorus]
 Island vibes are what we bring
-Come on everybody swing"""
+Come on everybody swing""",
     ),
-
     # 69. Post-Punk - 535 chars
     LyricsPreset(
         id="post_punk_grey",
@@ -2417,9 +2350,8 @@ On cold and empty streets
 [Chorus]
 Grey days, grey nights
 Lost in industrial lights
-The rhythm pounds like machinery"""
+The rhythm pounds like machinery""",
     ),
-
     # 70. Pop Punk - 510 chars
     LyricsPreset(
         id="pop_punk_summer",
@@ -2449,9 +2381,8 @@ Made it through, don't ask how
 
 [Chorus]
 Last summer changed everything
-Still hear the phone when it rings"""
+Still hear the phone when it rings""",
     ),
-
     # 71. Art Rock - 570 chars
     LyricsPreset(
         id="art_rock_museum",
@@ -2485,9 +2416,8 @@ Tell me how I'm supposed to feel
 
 [Chorus]
 I'm a museum piece on display
-People staring every day"""
+People staring every day""",
     ),
-
     # 72. Oi Punk - 485 chars
     LyricsPreset(
         id="oi_working",
@@ -2517,9 +2447,8 @@ And that can never be denied
 
 [Chorus]
 Working class and proud to be
-Fighting for our liberty"""
+Fighting for our liberty""",
     ),
-
     # 73. Darkwave - 525 chars
     LyricsPreset(
         id="darkwave_velvet",
@@ -2549,9 +2478,8 @@ Where the music takes control
 
 [Chorus]
 Velvet shadows on the wall
-Hear the darkness when it calls"""
+Hear the darkness when it calls""",
     ),
-
     # 74. Surf Rock - 505 chars
     LyricsPreset(
         id="surf_endless",
@@ -2581,9 +2509,8 @@ Forever young, forever free
 
 [Chorus]
 Endless waves roll to the shore
-That's what we're living for"""
+That's what we're living for""",
     ),
-
     # 75. Doom Metal - 565 chars
     LyricsPreset(
         id="doom_funeral",
@@ -2616,9 +2543,8 @@ Slower, heavier, we descend
 Journey to the bitter end
 
 [Chorus]
-Funeral march plays on and on"""
+Funeral march plays on and on""",
     ),
-
     # 76. Eurodance - 480 chars
     LyricsPreset(
         id="eurodance_night",
@@ -2648,9 +2574,8 @@ This music is the best
 
 [Chorus]
 Into the night we fly
-Hands up reaching to the sky"""
+Hands up reaching to the sky""",
     ),
-
     # 77. Thrash Metal - 555 chars
     LyricsPreset(
         id="thrash_war",
@@ -2684,9 +2609,8 @@ What are we fighting for
 
 [Chorus]
 War machine, war machine
-Crushing everything between"""
+Crushing everything between""",
     ),
-
     # 78. Lo-Fi Hip Hop - 495 chars
     LyricsPreset(
         id="lofi_midnight",
@@ -2715,9 +2639,8 @@ The beat keeps going, soft and slow
 Nowhere else I'd rather go
 
 [Chorus]
-Midnight study, beats so low"""
+Midnight study, beats so low""",
     ),
-
     # 79. Viking Metal - 580 chars
     LyricsPreset(
         id="viking_valhalla",
@@ -2751,9 +2674,8 @@ Our blood runs from ancient wars
 
 [Chorus]
 On the shores of Valhalla we stand
-Sword and shield within our hand"""
+Sword and shield within our hand""",
     ),
-
     # 80. Bubblegum Pop - 475 chars
     LyricsPreset(
         id="bubble_crush",
@@ -2783,9 +2705,8 @@ And see the way it's meant to be
 
 [Chorus]
 I've got a crush, crush on you
-Everything you do is true"""
+Everything you do is true""",
     ),
-
     # 81. Deathcore - 540 chars
     LyricsPreset(
         id="deathcore_abyss",
@@ -2818,9 +2739,8 @@ Bow down, bow down to the void
 Everything will be destroyed
 
 [Chorus]
-Into the abyss we fall"""
+Into the abyss we fall""",
     ),
-
     # 82. K-Pop Style - 510 chars
     LyricsPreset(
         id="kpop_shine",
@@ -2850,9 +2770,8 @@ Together we will always thrive
 
 [Chorus]
 Shine tonight like a star
-Showing the world who we are"""
+Showing the world who we are""",
     ),
-
     # 83. Emo Pop - 530 chars
     LyricsPreset(
         id="emo_pop_diary",
@@ -2882,9 +2801,8 @@ The person I was meant to be
 
 [Chorus]
 Dear diary, can you hear me cry
-Another lonely night goes by"""
+Another lonely night goes by""",
     ),
-
     # 84. Power Metal - 565 chars
     LyricsPreset(
         id="power_metal_dragon",
@@ -2918,9 +2836,8 @@ Hero standing tall and proud
 
 [Chorus]
 Dragonfire lights the night
-Warriors ready for the fight"""
+Warriors ready for the fight""",
     ),
-
     # 85. Bedroom Pop - 490 chars
     LyricsPreset(
         id="bedroom_lonely",
@@ -2950,9 +2867,8 @@ Hope it makes somebody proud
 
 [Chorus]
 Lonely nights in my room
-Singing songs into the gloom"""
+Singing songs into the gloom""",
     ),
-
     # 86. Symphonic Metal - 575 chars
     LyricsPreset(
         id="symphonic_dark_queen",
@@ -2985,9 +2901,8 @@ The opera of destruction plays
 Through endless nights and frozen days
 
 [Chorus]
-Dark queen of the frozen north"""
+Dark queen of the frozen north""",
     ),
-
     # 87. Trap Soul - 505 chars
     LyricsPreset(
         id="trap_soul_late",
@@ -3016,9 +2931,8 @@ The typing stops and starts again
 Where do we even begin
 
 [Chorus]
-Late night texts, I can't sleep"""
+Late night texts, I can't sleep""",
     ),
-
     # 88. Melodic Death Metal - 555 chars
     LyricsPreset(
         id="melodeath_fallen",
@@ -3048,9 +2962,8 @@ Of glory that was never meant to last
 
 [Chorus]
 We are the fallen, hear our cry
-Beneath the Scandinavian sky"""
+Beneath the Scandinavian sky""",
     ),
-
     # 89. Hyperpop - 475 chars
     LyricsPreset(
         id="hyperpop_glitch",
@@ -3079,9 +2992,8 @@ Nothing sounds like it should
 And that's exactly good
 
 [Chorus]
-I'm a glitch in the system"""
+I'm a glitch in the system""",
     ),
-
     # 90. Neo Soul - 545 chars
     LyricsPreset(
         id="neo_soul_morning",
@@ -3112,9 +3024,8 @@ Show me how much you care
 [Chorus]
 Sunday morning, take it slow
 Nowhere that we need to go
-Your love wraps around me tight"""
+Your love wraps around me tight""",
     ),
-
     # 91. Noise Rock - 510 chars
     LyricsPreset(
         id="noise_static",
@@ -3143,9 +3054,8 @@ The chaos makes a twisted sense
 Building walls without a fence
 
 [Chorus]
-Static minds and broken dreams"""
+Static minds and broken dreams""",
     ),
-
     # 92. Yacht Rock - 530 chars
     LyricsPreset(
         id="yacht_smooth",
@@ -3175,9 +3085,8 @@ From everything that makes us ache
 
 [Chorus]
 Smooth sailing, that's the life
-Leave behind the stress and strife"""
+Leave behind the stress and strife""",
     ),
-
     # 93. Crunk - 480 chars
     LyricsPreset(
         id="crunk_party",
@@ -3207,9 +3116,8 @@ Feeling hot from the heat
 
 [Chorus]
 Get crunk, get crunk tonight
-Everybody feeling right"""
+Everybody feeling right""",
     ),
-
     # 94. Slowcore - 540 chars
     LyricsPreset(
         id="slowcore_empty",
@@ -3239,9 +3147,8 @@ Forgotten time, forgotten place
 
 [Chorus]
 Empty rooms and hollow hearts
-Falling slowly, falling apart"""
+Falling slowly, falling apart""",
     ),
-
     # 95. Bounce - 490 chars
     LyricsPreset(
         id="bounce_nola",
@@ -3270,9 +3177,8 @@ Big Freedia showed the way
 New Orleans bounce is here to stay
 
 [Chorus]
-Bounce to the left, bounce to the right"""
+Bounce to the left, bounce to the right""",
     ),
-
     # 96. Math Pop - 525 chars
     LyricsPreset(
         id="math_pop_counting",
@@ -3302,9 +3208,8 @@ Carrying me straight to you
 
 [Chorus]
 Counting stars in odd time
-Seven beats then switch to nine"""
+Seven beats then switch to nine""",
     ),
-
     # 97. Space Rock - 565 chars
     LyricsPreset(
         id="space_rock_cosmos",
@@ -3338,9 +3243,8 @@ As we drift the stars among
 
 [Chorus]
 Across the cosmos we will fly
-Beyond the reach of mortal eye"""
+Beyond the reach of mortal eye""",
     ),
-
     # 98. Sadcore - 535 chars
     LyricsPreset(
         id="sadcore_rain",
@@ -3370,9 +3274,8 @@ But I know there's only sorrow
 
 [Chorus]
 It always rains when you're not here
-Every day throughout the year"""
+Every day throughout the year""",
     ),
-
     # 99. Electronic Body Music - 520 chars
     LyricsPreset(
         id="ebm_control",
@@ -3402,9 +3305,8 @@ Leave your former self behind
 
 [Chorus]
 Total control is what we seek
-The strong will dominate the weak"""
+The strong will dominate the weak""",
     ),
-
     # 100. Midwest Emo - 560 chars
     LyricsPreset(
         id="midwest_emo_home",
@@ -3438,7 +3340,7 @@ But still they linger in my mind
 
 [Chorus]
 Never going home again
-Back to where it all began"""
+Back to where it all began""",
     ),
 ]
 

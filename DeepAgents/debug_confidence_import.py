@@ -1,8 +1,7 @@
-
-import sys
 import os
+import sys
 
-sys.path.insert(0, os.path.dirname(os.getcwd())) # Assuming run from DeepAgents
+sys.path.insert(0, os.path.dirname(os.getcwd()))  # Assuming run from DeepAgents
 print(f"Path: {sys.path[0]}")
 
 try:
@@ -11,4 +10,5 @@ try:
 except Exception as e:
     print(f"Error: {e}")
     import traceback
+
     traceback.print_exc()

@@ -1,23 +1,23 @@
-
-from google.cloud import texttospeech
 from dotenv import load_dotenv
+from google.cloud import texttospeech
 
 load_dotenv("DeepAgents/.env")
+
 
 def list_voices():
     try:
         client = texttospeech.TextToSpeechClient()
         response = client.list_voices()
-        
+
         print(f"Total Voices Available: {len(response.voices)}")
-        
+
         # Categorize
         gemini = []
         journey = []
         neural2 = []
         wavenet = []
         studio = []
-        
+
         for voice in response.voices:
             name = voice.name
             if "gemini" in name.lower():
@@ -40,10 +40,13 @@ def list_voices():
 
         print("\n--- Sample of Journey/Gemini/Studio (Likely High Quality) ---")
         for v in journey + gemini + studio[:5]:
-            print(f"Name: {v.name}, Gender: {v.ssml_gender.name}, Lang: {v.language_codes[0]}")
+            print(
+                f"Name: {v.name}, Gender: {v.ssml_gender.name}, Lang: {v.language_codes[0]}"
+            )
 
     except Exception as e:
         print(f"Error listing voices: {e}")
+
 
 if __name__ == "__main__":
     list_voices()

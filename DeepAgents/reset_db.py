@@ -1,5 +1,6 @@
-import psycopg2
 import os
+
+import psycopg2
 
 DB_PARAMS = {
     "dbname": os.getenv("POSTGRES_DB", "postgres"),

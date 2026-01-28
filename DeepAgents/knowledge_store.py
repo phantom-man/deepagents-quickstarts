@@ -4,9 +4,10 @@ Provides a dedicated, high-speed vector database for information retrieval.
 Adheres to "The Jewel Standard" (Pylint 10/10).
 """
 
-import os
 import logging
-from typing import List, Dict, Any, Optional
+import os
+from typing import Any, Dict, List, Optional
+
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
 # Configure Logging
@@ -15,10 +16,12 @@ logger = logging.getLogger("KnowledgeStore")
 
 LANCEDB_URI = "Artifacts/Data/lancedb"
 
+
 class KnowledgeStore:
     """
     Manages embedding and retrieval of knowledge using LanceDB.
     """
+
     def __init__(self, uri: str = LANCEDB_URI):
         self.uri = uri
         self.db = None
@@ -38,7 +41,7 @@ class KnowledgeStore:
             self.embeddings = GoogleGenerativeAIEmbeddings(
                 model="models/text-embedding-004"
             )
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to initialize embeddings: %s", e)
             self.embeddings = None
 
@@ -54,9 +57,11 @@ class KnowledgeStore:
             self.db = lancedb.connect(self.uri)
             logger.info("Connected to LanceDB at %s", self.uri)
         except ImportError:
-            logger.error("❌ 'lancedb' library not found. Please install: pip install lancedb")
+            logger.error(
+                "❌ 'lancedb' library not found. Please install: pip install lancedb"
+            )
             self.db = None
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to initialize LanceDB: %s", e)
             self.db = None
 
@@ -67,7 +72,7 @@ class KnowledgeStore:
             return None
         try:
             return self.embeddings.embed_query(text)
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Embedding failed: %s", e)
             return None
 
@@ -87,7 +92,7 @@ class KnowledgeStore:
                 if vector:
                     doc["vector"] = vector
                 else:
-                    continue # Skip if embedding failed
+                    continue  # Skip if embedding failed
             processed_docs.append(doc)
 
         if not processed_docs:
@@ -97,13 +102,19 @@ class KnowledgeStore:
             # Check if table exists, if not create it
             if self.table_name not in self.db.table_names():
                 self.db.create_table(self.table_name, data=processed_docs)
-                logger.info("Created table '%s' with %d documents.", self.table_name, len(processed_docs))
+                logger.info(
+                    "Created table '%s' with %d documents.",
+                    self.table_name,
+                    len(processed_docs),
+                )
             else:
                 table = self.db.open_table(self.table_name)
                 table.add(processed_docs)
-                logger.info("Added %d documents to '%s'.", len(processed_docs), self.table_name)
+                logger.info(
+                    "Added %d documents to '%s'.", len(processed_docs), self.table_name
+                )
 
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Failed to add documents: %s", e)
 
     def search(self, query_text: str, limit: int = 5) -> List[Dict[str, Any]]:
@@ -126,9 +137,10 @@ class KnowledgeStore:
             results = table.search(query_vector).limit(limit).to_list()
             return results
 
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Search failed: %s", e)
             return []
+
 
 # Example Usage
 if __name__ == "__main__":
@@ -136,7 +148,7 @@ if __name__ == "__main__":
     store = KnowledgeStore()
     dummy_data = [
         {"vector": [0.1, 0.2], "text": "Paper A", "id": 1},
-        {"vector": [0.3, 0.4], "text": "Paper B", "id": 2}
+        {"vector": [0.3, 0.4], "text": "Paper B", "id": 2},
     ]
     # Note: Requires lancedb installed to run logic, but class is valid.
     logger.info("KnowledgeStore initialized.")

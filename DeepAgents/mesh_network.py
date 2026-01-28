@@ -2,12 +2,16 @@
 Mesh Network Communication Layer.
 Implements the "Zero Touch" agent-to-agent communication tool.
 """
+
 import importlib
 import logging
+
 from langchain_core.tools import tool
+
 from DeepAgents.agency_registry import AGENCY_REGISTRY
 
 logger = logging.getLogger("MeshNetwork")
+
 
 @tool
 def consult_agent_mesh(target_agent: str, request: str) -> str:
@@ -28,10 +32,10 @@ def consult_agent_mesh(target_agent: str, request: str) -> str:
             if target_agent.lower() in key:  # e.g. "research" in "research_agent"
                 registry_key = key
                 break
-            if target_agent.lower() in data['name'].lower():
+            if target_agent.lower() in data["name"].lower():
                 registry_key = key
                 break
-            if target_agent.lower() in data['role'].lower():
+            if target_agent.lower() in data["role"].lower():
                 registry_key = key
                 break
 
@@ -40,10 +44,12 @@ def consult_agent_mesh(target_agent: str, request: str) -> str:
         return f"❌ ERROR: Could not identify agent '{target_agent}'. Available: {available}"
 
     agent_metadata = AGENCY_REGISTRY[registry_key]
-    module_path = agent_metadata['module']
-    entry_point_name = agent_metadata['entry_point']
+    module_path = agent_metadata["module"]
+    entry_point_name = agent_metadata["entry_point"]
 
-    logger.info("🔗 Routing to: %s (%s.%s)", registry_key, module_path, entry_point_name)
+    logger.info(
+        "🔗 Routing to: %s (%s.%s)", registry_key, module_path, entry_point_name
+    )
 
     # 2. Dynamic Import
     try:
@@ -67,4 +73,3 @@ def consult_agent_mesh(target_agent: str, request: str) -> str:
     except Exception as e:
         logger.error("Mesh Invocation Failed: %s", e, exc_info=True)
         return f"❌ AGENT CRASH: The agent '{target_agent}' failed. Error: {e}"
-

@@ -18,7 +18,9 @@ if not rows:
 else:
     print(f"found {len(rows)} messages:")
     for r in rows:
-        print(f"ID: {r[0]} | From: {r[1]} -> To: {r[2]} | Status: {r[3]} | Content: {r[4]}... | Time: {r[5]}")
+        print(
+            f"ID: {r[0]} | From: {r[1]} -> To: {r[2]} | Status: {r[3]} | Content: {r[4]}... | Time: {r[5]}"
+        )
 
 print("\nChecking specifically for unread messages for 'Cinematographer':")
 unread_sql = "SELECT count(*) FROM agent_messages WHERE recipient = 'Cinematographer' AND status = 'unread'"

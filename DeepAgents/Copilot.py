@@ -6,14 +6,17 @@ The Engineer & Orchestrator Agent.
 Responsible for maintaining the system, remembering architectural patterns,
 and solving technical blockers.
 """
-import os
-import sys
+
 import argparse
 import logging
-from typing import Optional, List
+import os
+import sys
+from typing import List, Optional
+
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
+
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
 from DeepAgents.replicate_adapter import ChatReplicate
 
@@ -25,22 +28,22 @@ if root_path not in sys.path:
 # Brain Integration
 try:
     # pylint: disable=unused-import
-    from agent_brain import AgentMemory, AgentComms
+    from agent_brain import AgentComms, AgentMemory
     # If run as script in root, this is fine if PYTHONPATH set
 except ImportError:
     try:
-        from DeepAgents.agent_brain import AgentMemory, AgentComms
+        from DeepAgents.agent_brain import AgentComms, AgentMemory
     except ImportError:
         # Fallback to local memory manager if agent_brain is missing
         try:
-             # pylint: disable=import-outside-toplevel
+            # pylint: disable=import-outside-toplevel
             from DeepAgents.memory_manager import AgentMemoryManager
         except ImportError:
             print("❌ Critical: Memory dependencies missing.")
             sys.exit(1)
         # Mock old classes if missing to prevent attribute errors
-        AgentMemory = None # type: ignore
-        AgentComms = None # type: ignore
+        AgentMemory = None  # type: ignore
+        AgentComms = None  # type: ignore
 
 # Load Environment
 load_dotenv()
@@ -49,20 +52,23 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class CopilotAgent: # pylint: disable=too-many-instance-attributes
+
+class CopilotAgent:  # pylint: disable=too-many-instance-attributes
     """
     The Engineer & Orchestrator Agent.
     Responsible for maintaining the system, remembering architectural patterns,
     and solving technical blockers.
     """
+
     def __init__(self):
         print("🔧 --- INITIALIZING COPILOT AGENT ---")
 
         # Initialize Memory Manager
         # We prefer the robust AgentMemoryManager for learning logging
         try:
-             # pylint: disable=import-outside-toplevel, redefined-outer-name
+            # pylint: disable=import-outside-toplevel, redefined-outer-name
             from DeepAgents.memory_manager import AgentMemoryManager
+
             self.memory_manager = AgentMemoryManager("Copilot")
             self.learnings = self.memory_manager.recall_recent(limit=5)
             print(f"🧠 Memory Loaded:\n{self.learnings}")
@@ -71,12 +77,12 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
             self.memory_manager = None
             self.learnings = ""
         except Exception as e:
-             print(f"⚠️ Memory Manager Init Failed: {e}")
-             self.memory_manager = None
-             self.learnings = ""
+            print(f"⚠️ Memory Manager Init Failed: {e}")
+            self.memory_manager = None
+            self.learnings = ""
 
         # Legacy Brain Support (Optional)
-        self.memory = None # Placeholder if legacy code references it
+        self.memory = None  # Placeholder if legacy code references it
         self.comms = None
         self.comms_active = False
 
@@ -92,7 +98,7 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
             # Switched to Replicate (Llama 3 70B) per architectural decision 2026-01-10
             self.llm = ChatReplicate(
                 model="meta/meta-llama-3-70b-instruct",
-                model_kwargs={"temperature": 0.2, "max_length": 4096}
+                model_kwargs={"temperature": 0.2, "max_length": 4096},
             )
         except Exception as e:
             print(f"⚠️ Replicate LLM Init Failed: {e}. Falling back to Google.")
@@ -103,13 +109,15 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
                     temperature=0.2,
                 )
             except Exception as e2:
-                 print(f"⚠️ Fallback LLM Init Failed: {e2}")
-                 self.llm = None
+                print(f"⚠️ Fallback LLM Init Failed: {e2}")
+                self.llm = None
 
     def load_ontology(self) -> str:
         """Loads the Copilot Ontology."""
         try:
-            path = os.path.join(os.path.dirname(__file__), "Canon", "Copilot_Ontology.md")
+            path = os.path.join(
+                os.path.dirname(__file__), "Canon", "Copilot_Ontology.md"
+            )
             with open(path, "r", encoding="utf-8") as f:
                 return f.read()
         except OSError:
@@ -119,21 +127,25 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
         """Retrieves technical constraints or past solutions."""
         if not self.memory_manager:
             return []
-            
+
         print(f"🔍 Searching Engineering Logs for: '{query}'...")
         # Use Memory Manager's search_learnings (returns formatted string, we need list or just use string)
         # Actually search_learnings returns a string based on the code we saw.
         # But analyze_situation expects a list to join.
         # Let's adapt.
-        
-        # Access underlying knowledge store if possible, or parse string. 
+
+        # Access underlying knowledge store if possible, or parse string.
         # Easier: Modify recall_technical_context to standard usage of memory_manager.
-        
+
         # Reading memory_manager.py again: search_learnings returns " - Item \n - Item"
         # So we can just call it and split lines.
         results_str = self.memory_manager.search_learnings(query)
         if results_str:
-            return [line.strip("- ") for line in results_str.strip().split("\n") if line.strip()]
+            return [
+                line.strip("- ")
+                for line in results_str.strip().split("\n")
+                if line.strip()
+            ]
         return []
 
     def log_learning(self, insight: str, tags: Optional[List[str]] = None) -> None:
@@ -146,8 +158,8 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
 
         full_text = f"ENGINEERING LOG: {insight}"
         if tags:
-             full_text += f" [Tags: {', '.join(tags)}]"
-             
+            full_text += f" [Tags: {', '.join(tags)}]"
+
         try:
             self.memory_manager.record_learning(full_text)
             print(f"💾 Knowledge Secured: '{insight[:50]}...'")
@@ -188,25 +200,28 @@ class CopilotAgent: # pylint: disable=too-many-instance-attributes
 
     def check_messages(self) -> None:
         """Checks if other agents need help."""
-        if not self.comms_active:
+        if not self.comms_active or self.comms is None:
             return
 
         msgs = self.comms.receive_messages(self.role)
         if msgs:
             print(f"📩 Received {len(msgs)} requests.")
             for m in msgs:
-                sender = m.get('sender', 'Unknown')
-                content = m.get('content', '')
+                sender = m.get("sender", "Unknown")
+                content = m.get("content", "")
                 print(f"   From {sender}: {content[:50]}...")
                 # Here we could auto-solve, but for now just log it
                 self.log_learning(f"Issue reported by {sender}: {content}", ["report"])
+
 
 # CLI Interface for the "Self"
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Copilot Agent Interface")
     parser.add_argument("--learn", help="Log a new technical insight", type=str)
     parser.add_argument("--solve", help="Ask for engineering advice", type=str)
-    parser.add_argument("--listen", help="Check for agent messages", action="store_true")
+    parser.add_argument(
+        "--listen", help="Check for agent messages", action="store_true"
+    )
 
     args = parser.parse_args()
 

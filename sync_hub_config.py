@@ -2,9 +2,11 @@
 Sync ModelRegistry models to LangSmith Hub deepagents-system-config.
 This script pushes a comprehensive config including ALL registered models.
 """
+
 import json
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 from langsmith import Client
 
@@ -22,29 +24,29 @@ UPDATED_SYSTEM_CONFIG = {
             "package": "langchain_google_genai",
             "class_name": "ChatGoogleGenerativeAI",
             "description": "Uses Google GenAI SDK with Vertex Adapter (High Performance).",
-            "default_region": "us-central1"
+            "default_region": "us-central1",
         },
         "anthropic": {
             "strategy": "native",
             "package": "langchain_anthropic",
             "class_name": "ChatAnthropic",
-            "description": "Native Anthropic Integration."
+            "description": "Native Anthropic Integration.",
         },
         "openai": {
             "strategy": "native",
             "package": "langchain_openai",
-            "class_name": "ChatOpenAI"
+            "class_name": "ChatOpenAI",
         },
         "replicate": {
             "strategy": "api_proxy",
             "package": "replicate",
-            "description": "Direct API calls via Replicate Python Client."
-        }
+            "description": "Direct API calls via Replicate Python Client.",
+        },
     },
     "agents": {
         "Director": {
             "intelligence_model": "google/gemini-2.0-flash-001",
-            "provider": "Google"
+            "provider": "Google",
         },
         "Composer": {
             "intelligence_model": "google/gemini-2.0-flash-001",
@@ -62,7 +64,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "weaknesses": "No lyrics support, max 30s clips, strictly instrumental.",
                             "supports_lyrics": False,
                             "supports_duration": True,
-                            "max_duration_seconds": 30
+                            "max_duration_seconds": 30,
                         },
                         {
                             "id": "lucataco/ace-step",
@@ -73,7 +75,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "weaknesses": "Can be expensive, occasionally hallucinates phantom vocals.",
                             "supports_lyrics": True,
                             "supports_duration": True,
-                            "max_duration_seconds": 240
+                            "max_duration_seconds": 240,
                         },
                         {
                             "id": "minimax/music-01",
@@ -84,7 +86,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "weaknesses": "Ignores explicit duration constraints.",
                             "supports_lyrics": True,
                             "supports_duration": False,
-                            "max_duration_seconds": 240
+                            "max_duration_seconds": 240,
                         },
                         {
                             "id": "meta/musicgen",
@@ -93,9 +95,9 @@ UPDATED_SYSTEM_CONFIG = {
                             "provider": "replicate",
                             "supports_lyrics": False,
                             "supports_duration": True,
-                            "max_duration_seconds": 30
-                        }
-                    ]
+                            "max_duration_seconds": 30,
+                        },
+                    ],
                 },
                 {
                     "type": "voice_generation",
@@ -104,52 +106,50 @@ UPDATED_SYSTEM_CONFIG = {
                             "id": "gemini-2.5-flash-lite-tts",
                             "priority": 120,
                             "description": "Google Gemini 2.5 Flash Lite TTS - Fast multilingual voices.",
-                            "provider": "google-genai"
+                            "provider": "google-genai",
                         },
                         {
                             "id": "google/en-US-Studio-O",
                             "priority": 115,
                             "description": "Google Cloud TTS Studio O - Premium female voice.",
-                            "provider": "vertex-ai"
+                            "provider": "vertex-ai",
                         },
                         {
                             "id": "google/en-US-Studio-M",
                             "priority": 110,
                             "description": "Google Cloud TTS Studio M - Premium male voice.",
-                            "provider": "vertex-ai"
+                            "provider": "vertex-ai",
                         },
                         {
                             "id": "minimax/speech-01",
                             "priority": 100,
                             "description": "Minimax Speech 01 - High quality TTS.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "lucataco/xtts-v2",
                             "priority": 90,
                             "description": "XTTS-v2 - Voice cloning support.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "jaaari/kokoro-82m",
                             "priority": 80,
                             "description": "Kokoro 82M - Lightweight fast TTS.",
-                            "provider": "replicate"
-                        }
+                            "provider": "replicate",
+                        },
                     ],
-                    "asset_paths": {
-                        "voice_clones": "Artifacts/Audio/Voices"
-                    }
-                }
-            ]
+                    "asset_paths": {"voice_clones": "Artifacts/Audio/Voices"},
+                },
+            ],
         },
         "Researcher": {
             "intelligence_model": "google/gemini-2.0-flash-exp",
-            "provider": "Google"
+            "provider": "Google",
         },
         "Confidence": {
             "intelligence_model": "google/gemini-2.0-flash-exp",
-            "provider": "Google"
+            "provider": "Google",
         },
         "Cinematographer": {
             "intelligence_model": "google/gemini-2.0-flash-001",
@@ -165,7 +165,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "provider": "vertex-ai",
                             "strengths": "Highest quality, 720p/1080p, best prompt adherence.",
                             "weaknesses": "Most expensive, requires Vertex AI access.",
-                            "best_practices": "Use detailed cinematic prompts with camera movements."
+                            "best_practices": "Use detailed cinematic prompts with camera movements.",
                         },
                         {
                             "id": "veo-3.1-generate-001",
@@ -173,7 +173,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "description": "Google Veo 3.1 - High quality video generation.",
                             "provider": "vertex-ai",
                             "strengths": "Best quality, longer clips possible.",
-                            "weaknesses": "Expensive, slower than fast variant."
+                            "weaknesses": "Expensive, slower than fast variant.",
                         },
                         {
                             "id": "wan-video/wan-2.5-t2v-fast",
@@ -182,7 +182,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "provider": "replicate",
                             "strengths": "Fast, cheap, good motion quality, 480p-720p.",
                             "weaknesses": "Lower resolution than premium models, 5-10s duration.",
-                            "best_practices": "Use descriptive prompts, specify camera movements."
+                            "best_practices": "Use descriptive prompts, specify camera movements.",
                         },
                         {
                             "id": "luma/ray-flash-2-540p",
@@ -190,45 +190,45 @@ UPDATED_SYSTEM_CONFIG = {
                             "description": "Luma Ray Flash 2 - Fast high quality video.",
                             "provider": "replicate",
                             "strengths": "High quality, good prompt adherence.",
-                            "weaknesses": "540p resolution, moderate cost."
+                            "weaknesses": "540p resolution, moderate cost.",
                         },
                         {
                             "id": "minimax/video-01-live",
                             "priority": 90,
                             "description": "Minimax Video 01 Live - Real-time video generation.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "minimax/hailuo-2.3",
                             "priority": 85,
                             "description": "Minimax Hailuo 2.3 - High quality video.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "minimax/hailuo-2.3-fast",
                             "priority": 80,
                             "description": "Minimax Hailuo 2.3 Fast - Quick video generation.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "kwaivgi/kling-v2.5-turbo-pro",
                             "priority": 75,
                             "description": "Kling V2.5 Turbo Pro - Fast high quality video.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "bytedance/seedance-1-pro-fast",
                             "priority": 70,
                             "description": "ByteDance Seedance 1 Pro Fast - Dance/motion specialized.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "openai/sora-2-pro",
                             "priority": 65,
                             "description": "OpenAI Sora 2 Pro - Premium video generation.",
-                            "provider": "replicate"
-                        }
-                    ]
+                            "provider": "replicate",
+                        },
+                    ],
                 },
                 {
                     "type": "image_generation",
@@ -240,7 +240,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "provider": "vertex-ai",
                             "strengths": "Excellent text rendering, photorealism, distinct styles.",
                             "weaknesses": "Strict safety filters.",
-                            "best_practices": "Use negative prompts for exclusions, specify aspect ratio."
+                            "best_practices": "Use negative prompts for exclusions, specify aspect ratio.",
                         },
                         {
                             "id": "black-forest-labs/flux-schnell",
@@ -248,7 +248,7 @@ UPDATED_SYSTEM_CONFIG = {
                             "description": "FLUX Schnell - Fastest SOTA image model.",
                             "provider": "replicate",
                             "strengths": "Fastest SOTA model, great prompt adherence.",
-                            "weaknesses": "Less detail than Pro version."
+                            "weaknesses": "Less detail than Pro version.",
                         },
                         {
                             "id": "black-forest-labs/flux-1.1-pro",
@@ -256,13 +256,13 @@ UPDATED_SYSTEM_CONFIG = {
                             "description": "FLUX 1.1 Pro - High detail image generation.",
                             "provider": "replicate",
                             "strengths": "Best detail, excellent for complex scenes.",
-                            "weaknesses": "Slower than Schnell, higher cost."
+                            "weaknesses": "Slower than Schnell, higher cost.",
                         },
                         {
                             "id": "stability-ai/sdxl",
                             "priority": 85,
                             "description": "Stability AI SDXL - Versatile image generation.",
-                            "provider": "replicate"
+                            "provider": "replicate",
                         },
                         {
                             "id": "bytedance/sdxl-lightning-4step",
@@ -270,33 +270,33 @@ UPDATED_SYSTEM_CONFIG = {
                             "description": "SDXL Lightning 4-Step - Ultra fast image generation.",
                             "provider": "replicate",
                             "strengths": "Extremely fast (4 steps), good quality.",
-                            "weaknesses": "Less refined than full SDXL."
-                        }
-                    ]
-                }
-            ]
-        }
+                            "weaknesses": "Less refined than full SDXL.",
+                        },
+                    ],
+                },
+            ],
+        },
     },
     "global_assets": {
         "audio": "Artifacts/Audio",
         "video": "Artifacts/Video",
         "images": "Artifacts/Images",
-        "data": "Artifacts/Data"
-    }
+        "data": "Artifacts/Data",
+    },
 }
 
 
 def main():
     """Push updated config to LangSmith Hub."""
     client = Client()
-    
+
     # Get user handle
     try:
         # Try to get from API key info
         api_key = os.getenv("LANGCHAIN_API_KEY", "")
         # For personal workspaces, we need the handle
         handle = os.getenv("LANGCHAIN_HUB_HANDLE")
-        
+
         if not handle:
             print("LANGCHAIN_HUB_HANDLE not set, attempting to detect...")
             # Could try to get from workspace info, but for now require it
@@ -306,48 +306,66 @@ def main():
     except Exception as e:
         print(f"Error getting user info: {e}")
         return
-    
+
     repo_name = "deepagents-system-config"
     full_repo = f"{handle}/{repo_name}"
-    
+
     print(f"Pushing config to: {full_repo}")
-    print(f"Config version: {UPDATED_SYSTEM_CONFIG['version']}")
-    print(f"Total video models: {len(UPDATED_SYSTEM_CONFIG['agents']['Cinematographer']['capabilities'][0]['models'])}")
-    print(f"Total image models: {len(UPDATED_SYSTEM_CONFIG['agents']['Cinematographer']['capabilities'][1]['models'])}")
-    print(f"Total music models: {len(UPDATED_SYSTEM_CONFIG['agents']['Composer']['capabilities'][0]['models'])}")
-    print(f"Total voice models: {len(UPDATED_SYSTEM_CONFIG['agents']['Composer']['capabilities'][1]['models'])}")
-    
+    print(f"Config version: {UPDATED_SYSTEM_CONFIG.get('version', 'unknown')}")
+    # Access nested config safely
+    agents = UPDATED_SYSTEM_CONFIG.get("agents", {})  # type: ignore[union-attr]
+    cinematographer = (
+        agents.get("Cinematographer", {}) if isinstance(agents, dict) else {}
+    )
+    composer = agents.get("Composer", {}) if isinstance(agents, dict) else {}
+    cine_caps = (
+        cinematographer.get("capabilities", [])
+        if isinstance(cinematographer, dict)
+        else []
+    )
+    comp_caps = composer.get("capabilities", []) if isinstance(composer, dict) else []
+    print(
+        f"Total video models: {len(cine_caps[0].get('models', [])) if len(cine_caps) > 0 else 0}"
+    )
+    print(
+        f"Total image models: {len(cine_caps[1].get('models', [])) if len(cine_caps) > 1 else 0}"
+    )
+    print(
+        f"Total music models: {len(comp_caps[0].get('models', [])) if len(comp_caps) > 0 else 0}"
+    )
+    print(
+        f"Total voice models: {len(comp_caps[1].get('models', [])) if len(comp_caps) > 1 else 0}"
+    )
+
     # Format as ChatPromptTemplate for Hub
     config_content = json.dumps(UPDATED_SYSTEM_CONFIG, indent=2)
-    
+
     from langchain_core.prompts import ChatPromptTemplate
-    
+
     # Create a prompt template that contains the config as a system message
-    prompt_template = ChatPromptTemplate.from_messages([
-        ("system", config_content)
-    ])
-    
+    prompt_template = ChatPromptTemplate.from_messages([("system", config_content)])
+
     try:
         # Push to hub
         url = client.push_prompt(
             repo_name,
             object=prompt_template,
             description="DeepAgents System Configuration - Full Model Registry Sync",
-            is_public=False
+            is_public=False,
         )
         print("\n✓ Successfully pushed to Hub!")
         print(f"  URL: {url}")
-        
+
         # Also update local cache
         cache_dir = os.path.join(os.path.dirname(__file__), "DeepAgents/.cache/prompts")
         os.makedirs(cache_dir, exist_ok=True)
         cache_file = os.path.join(cache_dir, "deepagents-system-config.txt")
-        
+
         with open(cache_file, "w", encoding="utf-8") as f:
             f.write(f"```plaintext\n{config_content}\n```")
-        
+
         print(f"  Local cache updated: {cache_file}")
-        
+
     except Exception as e:
         print(f"\n✗ Error pushing to Hub: {e}")
         print("\nTrying to create new prompt...")
@@ -356,7 +374,7 @@ def main():
                 repo_name,
                 object=config_content,
                 description="DeepAgents System Configuration - Full Model Registry Sync",
-                is_public=False
+                is_public=False,
             )
             print(f"✓ Created new prompt: {url}")
         except Exception as e2:

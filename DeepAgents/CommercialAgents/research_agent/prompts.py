@@ -1,5 +1,7 @@
 """Prompts for the Research Agent."""
+
 import logging
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -35,15 +37,17 @@ When the Director or other agents ask for information (e.g., "What does a 1980s 
 Do NOT hallucinate. If you can't find info, say "I cannot verify this."
 """
 
+
 def _get_instructions():
     """
     Fetches the Researcher's system instructions from the Hub.
     STRICT MODE: Will PUSH local default if missing. Will FAIL if sync breaks.
     """
     return get_or_push_prompt(
-        repo_name="researcher-system-prompt", # RENAMED from -main
-        default_content=DEFAULT_RESEARCHER_INSTRUCTIONS
+        repo_name="researcher-system-prompt",  # RENAMED from -main
+        default_content=DEFAULT_RESEARCHER_INSTRUCTIONS,
     )
+
 
 # Exposed constant
 RESEARCHER_INSTRUCTIONS = _get_instructions()

@@ -18,7 +18,8 @@ Architecture:
 """
 
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 from DeepAgents.hub_manager import get_or_push_prompt
 
 logger = logging.getLogger(__name__)
@@ -298,9 +299,10 @@ REFERENCE_AUDIO: <Path to voice reference file, default: Artifacts/Audio/Voices/
 # SCHEMA REGISTRY - Hub Integration with Self-Healing
 # =============================================================================
 
+
 def _normalize_model_id(model_id: str) -> str:
     """Normalize model ID to valid Hub repo name format.
-    
+
     Examples:
         "replicate/anotherjesse/zeroscope-v2-xl" -> "zeroscope"
         "google/imagen-3.0-generate-001" -> "imagen3"
@@ -310,12 +312,12 @@ def _normalize_model_id(model_id: str) -> str:
     # Extract the last part after the final slash
     parts = model_id.split("/")
     name = parts[-1]
-    
+
     # Remove version numbers and special chars
     name = name.replace("-v2-xl", "").replace("-v2", "")
     name = name.replace(".0-generate-001", "").replace("-001", "")
     name = name.replace(".", "").replace("-", "").lower()
-    
+
     # Handle specific cases
     if "zeroscope" in model_id.lower():
         return "zeroscope"
@@ -341,7 +343,7 @@ def _normalize_model_id(model_id: str) -> str:
         return "xtts"
     if "studio" in model_id.lower():
         return "google-tts"
-    
+
     return name
 
 
@@ -372,43 +374,47 @@ def get_model_schema(
     model_id: str,
 ) -> str:
     """Retrieve the output schema for a specific model from LangSmith Hub.
-    
+
     Uses Zero-Touch Self-Healing Pattern:
         1. Pull from Hub
         2. Use cached if available
         3. Push default if missing
-    
+
     Args:
         agent_name: Agent using the model (Cinematographer, Composer)
         capability_type: Type of capability (video_generation, image_generation, music_generation, voice_generation)
         model_id: Full model identifier from system_config
-        
+
     Returns:
         The model-specific schema template string
-        
+
     Example:
         >>> schema = get_model_schema("Cinematographer", "video_generation", "replicate/anotherjesse/zeroscope-v2-xl")
         >>> optimized_prompt = schema.format(input_text="A sunset over mountains")
     """
     # Normalize capability type to short form
     cap_short = capability_type.replace("_generation", "")
-    
+
     # Normalize model ID to valid repo name
     model_short = _normalize_model_id(model_id)
-    
+
     # Build Hub repo name: {agent}-{capability}-{model}-output-schema
     repo_name = f"{agent_name.lower()}-{cap_short}-{model_short}-output-schema"
-    
+
     # Build registry key for default lookup
     registry_key = f"{agent_name.lower()}-{cap_short}-{model_short}"
-    
+
     # Get default schema (required for self-healing push)
     default_schema = DEFAULT_SCHEMAS.get(registry_key)
-    
+
     if not default_schema:
-        logger.warning(f"[SCHEMA] No default schema for {registry_key}. Using generic fallback.")
-        default_schema = f"Optimize the following request for {model_id}:\n{{input_text}}"
-    
+        logger.warning(
+            f"[SCHEMA] No default schema for {registry_key}. Using generic fallback."
+        )
+        default_schema = (
+            f"Optimize the following request for {model_id}:\n{{input_text}}"
+        )
+
     # Self-healing Hub integration
     try:
         schema = get_or_push_prompt(repo_name, default_schema)
@@ -425,30 +431,30 @@ def get_schema_for_capability(
     model_id: Optional[str] = None,
 ) -> str:
     """Convenience function to get schema from a capability config dict.
-    
+
     Args:
         agent_name: Agent name
         capability: Capability dict from system_config (has 'type' and 'models')
         model_id: Optional specific model ID, otherwise uses highest priority
-        
+
     Returns:
         The model-specific schema template string
     """
     cap_type = capability.get("type", "")
-    
+
     if model_id:
         return get_model_schema(agent_name, cap_type, model_id)
-    
+
     # Find highest priority model
     models = capability.get("models", [])
     if not models:
         logger.warning(f"[SCHEMA] No models in capability: {cap_type}")
         return "Optimize the request:\n{input_text}"
-    
+
     # Sort by priority descending
     sorted_models = sorted(models, key=lambda m: m.get("priority", 0), reverse=True)
     top_model_id = sorted_models[0].get("id", "")
-    
+
     return get_model_schema(agent_name, cap_type, top_model_id)
 
 
@@ -456,15 +462,16 @@ def get_schema_for_capability(
 # OUTPUT PARSING UTILITIES
 # =============================================================================
 
+
 def parse_schema_output(raw_output: str, schema_type: str) -> Dict[str, str]:
     """Parse structured output from model schema response.
-    
+
     Gracefully handles different output formats by extracting labeled sections.
-    
+
     Args:
         raw_output: The raw text response from the LLM
         schema_type: Type of schema (zeroscope, imagen3, minimax, etc.)
-        
+
     Returns:
         Dict with extracted fields like {'VISUAL_PROMPT': '...', 'NEGATIVE_PROMPT': '...'}
     """
@@ -472,48 +479,59 @@ def parse_schema_output(raw_output: str, schema_type: str) -> Dict[str, str]:
     lines = raw_output.strip().split("\n")
     current_key = None
     current_value = []
-    
+
     # Known field prefixes to look for
     field_prefixes = [
-        "VISUAL_PROMPT:", "IMAGE_PROMPT:", "MUSIC_PROMPT:", "TEXT:",
-        "NEGATIVE_PROMPT:", "NEGATIVE:", "CAMERA_MOTION:", "MOOD:",
-        "STYLE:", "ASPECT_RATIO:", "TAGS:", "LYRICS:", "STYLE_KEYWORDS:",
-        "VOICE_ID:", "REFERENCE_AUDIO:",
+        "VISUAL_PROMPT:",
+        "IMAGE_PROMPT:",
+        "MUSIC_PROMPT:",
+        "TEXT:",
+        "NEGATIVE_PROMPT:",
+        "NEGATIVE:",
+        "CAMERA_MOTION:",
+        "MOOD:",
+        "STYLE:",
+        "ASPECT_RATIO:",
+        "TAGS:",
+        "LYRICS:",
+        "STYLE_KEYWORDS:",
+        "VOICE_ID:",
+        "REFERENCE_AUDIO:",
     ]
-    
+
     for line in lines:
         line_stripped = line.strip()
-        
+
         # Check if this line starts a new field
         matched_prefix = None
         for prefix in field_prefixes:
             if line_stripped.upper().startswith(prefix.upper()):
                 matched_prefix = prefix
                 break
-        
+
         if matched_prefix:
             # Save previous field if any
             if current_key:
                 result[current_key] = "\n".join(current_value).strip()
-            
+
             # Start new field
             current_key = matched_prefix.rstrip(":").upper()
             # Get content after the prefix
-            content = line_stripped[len(matched_prefix):].strip()
+            content = line_stripped[len(matched_prefix) :].strip()
             current_value = [content] if content else []
         else:
             # Continue current field
             if current_key:
                 current_value.append(line)
-    
+
     # Don't forget the last field
     if current_key:
         result[current_key] = "\n".join(current_value).strip()
-    
+
     # If no structured output found, return raw as PROMPT
     if not result:
         result["PROMPT"] = raw_output.strip()
-    
+
     return result
 
 

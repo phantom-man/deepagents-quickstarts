@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from langsmith import Client
 
@@ -18,7 +19,7 @@ try:
 except Exception as e:
     print(f"❌ Pull Failed: {e}")
     # Print the full error structure if possible
-    if hasattr(e, 'response'):
+    if hasattr(e, "response"):
         print(f"Response Status: {e.response.status_code}")
         print(f"Response Text: {e.response.text}")
 

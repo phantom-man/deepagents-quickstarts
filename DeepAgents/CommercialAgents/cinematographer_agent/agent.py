@@ -11,35 +11,37 @@ Responsible for:
 4. Consulting Composer for Audio/Sync.
 5. Merging Logic (via Tool Calls).
 """
-import os
-import logging
-import requests
-import json
-from typing import Optional, Any, Callable, Dict, List
 
+import json
+import logging
+import os
+from typing import Any, Callable, Dict, List, Optional
+
+import replicate
+import requests
 from dotenv import load_dotenv
+from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
 )
-from langchain_core.language_models import BaseChatModel
-from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI
 
 # from langchain_google_vertexai import ChatVertexAI # Deprecated
 from langchain_core.tools import StructuredTool
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langsmith import traceable
+
+from DeepAgents.agent_brain import AgentComms
 
 # Internal Data Structures
 from DeepAgents.asset_manager import AssetManager
-from DeepAgents.agent_brain import AgentComms
-import replicate
-from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
     CINEMATOGRAPHER_INSTRUCTIONS,
 )
+from DeepAgents.model_schemas import get_model_schema, parse_schema_output
 from DeepAgents.system_config import SystemConfiguration
 
 # Cross-Agent Imports (REMOVED per strict isolation policy)
@@ -257,26 +259,29 @@ def create_cinematographer_agent(
         """
         Generates a video using Google Vertex AI Veo models.
         Returns local file path (and cloud link).
-        
+
         Note: Veo 3.1 only supports durations of 4, 6, or 8 seconds.
         """
         logger.info(f"[VIDEO-VERTEX] Generating with Veo: {vid_model}")
-        
+
         if not gen_client:
             return "Error: Google GenAI client not initialized. Check GOOGLE_CLOUD_PROJECT."
-        
+
         try:
-            from google.genai import types
             import time
-            
+
+            from google.genai import types
+
             # Veo 3.1 only supports 4, 6, or 8 seconds - snap to nearest valid
             valid_durations = [4, 6, 8]
             if duration not in valid_durations:
                 # Snap to nearest valid duration
                 original = duration
                 duration = min(valid_durations, key=lambda x: abs(x - duration))
-                logger.warning(f"[VIDEO-VERTEX] Duration {original}s not supported, using {duration}s")
-            
+                logger.warning(
+                    f"[VIDEO-VERTEX] Duration {original}s not supported, using {duration}s"
+                )
+
             # Veo generation config
             config = types.GenerateVideosConfig(
                 aspect_ratio="16:9",
@@ -284,40 +289,40 @@ def create_cinematographer_agent(
                 duration_seconds=duration,
                 enhance_prompt=True,  # Let Veo optimize the prompt
             )
-            
+
             logger.info(f"[VIDEO-VERTEX] Prompt: {prompt[:80]}...")
             logger.info(f"[VIDEO-VERTEX] Config: duration={duration}s, aspect=16:9")
-            
+
             # Start async generation
             operation = gen_client.models.generate_videos(
                 model=vid_model,
                 prompt=prompt,
                 config=config,
             )
-            
+
             # Poll for completion (Veo is async)
             logger.info("[VIDEO-VERTEX] Waiting for video generation...")
             max_wait = 300  # 5 minutes max
             poll_interval = 10
             elapsed = 0
-            
+
             while not operation.done and elapsed < max_wait:
                 time.sleep(poll_interval)
                 elapsed += poll_interval
                 logger.info(f"[VIDEO-VERTEX] Still generating... ({elapsed}s elapsed)")
                 operation = gen_client.operations.get(operation)
-            
+
             if not operation.done:
                 return f"Error: Video generation timed out after {max_wait}s"
-            
+
             # Check for result
             if operation.response and operation.response.generated_videos:
                 video = operation.response.generated_videos[0]
-                video_uri = video.video.uri if hasattr(video.video, 'uri') else None
-                
+                video_uri = video.video.uri if hasattr(video.video, "uri") else None
+
                 if video_uri:
                     logger.info(f"[VIDEO-VERTEX] Video ready: {video_uri}")
-                    
+
                     # Download and save
                     resp = requests.get(video_uri, timeout=120)
                     if resp.status_code == 200:
@@ -332,9 +337,9 @@ def create_cinematographer_agent(
                             return f"Saved: {path}{_get_cloud_url(path)}"
                         return "Error: Failed to save Veo video."
                     return f"Error: Failed to download video (HTTP {resp.status_code})"
-                    
+
                 # Try getting bytes directly
-                if hasattr(video.video, 'video_bytes') and video.video.video_bytes:
+                if hasattr(video.video, "video_bytes") and video.video.video_bytes:
                     path = assets.save_asset(
                         video.video.video_bytes,
                         "video",
@@ -345,9 +350,9 @@ def create_cinematographer_agent(
                     if path:
                         return f"Saved: {path}{_get_cloud_url(path)}"
                     return "Error: Failed to save Veo video bytes."
-                    
+
             return f"Error: Veo returned no video data. Operation: {operation}"
-            
+
         except Exception as e:
             logger.error(f"[VIDEO-VERTEX] Veo generation failed: {e}")
             return f"Error: Veo video generation failed: {e}"
@@ -360,14 +365,14 @@ def create_cinematographer_agent(
         Returns local file path (and cloud link).
         """
         logger.info(f"[VIDEO] Generating Video: {prompt[:60]}...")
-        
+
         # Check if this is a Vertex AI model (Veo)
         is_vertex_model = vid_model.startswith("veo-") or "veo" in vid_model.lower()
-        
+
         if is_vertex_model:
             # Use Vertex AI for Veo models
             return _generate_video_vertex(prompt, duration)
-        
+
         if vid_provider.lower() != "replicate":
             return "Error: Only Replicate and Vertex AI (Veo) supported for video currently."
 
@@ -377,29 +382,33 @@ def create_cinematographer_agent(
             try:
                 # Get model-specific schema from Hub
                 schema_template = get_model_schema(
-                    "Cinematographer",
-                    "video_generation",
-                    f"replicate/{vid_model}"
+                    "Cinematographer", "video_generation", f"replicate/{vid_model}"
                 )
-                
+
                 # Use LLM to optimize prompt according to schema
                 optimization_prompt = schema_template.format(input_text=prompt)
-                optimization_response = llm.invoke([HumanMessage(content=optimization_prompt)])
-                
+                optimization_response = llm.invoke(
+                    [HumanMessage(content=optimization_prompt)]
+                )
+
                 # Parse the structured output
                 parsed = parse_schema_output(optimization_response.content, vid_model)
                 if parsed.get("VISUAL_PROMPT"):
                     optimized_prompt = parsed["VISUAL_PROMPT"]
-                    logger.info(f"[SCHEMA] Optimized prompt: {optimized_prompt[:60]}...")
+                    logger.info(
+                        f"[SCHEMA] Optimized prompt: {optimized_prompt[:60]}..."
+                    )
                 else:
                     logger.info("[SCHEMA] No VISUAL_PROMPT in response, using original")
-                    
+
             except Exception as schema_error:
-                logger.warning(f"[SCHEMA] Optimization failed ({schema_error}), using original prompt")
-            
+                logger.warning(
+                    f"[SCHEMA] Optimization failed ({schema_error}), using original prompt"
+                )
+
             # Map common args based on model
             input_args: Dict[str, Any] = {"prompt": optimized_prompt}
-            
+
             # Model-specific parameters
             if "wan" in vid_model.lower():
                 # Wan models use different parameters
@@ -415,17 +424,21 @@ def create_cinematographer_agent(
                 logger.info(f"[VIDEO] Using Zeroscope parameters: {input_args}")
 
             logger.info(f"[VIDEO] Calling Replicate model: {vid_model}")
-            
+
             # Emit progress so UI knows we're waiting on API
             try:
                 comms = AgentComms()
                 comms.connect()
                 model_short = vid_model.split("/")[-1].split(":")[0]
-                comms.send_message("Cinematographer", "GUI", f"Calling {model_short} API (this may take 1-3 minutes)...")
+                comms.send_message(
+                    "Cinematographer",
+                    "GUI",
+                    f"Calling {model_short} API (this may take 1-3 minutes)...",
+                )
                 comms.close()
             except Exception:
                 pass  # Non-critical
-            
+
             output = replicate.run(vid_model, input=input_args)
             video_url = output[0] if isinstance(output, list) else output
 
@@ -436,7 +449,11 @@ def create_cinematographer_agent(
                     "video",
                     session_id,
                     prompt,
-                    metadata={"model": vid_model, "provider": "Replicate", "optimized_prompt": optimized_prompt},
+                    metadata={
+                        "model": vid_model,
+                        "provider": "Replicate",
+                        "optimized_prompt": optimized_prompt,
+                    },
                 )
                 if path:
                     return f"Saved: {path}{_get_cloud_url(path)}"
@@ -465,7 +482,9 @@ def create_cinematographer_agent(
     # This MANDATES the model MUST call one of the provided tools.
     try:
         llm_with_tools = llm.bind_tools(tools, tool_choice="any")
-        logger.info("[TOOL BINDING] Cinematographer tools bound with tool_choice='any' (forced execution)")
+        logger.info(
+            "[TOOL BINDING] Cinematographer tools bound with tool_choice='any' (forced execution)"
+        )
     except Exception as e:
         logger.error(f"Failed to bind tools to LLM ({llm_provider}): {e}")
         llm_with_tools = llm
@@ -536,11 +555,11 @@ def create_cinematographer_agent(
 
         # 2. Check for Tool Calls - MULTI-VIDEO SUPPORT
         all_generated_assets = []  # Collect all video paths
-        
+
         if response.tool_calls:
             total_calls = len(response.tool_calls)
             yield ("thinking", f"🎬 Generating {total_calls} video segment(s)...")
-            
+
             for idx, tool_call in enumerate(response.tool_calls, 1):
                 tool_name = tool_call["name"]
                 args = tool_call["args"]
@@ -591,14 +610,20 @@ def create_cinematographer_agent(
                         asset_path = path_match.group(1).rstrip(".,)")
 
                     all_generated_assets.append(asset_path)
-                    yield ("output", f"**Segment {idx}/{total_calls} Generated**: {asset_path}")
+                    yield (
+                        "output",
+                        f"**Segment {idx}/{total_calls} Generated**: {asset_path}",
+                    )
 
             # Report all generated assets
             if all_generated_assets:
-                yield ("output", f"**Total Videos Generated**: {len(all_generated_assets)}")
+                yield (
+                    "output",
+                    f"**Total Videos Generated**: {len(all_generated_assets)}",
+                )
                 for i, asset in enumerate(all_generated_assets, 1):
                     yield ("video_asset", asset)  # Emit each asset for collection
-                    
+
             # 3. Finalize (One interpretation pass after tools)
             yield ("thinking", "📝 Finalizing Report...")
             try:
@@ -645,30 +670,28 @@ def create_cinematographer_agent(
 
 
 def run_cinematographer_task(
-    request_description: str,
-    model_id: str = None,
-    model_params: dict = None
+    request_description: str, model_id: str = None, model_params: dict = None
 ) -> str:
     """
     Synchronous entry point for external agents (Director).
     Handles HITL via ApprovalManager.
-    
+
     Args:
         request_description: The visual directive/plan from Director
         model_id: Optional model ID from GUI (e.g., "wan-video/wan-2.5-t2v-fast")
         model_params: Optional dict of model parameters from GUI schema
-        
+
     Returns:
         String containing all generated video paths (supports multi-segment)
     """
     logger.info("[CINEMA] Cinematographer Consulted: %s", request_description)
-    
+
     # Log model configuration if provided
     if model_id:
         logger.info("[CINEMA] Using model from GUI: %s", model_id)
     if model_params:
         logger.info("[CINEMA] Model params: %s", model_params)
-    
+
     try:
         from DeepAgents.approval_manager import is_asset_rejected
 

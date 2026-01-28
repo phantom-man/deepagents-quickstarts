@@ -1,8 +1,8 @@
-
 import replicate
 from dotenv import load_dotenv
 
 load_dotenv("DeepAgents/.env")
+
 
 def test_xtts():
     print("Testing XTTS...")
@@ -13,12 +13,13 @@ def test_xtts():
             model,
             input={
                 "text": "Hello, this is a test of the emergency broadcast system.",
-                "speaker": "Ana Florence" # Trying a common preset
-            }
+                "speaker": "Ana Florence",  # Trying a common preset
+            },
         )
         print(f"Success: {output}")
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     test_xtts()

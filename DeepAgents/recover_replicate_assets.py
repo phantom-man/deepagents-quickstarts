@@ -2,7 +2,9 @@
 """
 Utility script to recover assets from Replicate history.
 """
+
 import os
+
 import replicate
 import requests
 from dotenv import load_dotenv

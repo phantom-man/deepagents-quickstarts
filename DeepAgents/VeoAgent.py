@@ -6,23 +6,25 @@ Responsible for generating video and storyboard assets using Google Vertex AI (V
 NOTE: Veo usage is currently DISABLED due to cost constraints ($0.75/s). Defers to SVD.
 """
 
+import argparse
+import logging
 import os
 import sys
 import time
-import argparse
 import uuid
-import logging
+
 from dotenv import load_dotenv
+from langchain_core.messages import HumanMessage, SystemMessage
 
 # from google import genai # Disabled for now to prevent accidental usage
 from langchain_google_genai import ChatGoogleGenerativeAI
+
 from DeepAgents.replicate_adapter import ChatReplicate
-from langchain_core.messages import SystemMessage, HumanMessage
 
 try:
-    from agent_brain import AgentMemory, AgentComms
+    from agent_brain import AgentComms, AgentMemory
 except ImportError:
-    from DeepAgents.agent_brain import AgentMemory, AgentComms
+    from DeepAgents.agent_brain import AgentComms, AgentMemory
 
 # Load environment variables
 env_path = os.path.join(os.path.dirname(__file__), ".env")
@@ -71,7 +73,7 @@ def refine_prompt_with_thinking(raw_prompt):
     try:
         llm = ChatReplicate(
             model="meta/meta-llama-3-70b-instruct",
-            model_kwargs={"temperature": 0.7, "max_length": 4096}
+            model_kwargs={"temperature": 0.7, "max_length": 4096},
         )
     except Exception as e:
         print(f"⚠️ Replicate Init Failed: {e}. Falling back to Google.")
@@ -79,7 +81,7 @@ def refine_prompt_with_thinking(raw_prompt):
             model="gemini-1.5-pro-001",
             temperature=0.7,
             project=os.getenv("GOOGLE_CLOUD_PROJECT"),
-            location=os.getenv("GOOGLE_CLOUD_LOCATION")
+            location=os.getenv("GOOGLE_CLOUD_LOCATION"),
         )
 
     system_prompt = f"""You are the **Cinematographer Agent**.
@@ -119,6 +121,7 @@ print(f"Initializing Vertex AI Client for project: {PROJECT_ID}")
 # client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION) # Disabled
 client = None
 
+
 def generate_video(model_name, prompt, output_file="output_video.mp4"):
     """Generates a video using the specified model."""
     print(f"\n--- Generating Video with {model_name} ---")
@@ -132,6 +135,9 @@ def generate_video(model_name, prompt, output_file="output_video.mp4"):
     print("Waiting for generation (this may take a minute)...")
 
     try:
+        if client is None:
+            logger.error("Client not initialized")
+            return False
         # Generate content
         response = client.models.generate_content(
             model=model_name,
@@ -171,6 +177,9 @@ def generate_storyboard(prompt, output_file):
     print(f"Prompt: {prompt}")
 
     try:
+        if client is None:
+            logger.error("Client not initialized for image generation")
+            return False
         response = client.models.generate_images(
             model="imagen-3.0-generate-001",
             prompt=prompt,

@@ -1,5 +1,5 @@
-
 import os
+
 from dotenv import load_dotenv
 from langsmith import Client
 
@@ -21,8 +21,10 @@ try:
         print(f"✅ FOUND HANDLE: {handle}")
         print(f"   (From repo: {repos[0].repo_handle})")
     else:
-        print("⚠️  No existing repos found. Creating a temporary one to discover handle...")
-        # Try to push a dummy prompt to discover handle? 
+        print(
+            "⚠️  No existing repos found. Creating a temporary one to discover handle..."
+        )
+        # Try to push a dummy prompt to discover handle?
         # Actually without a handle provided, push might fail like pull.
         # Let's try to get current user info.
         pass

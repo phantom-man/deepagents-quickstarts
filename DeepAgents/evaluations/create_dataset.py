@@ -1,9 +1,11 @@
 import os
+
 from dotenv import load_dotenv
 from langsmith import Client
 
 # Load environment variables
 load_dotenv(os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env")))
+
 
 def create_dataset():
     client = Client()
@@ -31,9 +33,9 @@ def create_dataset():
                     "Target Audience: Gamers",
                     "Tone: High Energy",
                     "Product: ZapFizz",
-                    "Duration: 30 seconds"
+                    "Duration: 30 seconds",
                 ]
-            }
+            },
         },
         {
             "inputs": {
@@ -44,9 +46,9 @@ def create_dataset():
                     "Brand: Chronos",
                     "Tone: Elegant / Silent Luxury",
                     "Visual Style: Black and White",
-                    "Product Focus: Watches"
+                    "Product Focus: Watches",
                 ]
-            }
+            },
         },
         {
             "inputs": {
@@ -57,10 +59,10 @@ def create_dataset():
                     "Product: EcoSneaks",
                     "Material: Recycled Plastic",
                     "Setting: Outdoors",
-                    "Mood: Inspiring"
+                    "Mood: Inspiring",
                 ]
-            }
-        }
+            },
+        },
     ]
 
     # Add examples to proposed dataset
@@ -71,6 +73,7 @@ def create_dataset():
     )
 
     print(f"Created dataset '{dataset_name}' with {len(examples)} examples.")
+
 
 if __name__ == "__main__":
     create_dataset()

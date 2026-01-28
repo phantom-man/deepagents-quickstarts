@@ -2,30 +2,32 @@
 REAL verification of LangSmith Hub Push.
 Creates a unique prompt artifact, pushes it, and verifies the commit.
 """
-import uuid
+
 import datetime
-from langsmith import Client
+import uuid
+
 from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client
+
 
 def run_test():
     client = Client()
-    
+
     # 1. Create Unique Data
     unique_id = str(uuid.uuid4())[:8]
     timestamp = datetime.datetime.now().isoformat()
     repo_name = f"test-verification-{unique_id}"
-    
+
     print("🧪 Starting Real Push Test")
     print(f"   Target Repo: {repo_name}")
     print(f"   Timestamp:   {timestamp}")
-    
+
     # 2. Construct Prompt
     content = f"This is a verification artifact created at {timestamp}. ID: {unique_id}"
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", content),
-        ("user", "{input}")
-    ])
-    
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", content), ("user", "{input}")]
+    )
+
     # 3. PUSH (Real mutation)
     print("\n🚀 Attempting Push...")
     try:
@@ -39,11 +41,11 @@ def run_test():
     print("\n📡 Attempting Verification Pull...")
     try:
         remote_prompt = client.pull_prompt(repo_name)
-        
+
         # Verify Content Matches
         # Check first message (System)
         remote_content = remote_prompt.messages[0].prompt.template
-        
+
         if remote_content == content:
             print("   ✅ Content Verified Match!")
             print(f"      Sent: '{content}'")
@@ -54,10 +56,11 @@ def run_test():
             print(f"      Sent: '{content}'")
             print(f"      Got:  '{remote_content}'")
             return False
-            
+
     except Exception as e:
         print(f"   ❌ Pull Failed: {e}")
         return False
+
 
 if __name__ == "__main__":
     success = run_test()

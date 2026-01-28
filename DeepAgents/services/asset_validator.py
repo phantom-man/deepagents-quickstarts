@@ -6,6 +6,7 @@ requirements specified in model schemas (type, duration, content).
 
 Philosophy: Fail Fast - Validation errors are surfaced immediately.
 """
+
 import logging
 import mimetypes
 import os
@@ -13,7 +14,7 @@ import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Optional, Tuple, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, BinaryIO, Dict, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from DeepAgents.services.schema_service import AssetRequirement
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class ValidationStatus(Enum):
     """Validation result status."""
+
     VALID = "valid"
     INVALID_TYPE = "invalid_type"
     INVALID_DURATION = "invalid_duration"
@@ -35,6 +37,7 @@ class ValidationStatus(Enum):
 @dataclass
 class ValidationResult:
     """Result of file validation."""
+
     status: ValidationStatus
     is_valid: bool
     message: str
@@ -67,26 +70,29 @@ class AssetValidator:
 
     # MIME type mappings
     AUDIO_MIMES = {
-        "audio/wav", "audio/x-wav", "audio/wave",
-        "audio/mpeg", "audio/mp3",
-        "audio/flac", "audio/x-flac",
-        "audio/ogg", "audio/vorbis",
-        "audio/mp4", "audio/m4a", "audio/x-m4a"
+        "audio/wav",
+        "audio/x-wav",
+        "audio/wave",
+        "audio/mpeg",
+        "audio/mp3",
+        "audio/flac",
+        "audio/x-flac",
+        "audio/ogg",
+        "audio/vorbis",
+        "audio/mp4",
+        "audio/m4a",
+        "audio/x-m4a",
     }
 
     VIDEO_MIMES = {
-        "video/mp4", "video/mpeg",
+        "video/mp4",
+        "video/mpeg",
         "video/quicktime",
         "video/x-msvideo",
-        "video/webm"
+        "video/webm",
     }
 
-    IMAGE_MIMES = {
-        "image/png",
-        "image/jpeg", "image/jpg",
-        "image/webp",
-        "image/gif"
-    }
+    IMAGE_MIMES = {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}
 
     def __init__(self, max_file_size: Optional[int] = None):
         """
@@ -117,6 +123,7 @@ class AssetValidator:
         """Check if pydub is available for audio duration."""
         try:
             import pydub  # noqa
+
             return True
         except ImportError:
             logger.warning("pydub not available - audio duration checks disabled")
@@ -126,6 +133,7 @@ class AssetValidator:
         """Check if opencv is available for video duration."""
         try:
             import cv2  # noqa
+
             return True
         except ImportError:
             logger.warning("opencv not available - video duration checks disabled")
@@ -138,7 +146,7 @@ class AssetValidator:
         content_type: Optional[str] = None,
         min_duration: Optional[float] = None,
         max_duration: Optional[float] = None,
-        required: bool = True
+        required: bool = True,
     ) -> ValidationResult:
         """
         Validate a file against requirements.
@@ -160,12 +168,12 @@ class AssetValidator:
                 return ValidationResult(
                     status=ValidationStatus.INVALID_TYPE,
                     is_valid=False,
-                    message="Required file not provided"
+                    message="Required file not provided",
                 )
             return ValidationResult(
                 status=ValidationStatus.VALID,
                 is_valid=True,
-                message="Optional file not provided"
+                message="Optional file not provided",
             )
 
         try:
@@ -177,14 +185,14 @@ class AssetValidator:
                 return ValidationResult(
                     status=ValidationStatus.FILE_EMPTY,
                     is_valid=False,
-                    message="File is empty"
+                    message="File is empty",
                 )
 
             if file_size > self.max_file_size:
                 return ValidationResult(
                     status=ValidationStatus.FILE_TOO_LARGE,
                     is_valid=False,
-                    message=f"File too large: {file_size / 1024 / 1024:.1f}MB (max {self.max_file_size / 1024 / 1024:.1f}MB)"
+                    message=f"File too large: {file_size / 1024 / 1024:.1f}MB (max {self.max_file_size / 1024 / 1024:.1f}MB)",
                 )
 
             # Check MIME type
@@ -194,7 +202,7 @@ class AssetValidator:
                     status=ValidationStatus.INVALID_TYPE,
                     is_valid=False,
                     message=type_msg,
-                    details={"mime_type": mime_type, "expected": asset_type}
+                    details={"mime_type": mime_type, "expected": asset_type},
                 )
 
             # Check duration for audio/video
@@ -210,22 +218,22 @@ class AssetValidator:
                         details={
                             "duration": actual_duration,
                             "min_duration": min_duration,
-                            "max_duration": max_duration
-                        }
+                            "max_duration": max_duration,
+                        },
                     )
 
             # All checks passed
             details = {
                 "file_size": file_size,
                 "mime_type": mime_type,
-                "asset_type": asset_type
+                "asset_type": asset_type,
             }
 
             return ValidationResult(
                 status=ValidationStatus.VALID,
                 is_valid=True,
                 message=f"Valid {asset_type} file ({file_size / 1024:.1f}KB)",
-                details=details
+                details=details,
             )
 
         except Exception as e:
@@ -233,12 +241,11 @@ class AssetValidator:
             return ValidationResult(
                 status=ValidationStatus.UNKNOWN_ERROR,
                 is_valid=False,
-                message=f"Validation error: {str(e)}"
+                message=f"Validation error: {str(e)}",
             )
 
     def _get_file_info(
-        self,
-        file: Union[str, Path, BinaryIO]
+        self, file: Union[str, Path, BinaryIO]
     ) -> Tuple[Optional[str], int, Optional[str]]:
         """
         Get file path, size, and MIME type.
@@ -261,7 +268,7 @@ class AssetValidator:
             file_path = None
 
             # Get size - Streamlit UploadedFile has .size attribute
-            if hasattr(file_obj, 'size'):
+            if hasattr(file_obj, "size"):
                 file_size = file_obj.size
             else:
                 current_pos = file_obj.tell()
@@ -270,17 +277,17 @@ class AssetValidator:
                 file_obj.seek(current_pos)  # Restore position
 
             # Get MIME type - Streamlit UploadedFile has .type attribute
-            if hasattr(file_obj, 'type'):
+            if hasattr(file_obj, "type"):
                 mime_type = file_obj.type
-            elif hasattr(file_obj, 'name'):
+            elif hasattr(file_obj, "name"):
                 mime_type, _ = mimetypes.guess_type(file_obj.name)
             else:
                 mime_type = None
 
             # If we need duration check, save to temp file
-            if file_path is None and hasattr(file_obj, 'read'):
+            if file_path is None and hasattr(file_obj, "read"):
                 # Create temp file for duration checking
-                suffix = Path(file_obj.name).suffix if hasattr(file_obj, 'name') else ''
+                suffix = Path(file_obj.name).suffix if hasattr(file_obj, "name") else ""
                 with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                     tmp.write(file_obj.read())
                     file_path = tmp.name
@@ -289,9 +296,7 @@ class AssetValidator:
         return file_path, file_size, mime_type
 
     def _validate_mime_type(
-        self,
-        mime_type: Optional[str],
-        expected_type: str
+        self, mime_type: Optional[str], expected_type: str
     ) -> Tuple[bool, str]:
         """
         Validate MIME type against expected asset type.
@@ -311,7 +316,7 @@ class AssetValidator:
         type_map = {
             "audio": self.AUDIO_MIMES,
             "video": self.VIDEO_MIMES,
-            "image": self.IMAGE_MIMES
+            "image": self.IMAGE_MIMES,
         }
 
         valid_mimes = type_map.get(expected_type, set())
@@ -330,7 +335,7 @@ class AssetValidator:
         file_path: Optional[str],
         asset_type: str,
         min_duration: Optional[float],
-        max_duration: Optional[float]
+        max_duration: Optional[float],
     ) -> Tuple[bool, str, Optional[float]]:
         """
         Validate file duration against requirements.
@@ -352,6 +357,7 @@ class AssetValidator:
         if asset_type == "audio" and self._pydub_available:
             try:
                 from pydub import AudioSegment
+
                 audio = AudioSegment.from_file(file_path)
                 duration = len(audio) / 1000.0  # ms to seconds
             except Exception as e:
@@ -361,6 +367,7 @@ class AssetValidator:
         elif asset_type == "video" and self._opencv_available:
             try:
                 import cv2
+
                 cap = cv2.VideoCapture(file_path)
                 fps = cap.get(cv2.CAP_PROP_FPS)
                 frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -377,17 +384,23 @@ class AssetValidator:
 
         # Validate duration
         if min_duration and duration < min_duration:
-            return False, f"File too short: {duration:.1f}s (min {min_duration}s)", duration
+            return (
+                False,
+                f"File too short: {duration:.1f}s (min {min_duration}s)",
+                duration,
+            )
 
         if max_duration and duration > max_duration:
-            return False, f"File too long: {duration:.1f}s (max {max_duration}s)", duration
+            return (
+                False,
+                f"File too long: {duration:.1f}s (max {max_duration}s)",
+                duration,
+            )
 
         return True, f"Duration valid: {duration:.1f}s", duration
 
     def validate_from_requirement(
-        self,
-        file: Union[str, Path, BinaryIO],
-        requirement: "AssetRequirement"
+        self, file: Union[str, Path, BinaryIO], requirement: "AssetRequirement"
     ) -> ValidationResult:
         """
         Validate file against an AssetRequirement object.
@@ -405,7 +418,7 @@ class AssetValidator:
             content_type=requirement.content_type,
             min_duration=requirement.min_duration,
             max_duration=requirement.max_duration,
-            required=requirement.required
+            required=requirement.required,
         )
 
 
@@ -420,7 +433,7 @@ def validate_upload(
     file: Union[str, Path, BinaryIO],
     asset_type: str,
     min_duration: Optional[float] = None,
-    max_duration: Optional[float] = None
+    max_duration: Optional[float] = None,
 ) -> ValidationResult:
     """
     Convenience function to validate an uploaded file.
@@ -439,13 +452,11 @@ def validate_upload(
         file=file,
         asset_type=asset_type,
         min_duration=min_duration,
-        max_duration=max_duration
+        max_duration=max_duration,
     )
 
     def extract_metadata(
-        self,
-        file_path: Union[str, Path],
-        asset_type: str
+        self, file_path: Union[str, Path], asset_type: str
     ) -> Dict[str, Any]:
         """Extract best-effort metadata for audio or video files."""
         metadata: Dict[str, Any] = {}
@@ -457,7 +468,9 @@ def validate_upload(
         try:
             stat_info = os.stat(path)
             metadata["file_size_bytes"] = stat_info.st_size
-            metadata["file_size_readable"] = f"{stat_info.st_size / (1024 * 1024):.2f} MB"
+            metadata["file_size_readable"] = (
+                f"{stat_info.st_size / (1024 * 1024):.2f} MB"
+            )
         except OSError as exc:
             logger.warning(f"Could not stat file for metadata: {exc}")
 

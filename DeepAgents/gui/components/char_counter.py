@@ -7,15 +7,14 @@ Provides text input and textarea widgets with:
 - Visual feedback (green/yellow/red)
 - Min/max character validation
 """
+
 from typing import Optional, Tuple
 
 import streamlit as st
 
 
 def get_char_status(
-    current: int,
-    max_chars: Optional[int] = None,
-    min_chars: Optional[int] = None
+    current: int, max_chars: Optional[int] = None, min_chars: Optional[int] = None
 ) -> Tuple[str, str]:
     """
     Get status color and message for character count.
@@ -59,7 +58,7 @@ def text_input_with_counter(
     placeholder: str = "",
     default_value: str = "",
     help_text: Optional[str] = None,
-    disabled: bool = False
+    disabled: bool = False,
 ) -> str:
     """
     Single-line text input with character counter and hard limit.
@@ -79,39 +78,43 @@ def text_input_with_counter(
     """
     # Widget key - this is what Streamlit uses to track the widget's state
     widget_key = f"{key}_widget"
-    
+
+    # Track if we need a rerun after setting state (must happen BEFORE widget instantiation)
+    needs_rerun = False
+
     # Check if there's an external update to apply (from presets, etc.)
+    # This MUST happen BEFORE the widget is created
     external_key = f"{key}_external_update"
     if external_key in st.session_state:
-        st.session_state[widget_key] = st.session_state[external_key]
+        new_value = st.session_state[external_key]
+        # Apply max_chars truncation if needed
+        if max_chars and len(new_value) > max_chars:
+            new_value = new_value[:max_chars]
+        st.session_state[widget_key] = new_value
         del st.session_state[external_key]
+        needs_rerun = True
 
     # Get current value from widget state or use default
     if widget_key not in st.session_state:
-        st.session_state[widget_key] = default_value
+        initial_value = default_value
+        if max_chars and len(initial_value) > max_chars:
+            initial_value = initial_value[:max_chars]
+        st.session_state[widget_key] = initial_value
+
+    # If we modified session_state, rerun BEFORE creating the widget
+    if needs_rerun:
+        st.rerun()
 
     # Create the input
-    # CRITICAL: When widget_key exists in session_state, do NOT pass value= parameter
-    # Streamlit will use session_state automatically and passing value= causes conflicts
-    if widget_key in st.session_state:
-        raw_value = st.text_input(
-            label,
-            key=widget_key,
-            placeholder=placeholder,
-            help=help_text,
-            disabled=disabled,
-            max_chars=max_chars
-        )
-    else:
-        raw_value = st.text_input(
-            label,
-            value=default_value,
-            key=widget_key,
-            placeholder=placeholder,
-            help=help_text,
-            disabled=disabled,
-            max_chars=max_chars
-        )
+    # CRITICAL: Widget key is already in session_state, so do NOT pass value= parameter
+    raw_value = st.text_input(
+        label,
+        key=widget_key,
+        placeholder=placeholder,
+        help=help_text,
+        disabled=disabled,
+        max_chars=max_chars,
+    )
 
     # Handle None return (shouldn't happen but type-safe)
     value = raw_value if raw_value is not None else ""
@@ -123,7 +126,7 @@ def text_input_with_counter(
     color_map = {"green": "#28a745", "orange": "#ffc107", "red": "#dc3545"}
     st.markdown(
         f"<span style='color: {color_map[color]}; font-size: 0.8em;'>{message}</span>",
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
     return value
@@ -139,7 +142,7 @@ def text_area_with_counter(
     height: int = 150,
     help_text: Optional[str] = None,
     disabled: bool = False,
-    show_remaining: bool = True
+    show_remaining: bool = True,
 ) -> str:
     """
     Multi-line textarea with character counter and hard blocking.
@@ -161,17 +164,34 @@ def text_area_with_counter(
     """
     # Widget key - this is what Streamlit uses to track the widget's state
     widget_key = f"{key}_widget"
-    
+
+    # Track if we need a rerun after setting state (must happen BEFORE widget instantiation)
+    needs_rerun = False
+
     # Check if there's an external update to apply (from presets, etc.)
+    # This MUST happen BEFORE the widget is created
     external_key = f"{key}_external_update"
     if external_key in st.session_state:
-        st.session_state[widget_key] = st.session_state[external_key]
+        new_value = st.session_state[external_key]
+        # Apply truncation to external update if needed
+        if max_chars and len(new_value) > max_chars:
+            new_value = new_value[:max_chars]
+        st.session_state[widget_key] = new_value
         del st.session_state[external_key]
+        needs_rerun = True
 
     # Get current value from widget state or use default
     if widget_key not in st.session_state:
-        st.session_state[widget_key] = default_value
-    
+        # Apply truncation to default value if needed
+        initial_value = default_value
+        if max_chars and len(initial_value) > max_chars:
+            initial_value = initial_value[:max_chars]
+        st.session_state[widget_key] = initial_value
+
+    # If we modified session_state, rerun BEFORE creating the widget
+    if needs_rerun:
+        st.rerun()
+
     current_len = len(st.session_state[widget_key])
 
     # Build label with counter if max_chars specified
@@ -187,34 +207,24 @@ def text_area_with_counter(
     # Note: Streamlit textarea doesn't have max_chars, so we handle it manually
     # CRITICAL: When widget_key exists in session_state, do NOT pass value= parameter
     # Streamlit will use session_state automatically and passing value= causes conflicts
-    if widget_key in st.session_state:
-        raw_value = st.text_area(
-            display_label,
-            key=widget_key,
-            placeholder=placeholder,
-            height=height,
-            help=help_text,
-            disabled=disabled
-        )
-    else:
-        raw_value = st.text_area(
-            display_label,
-            value=default_value,
-            key=widget_key,
-            placeholder=placeholder,
-            height=height,
-            help=help_text,
-            disabled=disabled
-        )
+    raw_value = st.text_area(
+        display_label,
+        key=widget_key,
+        placeholder=placeholder,
+        height=height,
+        help=help_text,
+        disabled=disabled,
+    )
 
     # Handle None return (shouldn't happen but type-safe)
     value = raw_value if raw_value is not None else ""
 
-    # HARD BLOCKING: Truncate if over limit
+    # SOFT WARNING for over-limit (cannot truncate after widget is created)
+    # The truncation happens on NEXT rerun via the external_update mechanism
     if max_chars and len(value) > max_chars:
-        value = value[:max_chars]
-        st.session_state[widget_key] = value
-        st.warning(f"Input truncated to {max_chars} characters (limit reached)")
+        st.warning(
+            f"Input exceeds {max_chars} character limit by {len(value) - max_chars} characters"
+        )
 
     # Show character counter bar
     current_len = len(value)
@@ -234,12 +244,12 @@ def text_area_with_counter(
                 <span style="color: {color_map[color]}; font-size: 0.8em; white-space: nowrap;">{message}</span>
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
     else:
         st.markdown(
             f"<span style='color: {color_map[color]}; font-size: 0.8em;'>{message}</span>",
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
     return value
@@ -249,7 +259,7 @@ def lyrics_input(
     key: str,
     max_chars: int = 600,
     default_value: str = "",
-    help_text: str = "Use [Verse], [Chorus], [Bridge] markers for structure"
+    help_text: str = "Use [Verse], [Chorus], [Bridge] markers for structure",
 ) -> str:
     """
     Specialized lyrics input for music generation.
@@ -273,7 +283,7 @@ def lyrics_input(
         placeholder="[Verse 1]\nYour lyrics here...\n\n[Chorus]\nCatchy hook...",
         default_value=default_value,
         height=200,
-        help_text=help_text
+        help_text=help_text,
     )
 
 
@@ -283,7 +293,7 @@ def prompt_input(
     max_chars: Optional[int] = 300,
     default_value: str = "",
     placeholder: str = "Describe the style, mood, and details...",
-    height: int = 100
+    height: int = 100,
 ) -> str:
     """
     Specialized prompt input for AI generation.
@@ -305,5 +315,5 @@ def prompt_input(
         max_chars=max_chars,
         placeholder=placeholder,
         default_value=default_value,
-        height=height
+        height=height,
     )

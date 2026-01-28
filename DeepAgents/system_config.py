@@ -5,7 +5,7 @@ Central configuration management for DeepAgents.
 
 import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 # Default System Configuration (The Truth)
 DEFAULT_SYSTEM_CONFIG = {
@@ -75,9 +75,7 @@ DEFAULT_SYSTEM_CONFIG = {
                                 "Fast, cheap, excellent instrumental quality, "
                                 "explicit duration control."
                             ),
-                            "weaknesses": (
-                                "No lyrics support, max 30s clips."
-                            ),
+                            "weaknesses": ("No lyrics support, max 30s clips."),
                             "supports_lyrics": False,
                             "supports_duration": True,
                             "max_duration_seconds": 30,

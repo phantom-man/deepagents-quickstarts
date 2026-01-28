@@ -2,11 +2,13 @@
 Script to PUSH local system prompts to LangSmith Hub.
 This ensures the Hub is the source of truth for prompts, or at least mirrors the code.
 """
+
 import os
 import sys
+
 from dotenv import load_dotenv
-from langsmith import Client
 from langchain_core.prompts import ChatPromptTemplate
+from langsmith import Client
 
 # Add Repo Root to Path to allow imports
 root_path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -27,26 +29,36 @@ client = Client()
 
 # Import Prompts (This executes the local construction logic)
 try:
-    from DeepAgents.CommercialAgents.director_agent.prompts import DEFAULT_DIRECTOR_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.research_agent.prompts import RESEARCHER_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.confidence_agent.prompts import CONFIDENCE_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.composer_agent.prompts import DEFAULT_COMPOSER_INSTRUCTIONS
-    from DeepAgents.CommercialAgents.cinematographer_agent.prompts import DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS
+    from DeepAgents.CommercialAgents.cinematographer_agent.prompts import (
+        DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS,
+    )
+    from DeepAgents.CommercialAgents.composer_agent.prompts import (
+        DEFAULT_COMPOSER_INSTRUCTIONS,
+    )
+    from DeepAgents.CommercialAgents.confidence_agent.prompts import (
+        CONFIDENCE_INSTRUCTIONS,
+    )
+    from DeepAgents.CommercialAgents.director_agent.prompts import (
+        DEFAULT_DIRECTOR_INSTRUCTIONS,
+    )
+    from DeepAgents.CommercialAgents.research_agent.prompts import (
+        RESEARCHER_INSTRUCTIONS,
+    )
 except ImportError as e:
     print(f"Import Error: {e}")
     sys.exit(1)
 
+
 def push_system_prompt(handle: str, content: str):
     """Pushes a system prompt string as a ChatPromptTemplate."""
     print(f"Pushing {handle}...")
-    
+
     # Create a simple generic chat template: System Message + User Input placeholder
     # This matches the typical agent flow (System Instruction + Conversation)
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", content),
-        ("placeholder", "{messages}") 
-    ])
-    
+    prompt = ChatPromptTemplate.from_messages(
+        [("system", content), ("placeholder", "{messages}")]
+    )
+
     # Push to Hub
     try:
         # Use LangSmith Client directly
@@ -60,21 +72,24 @@ def push_system_prompt(handle: str, content: str):
         else:
             print(f"Failed to push {handle}: {e}")
 
+
 if __name__ == "__main__":
     print("--- Pushing DeepAgents Prompts to LangSmith Hub ---")
-    
+
     # 1. Director Agent
     # Note: Using simple names, hub should append owner handle if authenticated
     push_system_prompt("director-system-prompt", DEFAULT_DIRECTOR_INSTRUCTIONS)
-    
+
     # 2. Research Agent
     push_system_prompt("researcher-system-prompt", RESEARCHER_INSTRUCTIONS)
-    
+
     # 3. Confidence Agent
     push_system_prompt("confidence-system-prompt", CONFIDENCE_INSTRUCTIONS)
-    
+
     # 4. Composer Agent
     push_system_prompt("composer-system-prompt", DEFAULT_COMPOSER_INSTRUCTIONS)
 
     # 5. Cinematographer Agent
-    push_system_prompt("cinematographer-system-prompt", DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS)
+    push_system_prompt(
+        "cinematographer-system-prompt", DEFAULT_CINEMATOGRAPHER_INSTRUCTIONS
+    )

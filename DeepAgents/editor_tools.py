@@ -8,15 +8,16 @@ UPGRADE: FFmpeg-first approach for maximum quality (stream copy, no re-encoding)
 MoviePy kept as fallback for complex filter operations.
 """
 
-import os
 import logging
-import subprocess
+import os
 import shutil
+import subprocess
 from typing import List, Optional
 
 # FFmpeg-python for Pythonic FFmpeg control
 try:
     import ffmpeg as ffmpeg_lib
+
     FFMPEG_PYTHON_AVAILABLE = True
 except ImportError:
     FFMPEG_PYTHON_AVAILABLE = False
@@ -30,7 +31,8 @@ if not FFMPEG_CLI_AVAILABLE:
 
 # MoviePy as fallback for complex operations
 try:
-    from moviepy import VideoFileClip, AudioFileClip, concatenate_videoclips
+    from moviepy import AudioFileClip, VideoFileClip, concatenate_videoclips
+
     MOVIEPY_AVAILABLE = True
 except ImportError:
     MOVIEPY_AVAILABLE = False
@@ -74,11 +76,15 @@ def download_if_url(path_or_url: str) -> str:
         return local_path
 
     # Check if this is a GCS URL - use authenticated download
-    if "storage.googleapis.com" in path_or_url or "storage.cloud.google.com" in path_or_url:
+    if (
+        "storage.googleapis.com" in path_or_url
+        or "storage.cloud.google.com" in path_or_url
+    ):
         logger.info("[DOWNLOAD] GCS authenticated download: %s", path_or_url)
         try:
-            from google.cloud import storage
             from urllib.parse import urlparse
+
+            from google.cloud import storage
 
             # Parse the GCS URL to extract bucket and blob
             parsed = urlparse(path_or_url)
@@ -109,11 +115,12 @@ def download_if_url(path_or_url: str) -> str:
 
     # Standard HTTP download for non-GCS URLs
     import requests
+
     logger.info("[DOWNLOAD] HTTP download: %s", path_or_url)
     try:
         response = requests.get(path_or_url, stream=True, timeout=300)
         response.raise_for_status()
-        with open(local_path, 'wb') as f:
+        with open(local_path, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         logger.info("[SUCCESS] HTTP download complete: %s", local_path)
@@ -141,12 +148,15 @@ def _is_simulated_file(path: str) -> bool:
             header = f.read(1024)
             try:
                 text_preview = header.decode("utf-8")
-                if any(tag in text_preview for tag in [
-                    "[FINAL VIDEO SIMULATION]",
-                    "[SIMULATED]",
-                    "[AUDIO]",
-                    "[VISUAL PANEL]"
-                ]):
+                if any(
+                    tag in text_preview
+                    for tag in [
+                        "[FINAL VIDEO SIMULATION]",
+                        "[SIMULATED]",
+                        "[AUDIO]",
+                        "[VISUAL PANEL]",
+                    ]
+                ):
                     return True
             except UnicodeDecodeError:
                 pass  # Binary file = real media
@@ -156,52 +166,59 @@ def _is_simulated_file(path: str) -> bool:
 
 
 def merge_ffmpeg_stream_copy(
-    video_path: str,
-    audio_path: str,
-    output_path: str,
-    shortest: bool = True
+    video_path: str, audio_path: str, output_path: str, shortest: bool = True
 ) -> str:
     """
     Merge video and audio using FFmpeg STREAM COPY (no re-encoding).
     This preserves maximum quality by copying the video bitstream directly.
-    
+
     Args:
         video_path: Path to video file
-        audio_path: Path to audio file  
+        audio_path: Path to audio file
         output_path: Output file path
         shortest: Stop when shortest stream ends
-        
+
     Returns:
         Output path on success, error string on failure
     """
     if not FFMPEG_CLI_AVAILABLE:
         return "Error: FFmpeg CLI not available"
-    
-    logger.info("[FFMPEG] Stream copy merge: video=%s, audio=%s", video_path, audio_path)
-    
+
+    logger.info(
+        "[FFMPEG] Stream copy merge: video=%s, audio=%s", video_path, audio_path
+    )
+
     # Build FFmpeg command for maximum quality merge
     # -c:v copy = copy video stream (no re-encoding, zero quality loss)
     # -c:a aac = encode audio to AAC (required for MP4 container compatibility)
     # -map 0:v:0 = use first video stream from first input
     # -map 1:a:0 = use first audio stream from second input
     # -shortest = stop when shortest input ends
-    
+
     cmd = [
-        "ffmpeg", "-y",  # Overwrite output
-        "-i", video_path,
-        "-i", audio_path,
-        "-c:v", "copy",  # Stream copy video (ZERO quality loss)
-        "-c:a", "aac",   # Encode audio to AAC for MP4 compatibility
-        "-b:a", "192k",  # High quality audio bitrate
-        "-map", "0:v:0",
-        "-map", "1:a:0",
+        "ffmpeg",
+        "-y",  # Overwrite output
+        "-i",
+        video_path,
+        "-i",
+        audio_path,
+        "-c:v",
+        "copy",  # Stream copy video (ZERO quality loss)
+        "-c:a",
+        "aac",  # Encode audio to AAC for MP4 compatibility
+        "-b:a",
+        "192k",  # High quality audio bitrate
+        "-map",
+        "0:v:0",
+        "-map",
+        "1:a:0",
     ]
-    
+
     if shortest:
         cmd.append("-shortest")
-    
+
     cmd.append(output_path)
-    
+
     try:
         logger.info("[FFMPEG] Running: %s", " ".join(cmd))
         result = subprocess.run(
@@ -209,19 +226,19 @@ def merge_ffmpeg_stream_copy(
             capture_output=True,
             text=True,
             timeout=600,  # 10 minute timeout
-            check=False
+            check=False,
         )
-        
+
         if result.returncode != 0:
             logger.error("[FFMPEG] Error: %s", result.stderr)
             return f"Error: FFmpeg failed - {result.stderr[:500]}"
-        
+
         if os.path.exists(output_path):
             logger.info("[SUCCESS] FFmpeg stream copy merge complete: %s", output_path)
             return output_path
         else:
             return "Error: Output file not created"
-            
+
     except subprocess.TimeoutExpired:
         return "Error: FFmpeg timed out"
     except Exception as e:
@@ -230,10 +247,7 @@ def merge_ffmpeg_stream_copy(
 
 
 def merge_ffmpeg_python(
-    video_path: str,
-    audio_path: str,
-    output_path: str,
-    shortest: bool = True
+    video_path: str, audio_path: str, output_path: str, shortest: bool = True
 ) -> str:
     """
     Merge video and audio using ffmpeg-python library.
@@ -241,106 +255,101 @@ def merge_ffmpeg_python(
     """
     if not FFMPEG_PYTHON_AVAILABLE or ffmpeg_lib is None:
         return "Error: ffmpeg-python not available"
-    
+
     logger.info("[FFMPEG-PY] Merging: video=%s, audio=%s", video_path, audio_path)
-    
+
     try:
         video = ffmpeg_lib.input(video_path)
         audio = ffmpeg_lib.input(audio_path)
-        
+
         # Stream copy for video, AAC encode for audio
         output_kwargs = {
-            'vcodec': 'copy',      # Stream copy video
-            'acodec': 'aac',       # Encode audio to AAC
-            'audio_bitrate': '192k'
+            "vcodec": "copy",  # Stream copy video
+            "acodec": "aac",  # Encode audio to AAC
+            "audio_bitrate": "192k",
         }
-        
+
         if shortest:
-            output_kwargs['shortest'] = None
-        
+            output_kwargs["shortest"] = None
+
         stream = ffmpeg_lib.output(
-            video.video,
-            audio.audio,
-            output_path,
-            **output_kwargs
+            video.video, audio.audio, output_path, **output_kwargs
         )
-        
+
         # Run with overwrite
         ffmpeg_lib.run(stream, overwrite_output=True, quiet=True)
-        
+
         if os.path.exists(output_path):
             logger.info("[SUCCESS] ffmpeg-python merge complete: %s", output_path)
             return output_path
         else:
             return "Error: Output file not created"
-            
+
     except Exception as e:
         logger.error("[FFMPEG-PY] Exception: %s", e)
         return f"Error: {e}"
 
 
-def concat_videos_ffmpeg(
-    video_paths: List[str],
-    output_path: str
-) -> str:
+def concat_videos_ffmpeg(video_paths: List[str], output_path: str) -> str:
     """
     Concatenate multiple videos using FFmpeg concat demuxer.
     Uses stream copy for zero quality loss.
-    
+
     Note: All videos must have same codec, resolution, and framerate.
     """
     if not FFMPEG_CLI_AVAILABLE:
         return "Error: FFmpeg CLI not available"
-    
+
     if len(video_paths) == 1:
         # Single video, just copy it
         shutil.copy2(video_paths[0], output_path)
         return output_path
-    
+
     logger.info("[FFMPEG] Concatenating %d videos", len(video_paths))
-    
+
     # Create concat file list
     temp_dir = os.path.dirname(output_path)
     concat_file = os.path.join(temp_dir, "concat_list.txt")
-    
+
     try:
-        with open(concat_file, 'w', encoding='utf-8') as f:
+        with open(concat_file, "w", encoding="utf-8") as f:
             for vpath in video_paths:
                 # Escape single quotes in paths
                 safe_path = vpath.replace("'", "'\\''")
                 f.write(f"file '{safe_path}'\n")
-        
+
         cmd = [
-            "ffmpeg", "-y",
-            "-f", "concat",
-            "-safe", "0",
-            "-i", concat_file,
-            "-c", "copy",  # Stream copy both video and audio
-            output_path
+            "ffmpeg",
+            "-y",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            concat_file,
+            "-c",
+            "copy",  # Stream copy both video and audio
+            output_path,
         ]
-        
+
         result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False
+            cmd, capture_output=True, text=True, timeout=600, check=False
         )
-        
+
         # Cleanup concat file
         if os.path.exists(concat_file):
             os.remove(concat_file)
-        
+
         if result.returncode != 0:
             logger.error("[FFMPEG] Concat error: %s", result.stderr)
             return f"Error: FFmpeg concat failed - {result.stderr[:500]}"
-        
+
         if os.path.exists(output_path):
             logger.info("[SUCCESS] FFmpeg concat complete: %s", output_path)
             return output_path
         else:
             return "Error: Output file not created"
-            
+
     except Exception as e:
         logger.error("[FFMPEG] Concat exception: %s", e)
         if os.path.exists(concat_file):
@@ -349,13 +358,11 @@ def concat_videos_ffmpeg(
 
 
 def merge_video_audio_logic(
-    video_paths: List[str],
-    audio_path: str,
-    output_name: str = "final_cut.mp4"
+    video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4"
 ) -> str:
     """
     Main merge logic - orchestrates FFmpeg (preferred) or MoviePy (fallback).
-    
+
     Strategy:
     1. FFmpeg stream copy for MAXIMUM quality (no re-encoding)
     2. MoviePy fallback for complex filter operations
@@ -368,7 +375,7 @@ def merge_video_audio_logic(
     # 0. Download Assets if URLs
     video_paths = [download_if_url(p) for p in video_paths]
     audio_path = download_if_url(audio_path)
-    
+
     output_path = _get_output_path(output_name)
 
     # 1. Validate files exist
@@ -378,7 +385,7 @@ def merge_video_audio_logic(
 
     # 2. Check for simulation mode
     is_simulation = any(_is_simulated_file(p) for p in video_paths + [audio_path])
-    
+
     if is_simulation or (not FFMPEG_CLI_AVAILABLE and not MOVIEPY_AVAILABLE):
         logger.info("[INFO] Simulation Mode - mock assets or no media tools available")
         assets = AssetManager()
@@ -397,38 +404,32 @@ def merge_video_audio_logic(
     # 3. FFmpeg-first approach (PREFERRED for quality)
     if FFMPEG_CLI_AVAILABLE:
         logger.info("[STRATEGY] Using FFmpeg stream copy (maximum quality)")
-        
+
         # Handle multiple videos: concat first, then merge audio
         if len(video_paths) > 1:
             # Step A: Concatenate videos
             concat_output = output_path.replace(".mp4", "_concat.mp4")
             concat_result = concat_videos_ffmpeg(video_paths, concat_output)
-            
+
             if concat_result.startswith("Error"):
                 logger.warning("[FALLBACK] FFmpeg concat failed, trying MoviePy")
             else:
                 # Step B: Add audio to concatenated video
                 result = merge_ffmpeg_stream_copy(
-                    concat_output,
-                    audio_path,
-                    output_path,
-                    shortest=True
+                    concat_output, audio_path, output_path, shortest=True
                 )
-                
+
                 # Cleanup intermediate file
                 if os.path.exists(concat_output) and concat_output != output_path:
                     os.remove(concat_output)
-                
+
                 if not result.startswith("Error"):
                     return result
                 logger.warning("[FALLBACK] FFmpeg merge failed: %s", result)
         else:
             # Single video - direct merge
             result = merge_ffmpeg_stream_copy(
-                video_paths[0],
-                audio_path,
-                output_path,
-                shortest=True
+                video_paths[0], audio_path, output_path, shortest=True
             )
             if not result.startswith("Error"):
                 return result
@@ -438,10 +439,7 @@ def merge_video_audio_logic(
     if FFMPEG_PYTHON_AVAILABLE and len(video_paths) == 1:
         logger.info("[STRATEGY] Using ffmpeg-python (stream copy)")
         result = merge_ffmpeg_python(
-            video_paths[0],
-            audio_path,
-            output_path,
-            shortest=True
+            video_paths[0], audio_path, output_path, shortest=True
         )
         if not result.startswith("Error"):
             return result
@@ -468,7 +466,7 @@ def merge_video_audio_logic(
                 codec="libx264",
                 audio_codec="aac",
                 preset="medium",  # Balance speed/quality
-                audio_bitrate="192k"
+                audio_bitrate="192k",
             )
 
             # Close clips to release resources
@@ -488,21 +486,19 @@ def merge_video_audio_logic(
 
 @tool
 def merge_video_audio(
-    video_paths: List[str],
-    audio_path: str,
-    output_name: str = "final_cut.mp4"
+    video_paths: List[str], audio_path: str, output_name: str = "final_cut.mp4"
 ) -> str:
     """
     Merges multiple video clips and an audio track into a single video file.
-    
+
     Uses FFmpeg stream copy for MAXIMUM QUALITY (no re-encoding of video).
     Falls back to MoviePy for complex operations if needed.
-    
+
     Args:
         video_paths: List of absolute paths or URLs to video files.
         audio_path: Absolute path or URL to the audio file.
         output_name: Name of the output file.
-        
+
     Returns:
         Absolute path to the final video file.
     """
@@ -535,24 +531,23 @@ generate_visual_tool = generate_storyboard_panel
 
 # Utility function for direct FFmpeg merging (for programmatic use)
 def quick_merge(
-    video_url: str,
-    audio_url: str,
-    output_name: Optional[str] = None
+    video_url: str, audio_url: str, output_name: Optional[str] = None
 ) -> str:
     """
     Quick utility for merging a single video with audio.
     Downloads URLs if needed, uses FFmpeg stream copy.
-    
+
     Args:
         video_url: Video file path or URL
         audio_url: Audio file path or URL
         output_name: Optional output filename (auto-generated if None)
-        
+
     Returns:
         Path to merged output file
     """
     import uuid
+
     if output_name is None:
         output_name = f"merged_{uuid.uuid4().hex[:8]}.mp4"
-    
+
     return merge_video_audio_logic([video_url], audio_url, output_name)

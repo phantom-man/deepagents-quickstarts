@@ -2,18 +2,21 @@
 Persistence Module for DeepAgents.
 Provides Asynchronous Postgres Checkpointing for LangGraph Agents.
 """
-import os
+
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
 from dotenv import load_dotenv
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
 # We use psycopg_pool for the standard AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 
 load_dotenv()
 logger = logging.getLogger("DeepAgents-Persistence")
+
 
 def get_connection_string() -> str:
     """Constructs the Postgres connection string from env vars."""
@@ -22,8 +25,9 @@ def get_connection_string() -> str:
     user = os.getenv("POSTGRES_USER", "postgres")
     password = os.getenv("POSTGRES_PASSWORD", "d1204l0723")
     dbname = os.getenv("POSTGRES_DB", "postgres")
-    
+
     return f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+
 
 @asynccontextmanager
 async def get_postgres_checkpointer() -> AsyncGenerator[AsyncPostgresSaver, None]:
@@ -35,18 +39,20 @@ async def get_postgres_checkpointer() -> AsyncGenerator[AsyncPostgresSaver, None
             await app.invoke(...)
     """
     conn_str = get_connection_string()
-    
+
     # Initialize the pool
     # We set min_size=1, max_size=10 for typical agent usage
     # Enable autocommit=True to allow CREATE INDEX CONCURRENTLY and to let LangGraph manage transactions
-    async with AsyncConnectionPool(conninfo=conn_str, min_size=1, max_size=10, kwargs={"autocommit": True}) as pool:
+    async with AsyncConnectionPool(
+        conninfo=conn_str, min_size=1, max_size=10, kwargs={"autocommit": True}
+    ) as pool:
         logger.info("💾 Connecting to Postgres Persistence Layer...")
-        
+
         # Initialize the checkpointer
         checkpointer = AsyncPostgresSaver(pool)
-        
+
         # Ensure tables exist (AsyncPostgresSaver usually handles this on first use or setup)
         await checkpointer.setup()
-        
+
         logger.info("✅ Postgres Checkpointer Ready.")
         yield checkpointer
