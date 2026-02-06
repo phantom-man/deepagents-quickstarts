@@ -1,0 +1,16 @@
+{
+    "include": [
+        "DeepAgents",
+        "deep_research",
+        "tests"
+    ],
+    "extraPaths": [
+        "c:/Users/User/source/repos/deepagents-quickstarts",
+        "c:/Users/User/source/repos/deepagents-quickstarts/DeepAgents",
+        "c:/Users/User/source/repos/deepagents-quickstarts/deep_research"
+    ],
+    "pythonVersion": "3.11",
+    "typeCheckingMode": "basic",
+    "reportMissingImports": "warning",
+    "reportMissingTypeStubs": false
+}

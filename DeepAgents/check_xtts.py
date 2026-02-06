@@ -10,7 +10,10 @@ try:
     print("Checking lucataco/xtts-v2...")
     model = replicate.models.get("lucataco/xtts-v2")
     print(f"FOUND: {model.owner}/{model.name}")
-    print(f"  ID: {model.latest_version.id}")
-    print(f"  Schema: {json.dumps(model.latest_version.openapi_schema, indent=2)}")
+    if model.latest_version is not None:
+        print(f"  ID: {model.latest_version.id}")
+        print(f"  Schema: {json.dumps(model.latest_version.openapi_schema, indent=2)}")
+    else:
+        print("  No version available")
 except Exception as e:
     print(f"Error: {e}")

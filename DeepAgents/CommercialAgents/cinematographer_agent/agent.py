@@ -392,7 +392,11 @@ def create_cinematographer_agent(
                 )
 
                 # Parse the structured output
-                parsed = parse_schema_output(optimization_response.content, vid_model)
+                content = optimization_response.content
+                if isinstance(content, str):
+                    parsed = parse_schema_output(content, vid_model)
+                else:
+                    parsed = {}
                 if parsed.get("VISUAL_PROMPT"):
                     optimized_prompt = parsed["VISUAL_PROMPT"]
                     logger.info(
@@ -435,7 +439,7 @@ def create_cinematographer_agent(
                     "GUI",
                     f"Calling {model_short} API (this may take 1-3 minutes)...",
                 )
-                comms.close()
+                # Note: AgentComms doesn't have a close() method
             except Exception:
                 pass  # Non-critical
 
@@ -496,8 +500,8 @@ def create_cinematographer_agent(
         mode: str = "storyboard",
         max_shots: int = 1,
         duration_sec: int = 5,
-        resume_history: List[BaseMessage] = None,
-        user_feedback: str = None,
+        resume_history: Optional[List[BaseMessage]] = None,
+        user_feedback: Optional[str] = None,
     ):
         """
         Generator that yields status updates while running the ReAct loop.
@@ -537,7 +541,7 @@ def create_cinematographer_agent(
                 f"Each tool call creates ONE video clip. The Editor will concatenate them automatically.\n"
                 f"DO NOT combine multiple segments into one call - that produces poor results."
             )
-            messages = [sys_msg, HumanMessage(content=input_text)]
+            messages: List[BaseMessage] = [sys_msg, HumanMessage(content=input_text)]
 
         final_report = []
         # FAIL FAST MODE: Single Pass Execution (No Retry Loops)
@@ -670,7 +674,9 @@ def create_cinematographer_agent(
 
 
 def run_cinematographer_task(
-    request_description: str, model_id: str = None, model_params: dict = None
+    request_description: str,
+    model_id: Optional[str] = None,
+    model_params: Optional[dict] = None,
 ) -> str:
     """
     Synchronous entry point for external agents (Director).

@@ -18,8 +18,8 @@ def list_prompt_history(repo_name):
 
         # We need the owner handle first.
         # Usually it's in the LANGCHAIN_HUB_HANDLE env var or we get it from user info.
-        user = client.read_current_user()
-        handle = os.getenv("LANGCHAIN_HUB_HANDLE", user.handle)
+        user = client.read_current_user()  # type: ignore[attr-defined]
+        handle = os.getenv("LANGCHAIN_HUB_HANDLE", getattr(user, "handle", None))
 
         full_repo = f"{handle}/{repo_name}"
         print(f"--- History for {full_repo} ---")
@@ -29,7 +29,7 @@ def list_prompt_history(repo_name):
         # The SDK documentation suggests we can iterate versions.
 
         # list_commits returns an iterator of Commit objects
-        commits = client.list_commits(full_repo)
+        commits = client.list_commits(full_repo)  # type: ignore[attr-defined]
 
         count = 0
         for commit in commits:

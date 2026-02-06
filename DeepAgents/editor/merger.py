@@ -30,8 +30,9 @@ def merge_audio_video(video_path, audio_path, output_path=None):
         # Or we loop video to match audio?
 
         # Let's loop video to match audio duration
-        final_video = video_clip.looped(duration=audio_clip.duration)
-        final_video = final_video.with_audio(audio_clip)
+        from moviepy import vfx  # type: ignore[import-untyped]
+        final_video = video_clip.with_effects([vfx.Loop(duration=audio_clip.duration)])  # type: ignore[attr-defined]
+        final_video = final_video.with_audio(audio_clip)  # type: ignore[attr-defined]
 
         if not output_path:
             base, _ = os.path.splitext(video_path)

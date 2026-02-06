@@ -9,13 +9,13 @@ load_dotenv(os.path.join(os.path.dirname(__file__), ".env"), override=True)
 print("--- LangSmith Handle Discovery ---")
 api_key = os.getenv("LANGCHAIN_API_KEY")
 ws_id = os.getenv("LANGSMITH_WORKSPACE_ID")
-print(f"Key: {api_key[:5]}... | Workspace: {ws_id}")
+print(f"Key: {api_key[:5] if api_key else 'N/A'}... | Workspace: {ws_id}")
 
 client = Client()
 
 try:
     print("\n1. Querying List Repos (limit=1)...")
-    repos = list(client.list_repos(limit=1))
+    repos = list(client.list_repos(limit=1))  # type: ignore[attr-defined]
     if repos:
         handle = repos[0].owner_handle
         print(f"✅ FOUND HANDLE: {handle}")

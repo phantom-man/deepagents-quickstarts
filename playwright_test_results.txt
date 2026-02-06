@@ -1,0 +1,18 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\User\source\repos\deepagents-quickstarts\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\User\source\repos\deepagents-quickstarts
+plugins: anyio-4.12.1, langsmith-0.6.4, asyncio-1.3.0, base-url-2.1.0, playwright-0.7.2, timeout-2.4.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 134 items
+
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_valid_city[chromium-New York] FAILED [  0%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_city_with_special_chars[chromium-S\xe3o Paulo] PASSED [  1%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_unicode_city_names[chromium-\u5317\u4eac] PASSED [  2%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_invalid_input[chromium-] PASSED [  2%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_very_long_string[chromium] PASSED [  3%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_sql_injection_attempt[chromium] PASSED [  4%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_xss_attempt[chromium] PASSED [  5%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_coordinates[chromium] PASSED [  5%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_city_with_spaces_hyphens[chromium-New York City] FAILED [  6%]
+tests/test_frontend_playwright.py::TestLocationSearch::test_search_preserves_input_value[chromium] PASSED [  7%]

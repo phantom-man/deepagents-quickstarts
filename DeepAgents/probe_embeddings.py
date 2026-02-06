@@ -12,7 +12,7 @@ load_dotenv("DeepAgents/.env")
 def main():
     try:
         logger.info("Connecting to VertexAI Embeddings (text-embedding-004)...")
-        embeddings = VertexAIEmbeddings(model_name="text-embedding-004")
+        embeddings = VertexAIEmbeddings(model="text-embedding-004")  # type: ignore[call-arg]
 
         text = "DeepAgents is a production studio."
         logger.info(f"Embedding text: '{text}'")

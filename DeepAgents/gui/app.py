@@ -451,7 +451,7 @@ with tab_agency:
                     stream_config = agency_cfg if AGENCY_SECTIONS_AVAILABLE else None
 
                     for event in runner.stream_agency_graph(
-                        directive, agency_config=stream_config
+                        directive, agency_config=stream_config  # type: ignore[arg-type]
                     ):
                         if event is None:
                             break
@@ -584,13 +584,13 @@ with tab_agency:
                 if has_final:
                     final_path = st.session_state.generated_final
                     st.markdown("**Combined Video**")
-                    if final_path.startswith("gs://"):
+                    if final_path and final_path.startswith("gs://"):
                         st.markdown(
                             f"[🎬 Download Final Video]({final_path.replace('gs://', 'https://storage.googleapis.com/')})"
                         )
-                    elif final_path.startswith("http"):
+                    elif final_path and final_path.startswith("http"):
                         st.markdown(f"[🎬 Download Final Video]({final_path})")
-                    else:
+                    elif final_path:
                         # Local file - try to provide download
                         if os.path.exists(final_path):
                             with open(final_path, "rb") as f:
@@ -602,6 +602,8 @@ with tab_agency:
                                 )
                         else:
                             st.info(f"Local: {final_path}")
+                    else:
+                        st.info("Final video path not set")
                 else:
                     st.markdown("*No combined video*")
 
@@ -609,13 +611,13 @@ with tab_agency:
                 if has_video:
                     video_path = st.session_state.generated_video
                     st.markdown("**Video Only**")
-                    if video_path.startswith("gs://"):
+                    if video_path and video_path.startswith("gs://"):
                         st.markdown(
                             f"[🎥 Download Video]({video_path.replace('gs://', 'https://storage.googleapis.com/')})"
                         )
-                    elif video_path.startswith("http"):
+                    elif video_path and video_path.startswith("http"):
                         st.markdown(f"[🎥 Download Video]({video_path})")
-                    else:
+                    elif video_path:
                         if os.path.exists(video_path):
                             with open(video_path, "rb") as f:
                                 st.download_button(
@@ -626,6 +628,8 @@ with tab_agency:
                                 )
                         else:
                             st.info(f"Local: {video_path}")
+                    else:
+                        st.info("Video path not set")
                 else:
                     st.markdown("*No video generated*")
 
@@ -633,13 +637,13 @@ with tab_agency:
                 if has_audio:
                     audio_path = st.session_state.generated_audio
                     st.markdown("**Audio Only**")
-                    if audio_path.startswith("gs://"):
+                    if audio_path and audio_path.startswith("gs://"):
                         st.markdown(
                             f"[🎵 Download Audio]({audio_path.replace('gs://', 'https://storage.googleapis.com/')})"
                         )
-                    elif audio_path.startswith("http"):
+                    elif audio_path and audio_path.startswith("http"):
                         st.markdown(f"[🎵 Download Audio]({audio_path})")
-                    else:
+                    elif audio_path:
                         if os.path.exists(audio_path):
                             with open(audio_path, "rb") as f:
                                 # Detect mime type based on extension
@@ -656,6 +660,8 @@ with tab_agency:
                                 )
                         else:
                             st.info(f"Local: {audio_path}")
+                    else:
+                        st.info("Audio path not set")
                 else:
                     st.markdown("*No audio generated*")
 

@@ -44,7 +44,7 @@ for model_name in models_to_test:
             print(f"✅ SUCCESS! Model {model_name} is active.")
             if response.candidates[0].content.parts:
                 part = response.candidates[0].content.parts[0]
-                if part.inline_data:
+                if part.inline_data and part.inline_data.data:
                     with open(output_file, "wb") as f:
                         f.write(part.inline_data.data)
                     print(f"   Video saved to {output_file}")

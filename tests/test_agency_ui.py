@@ -11,7 +11,7 @@ Tests 10 edge cases with budget constraints:
 import asyncio
 import os
 
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import Page, async_playwright  # type: ignore[import-not-found]
 
 STREAMLIT_URL = "http://localhost:8501"
 

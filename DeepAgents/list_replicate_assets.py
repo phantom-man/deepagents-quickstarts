@@ -50,8 +50,8 @@ def main():
                 output_url = output[0]
             elif isinstance(output, dict) and "url" in output:
                 output_url = output["url"]
-            elif hasattr(output, "url"):
-                output_url = output.url
+            elif output is not None and hasattr(output, "url"):
+                output_url = getattr(output, "url", None)
 
             if output_url:
                 print(

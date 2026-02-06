@@ -89,7 +89,7 @@ class SystemDiagnostics:
         try:
             from langchain_anthropic import ChatAnthropic
 
-            llm = ChatAnthropic(model_name="claude-3-haiku-20240307", max_retries=1)
+            llm = ChatAnthropic(model_name="claude-3-haiku-20240307", max_retries=1)  # type: ignore[call-arg]
             llm.invoke("ping")
             self.log("✅ Anthropic API Online.")
             return True
@@ -204,18 +204,22 @@ class SystemDiagnostics:
         self.log("📦 Checking Dependencies...")
 
         libs = ["moviepy", "langchain", "lancedb"]
+        deps = self.status.get("dependencies", {})
+        if not isinstance(deps, dict):
+            deps = {}
+            self.status["dependencies"] = deps
         for lib in libs:
             try:
                 if importlib.util.find_spec(lib) is not None:
-                    self.status["dependencies"][lib] = True
+                    deps[lib] = True
                     self.log(f"   - {lib}: Installed")
                 else:
-                    self.status["dependencies"][lib] = False
+                    deps[lib] = False
                     self.log(
                         f"   - {lib}: MISSING (Features will be limited)", "WARNING"
                     )
             except Exception:
-                self.status["dependencies"][lib] = False
+                deps[lib] = False
 
     def run_preflight_checks(self) -> bool:
         """Runs all checks. Returns True if Critical Systems are Go."""

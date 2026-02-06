@@ -9,6 +9,7 @@ import io
 import os
 import queue
 import sys
+from typing import Any, Dict, Optional
 
 # pylint: disable=line-too-long, missing-module-docstring, import-error, wrong-import-position
 # pylint: disable=no-name-in-module, missing-class-docstring, unused-argument, unused-variable
@@ -45,7 +46,7 @@ class AgentRunner:
         # OTLP Configuration removed to favor standard LangChain Tracing (HTTP)
         # This prevents ConnectionRefusedError if no local OTLP collector is running.
 
-    def stream_agency_graph(self, directive: str, agency_config: dict = None):
+    def stream_agency_graph(self, directive: str, agency_config: Optional[dict] = None):
         """
         Runs the full LangGraph Studio Pipeline (Director->Research->Validation->Prod).
         Yields standard GUI events: (AgentName, Type, Content).
@@ -201,8 +202,8 @@ class AgentRunner:
                     started_nodes = set()
 
                     async for event in studio_graph.astream(
-                        {"messages": [("user", directive)]},
-                        config=config,
+                        {"messages": [("user", directive)]},  # type: ignore[arg-type]
+                        config=config,  # type: ignore[arg-type]
                     ):
                         # Event Format: {'node_name': {'key': val, ...}}
                         for node_name, state_update in event.items():
@@ -643,7 +644,7 @@ class AgentRunner:
                     result = str(res)
             else:
                 # Standard function
-                result = agent_func(director_output)
+                result = agent_func(director_output)  # type: ignore[misc]
 
             # Comms Update
             self.comms.send_message("Composer", "Director", "Soundtrack Complete.")

@@ -1,0 +1,4 @@
+Deploying from source requires an Artifact Registry Docker repository to store 
+built containers. A repository named [cloud-run-source-deploy] in region 
+[us-central1] will be created.
+

@@ -17,11 +17,14 @@ try:
         print("--- SCHEMA ---")
         # Print schemas to understand inputs
         version = model.latest_version
-        print(
-            json.dumps(
-                version.openapi_schema["components"]["schemas"]["Input"], indent=2
+        if version is not None and version.openapi_schema:
+            print(
+                json.dumps(
+                    version.openapi_schema["components"]["schemas"]["Input"], indent=2
+                )
             )
-        )
+        else:
+            print("No schema available")
     except Exception as e:
         print(f"Could not find music-1.5: {e}")
 

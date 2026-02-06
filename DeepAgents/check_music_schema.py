@@ -12,8 +12,10 @@ try:
     model = replicate.models.get("minimax/music-01")
     print(f"FOUND: {model.name}")
     print("--- SCHEMA ---")
-    for version in model.versions.list()[:1]:
-        print(json.dumps(version.openapi_schema, indent=2))
+    versions = list(model.versions.list())
+    for version in versions[:1]:
+        if version.openapi_schema:
+            print(json.dumps(version.openapi_schema, indent=2))
 
 except Exception as e:
     print(f"General Error: {e}")

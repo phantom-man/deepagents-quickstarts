@@ -12,6 +12,9 @@ def test_bark():
         # Check model
         model = replicate.models.get("suno-ai/bark")
         version = model.latest_version
+        if version is None:
+            print("No version available for Bark")
+            return
         print(f"Using Bark Version: {version.id}")
 
         start = time.time()

@@ -28,10 +28,10 @@ try:
 
         # Robust Save
         img_data = None
-        if hasattr(gen_img, "image") and hasattr(gen_img.image, "image_bytes"):
+        if hasattr(gen_img, "image") and gen_img.image is not None and hasattr(gen_img.image, "image_bytes"):
             img_data = gen_img.image.image_bytes
-        elif hasattr(gen_img, "image_bytes"):
-            img_data = gen_img.image_bytes
+        elif hasattr(gen_img, "_image_bytes"):
+            img_data = getattr(gen_img, "_image_bytes", None)
 
         if img_data:
             with open(output_file, "wb") as f:
@@ -39,6 +39,7 @@ try:
             print(f"✅ SUCCESS! Image saved to {output_file}")
         else:
             print(f"⚠️ Image object structure unknown: {dir(gen_img)}")
+    else:
         print("⚠️ No images returned.")
 
 except Exception as e:

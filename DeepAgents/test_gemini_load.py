@@ -43,7 +43,8 @@ try:
         try:
             response = client.models.generate_content(model=model_id, contents=q)
             elapsed = time.time() - start_time
-            print(f"   ✅ Answered in {elapsed:.2f}s: {response.text[:50]}...")
+            text = response.text if response.text else "(no text)"
+            print(f"   ✅ Answered in {elapsed:.2f}s: {text[:50]}...")
             success_count += 1
         except Exception as e:
             print(f"   ❌ FAILED: {e}")

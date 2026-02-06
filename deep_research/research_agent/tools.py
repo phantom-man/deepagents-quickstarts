@@ -6,7 +6,7 @@ using Tavily for URL discovery and fetching full webpage content.
 
 import httpx
 from langchain_core.tools import InjectedToolArg, tool
-from markdownify import markdownify
+from markdownify import markdownify  # type: ignore[import-not-found]
 from tavily import TavilyClient
 from typing_extensions import Annotated, Literal
 

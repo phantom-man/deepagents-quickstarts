@@ -1,0 +1,13 @@
+Deploying from source requires an Artifact Registry Docker repository to store 
+built containers. A repository named [cloud-run-source-deploy] in region 
+[us-central1] will be created.
+
+Do you want to continue (Y/n)?  
+Building using Dockerfile and deploying container to Cloud Run service [env-monitor-api] in project [crafty-hook-483415-b3] region [us-central1]
+Building and deploying...
+Validating Service.......done
+Creating Container Repository.......................................................................................................................done
+Uploading sources...................done
+Building Container...............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................failed
+Deployment failed
+ERROR: (gcloud.run.deploy) Build failed; check build logs for details

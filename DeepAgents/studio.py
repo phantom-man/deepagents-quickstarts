@@ -50,10 +50,13 @@ from DeepAgents.CommercialAgents.director_agent.agent import create_director_age
 from DeepAgents.system_diagnostics import SystemDiagnostics  # Import Diagnostics
 
 try:
-    from DeepAgents.atlas_db import pop_command
+    from DeepAgents.atlas_db import pop_command  # type: ignore[import-not-found]
 except ImportError:
     # Use relative if needed or ensure path
-    from atlas_db import pop_command
+    try:
+        from atlas_db import pop_command  # type: ignore[import-not-found]
+    except ImportError:
+        pop_command = None  # type: ignore[assignment]
 from langchain_core.messages import HumanMessage
 
 # pylint: enable=wrong-import-position
@@ -75,6 +78,8 @@ def voice_update(message: str):
 
 def check_for_injections() -> str | None:
     """Checks the Atlas DB for pending commands."""
+    if pop_command is None:
+        return None
     try:
         cmd = pop_command()
         return cmd
@@ -245,7 +250,7 @@ def main():
                                     ):
                                         text_parts.append(item.get("text", ""))
                                     elif hasattr(item, "text"):  # Object fallback
-                                        text_parts.append(item.text)
+                                        text_parts.append(getattr(item, "text", ""))
                                 content = " ".join(text_parts)
 
                             if content:

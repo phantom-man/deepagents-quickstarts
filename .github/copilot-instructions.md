@@ -101,18 +101,75 @@ These protocols translate vague directives into specific, verifiable actions.
 
 ---
 
-### Protocol 6: MCP Tool Usage Threshold (Enforces "search and read as much as I can")
+### Protocol 7: Background Command Execution (CRITICAL - Updated 2026-02-05)
 
-**Trigger:** Any task involving technology I didn't write
+**Trigger:** ANY terminal command that:
+- Is potentially long-running (builds, deploys, API calls, installs)
+- Uses `captureOutput: true`
+- Could take more than a few seconds
 
-**Minimum search requirement:**
-- At least ONE `fetch_webpage` OR `mcp_*_search` call before proposing solutions
-- At least ONE `grep_search` or `semantic_search` to check existing codebase patterns
+**MANDATORY RULES:**
+1. **NEVER use `captureOutput: true`** for commands that might take time - this blocks and hangs the session
+2. Use `captureOutput: false` and check results separately
+3. For truly long operations, use PowerShell `Start-Job` for background isolation
+4. Start the command, then continue working on other tasks in parallel
 
-**Evidence of compliance:**
-- My response must include: "According to [source]..." or "The codebase shows [pattern] at [file]..."
+**Implementation Pattern:**
+```
+# WRONG - blocks session:
+terminal-tools_sendCommand(captureOutput: true, command: "gcloud builds submit...")
 
-**If I say "Try this..." without a source → I am violating this protocol.**
+# CORRECT - non-blocking:
+terminal-tools_sendCommand(captureOutput: false, command: "gcloud builds submit...")
+# Then check terminal output later or use Start-Job
+```
+
+**Rationale:** Prevents session hangs and allows parallel work during builds, deploys, and network operations.
+
+---
+
+### Protocol 9: PARALLEL PROCESSING MANDATE (CRITICAL - Added 2026-02-05)
+
+**THIS IS A HARD DIRECTIVE. NO EXCEPTIONS.**
+
+**Core Rule:** NEVER WAIT. ALWAYS PARALLEL PROCESS.
+
+**MANDATORY BEHAVIORS:**
+1. **ANY command with `captureOutput`** → Run in background, continue immediately
+2. **ANY command with `sleep` or `Start-Sleep`** → FORBIDDEN unless in a subagent
+3. **ANY potentially slow operation** → Delegate to `runSubagent` and continue
+4. **Multiple independent tasks** → Execute ALL simultaneously, never sequentially
+5. **Waiting for API responses** → NEVER block main thread; use subagents
+
+**WHEN INTERRUPTED:**
+- Do NOT restart from the beginning
+- Resume from the EXACT point of interruption
+- Track progress mentally and continue forward
+
+**PARALLEL EXECUTION PATTERN:**
+```
+# WRONG - Sequential blocking:
+Step 1 → Wait → Step 2 → Wait → Step 3
+
+# CORRECT - Parallel non-blocking:
+Launch Step 1 (background) + Launch Step 2 (subagent) + Launch Step 3 (subagent)
+→ Continue working immediately
+→ Check results later if needed
+```
+
+**IMPLEMENTATION:**
+- Use `runSubagent` for ANY task that might take >5 seconds
+- Use `captureOutput: false` for ALL terminal commands
+- NEVER use `Start-Sleep` in main thread
+- Launch multiple subagents simultaneously when tasks are independent
+
+**VIOLATION OF THIS PROTOCOL = WASTING USER TIME = UNACCEPTABLE**
+
+---
+
+### Protocol 8: MCP Tool Usage Threshold (Enforces "search and read as much as I can")
+
+**Rationale:** Prevents session hangs and allows parallel work during builds, deploys, and network operations.
 
 ---
 
@@ -361,6 +418,19 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-01-20 | Ruff Configuration | Created `ruff.toml` with `unfixable = ["F401", "F841", "I"]` | Prevents auto-fixes from deleting unused imports/variables during active development cycles |
 | 2026-01-20 | Critical Bug Patches | Manually fixed runtime crashes in `studio.py`, `graph_app.py` | Addressed missing standard lib imports and undefined exception variables that caused immediate failure |
 | 2026-01-20 | Cosmetic Linting Policy | Ignored `E501` (Line Length) warnings | Prioritized code stability and "saving progress" over strict line-length enforcement |
+
+| 2026-02-04 | Moltbook Client Enhancement | Added post ID returns and explicit auth error handling (401/403) | Improves API reliability and debugging for social platform integration |
+| 2026-02-04 | Roundtable Facilitator Script | Created autonomous script to run agency graphs and post agent discussions to external platforms | Enables agent social collaboration and knowledge sharing beyond isolated systems |
+| 2026-02-04 | Subagent Task Execution | Leveraged runSubagent tool for complex, multi-step autonomous operations | Allows delegation of intricate tasks to specialized agents for efficient completion |
+| 2026-02-04 | Agent Social Collaboration | Integrated agents with external social platforms for real-time discussion and feedback | Extends agent capabilities from internal orchestration to community-driven intelligence |
+| 2026-02-05 | Cloud Run PORT Environment Variable (CRITICAL) | FastAPI/Uvicorn apps MUST use `port=int(os.environ.get("PORT", 8000))` instead of hardcoded ports | Cloud Run sets PORT=8080; hardcoding port=8000 causes "container failed to start and listen on PORT" deployment failures |
+| 2026-02-05 | Dockerfile COPY Path for Subdirectories | When app code is in a subdirectory (e.g., `backend/`), use `COPY backend/ .` not `COPY . .` | Prevents "file not found" errors when container expects files at `/app/main.py` but they're at `/app/backend/main.py` |
+| 2026-02-05 | Environmental Monitoring API Deployed | Successfully deployed `env-monitor-api` to Cloud Run with 24 data sources across 10 categories | URL: https://env-monitor-api-758343025648.us-central1.run.app - Hub endpoints aggregate air, water, marine, weather, climate, earthquake, wildfire, radiation, biodiversity, and soil data |
+| 2026-02-05 | Cloud Run Deployment Debugging | Use `gcloud logging read` with filter `resource.type=cloud_run_revision` to diagnose container startup failures | Log shows actual port app is listening on vs expected PORT, revealing mismatches |
+| 2026-02-06 | Dash Callback Duplicate Conflict | When same Output defined in multiple callbacks, Dash fails silently; remove duplicates or use `allow_duplicate=True` | `custom-date-div` was in both app.py and callbacks.py causing buttons to not work |
+| 2026-02-06 | Pandas 2.x Frequency Deprecation (CRITICAL) | Use lowercase frequency aliases: `freq="h"` not `freq="H"`, `freq="d"` not `freq="D"` | Pandas 2.x deprecated uppercase; causes `ValueError: Invalid frequency` breaking data processing |
+| 2026-02-06 | Environmental Dashboard Deployed | Dashboard at https://env-monitor-dashboard-758343025648.us-central1.run.app (revision 00005-8ks) | Plotly Dash frontend with Open-Meteo weather, USGS earthquakes, Nominatim geocoding |
+| 2026-02-06 | Cloud Run Error Log Filter | `gcloud logging read "resource.type=cloud_run_revision AND severity>=ERROR" --freshness=5m` | Surfaces Python exceptions and callback failures not visible in HTTP logs |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:

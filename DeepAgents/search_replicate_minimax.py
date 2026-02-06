@@ -32,9 +32,10 @@ try:
             try:
                 m = replicate.models.get(c)
                 print(f"FOUND: {m.owner}/{m.name}")
-                print(
-                    f"  Inputs: {json.dumps(m.latest_version.openapi_schema, indent=2)}"
-                )
+                if m.latest_version is not None:
+                    print(
+                        f"  Inputs: {json.dumps(m.latest_version.openapi_schema, indent=2)}"
+                    )
             except:
                 pass
 

@@ -21,8 +21,8 @@ RESET = "\033[0m"
 
 try:
     # Attempt to import PromptToolkit
-    from prompt_toolkit import PromptSession
-    from prompt_toolkit.patch_stdout import patch_stdout
+    from prompt_toolkit import PromptSession  # type: ignore[import-not-found]
+    from prompt_toolkit.patch_stdout import patch_stdout  # type: ignore[import-not-found]
 
     PROMPT_TOOLKIT_AVAILABLE = True
 except ImportError:
@@ -97,20 +97,24 @@ def run_atlas():
 
 
 if __name__ == "__main__":
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Run Atlas with console interaction")
+    parser.add_argument("--task", type=str, default="", help="The task for Atlas")
+    parser.add_argument(
+        "--voice-only", dest="voice_only", action="store_true",
+        help="Run in voice-only mode"
+    )
+    args, unknown = parser.parse_known_args()
+
     try:
-        from prompt_toolkit import PromptSession
-        from prompt_toolkit.patch_stdout import patch_stdout
+        from prompt_toolkit import PromptSession  # type: ignore[import-not-found]
+        from prompt_toolkit.patch_stdout import patch_stdout  # type: ignore[import-not-found]
 
         USE_PROMPT_TOOLKIT = True
     except ImportError:
         USE_PROMPT_TOOLKIT = False
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--task", default="Discuss the nature of AI Consciousness")
-    parser.add_argument(
-        "--voice-only", action="store_true", help="Skip Agent Init and just echo voice."
-    )
-    args, unknown = parser.parse_known_args()
+        PromptSession = None  # type: ignore[assignment,misc]
+        patch_stdout = None  # type: ignore[assignment]
 
     # We reconstruct sys.argv for the internal studio main()
     # Ensure we include other arguments (like --model)
@@ -128,13 +132,13 @@ if __name__ == "__main__":
         t_atlas = threading.Thread(target=run_atlas, daemon=True)
         t_atlas.start()
 
-        session = PromptSession()
+        session = PromptSession()  # type: ignore[misc]
 
         print(
             f"\n{BLUE}ℹ️  Atlas Console (Enhanced): Type your command and press ENTER to interrupt.{RESET}"
         )
 
-        with patch_stdout():
+        with patch_stdout():  # type: ignore[misc]
             while True:
                 try:
                     # Blocking prompt that handles background stdout beautifully

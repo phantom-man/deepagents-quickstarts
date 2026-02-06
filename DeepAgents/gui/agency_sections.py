@@ -22,7 +22,7 @@ import streamlit as st
 from DeepAgents.gui.components.char_counter import text_area_with_counter
 from DeepAgents.gui.components.multi_config import render_multi_config_panel
 from DeepAgents.gui.components.preset_selector import render_preset_selector
-from DeepAgents.services.asset_validator import get_asset_validator, validate_upload
+from DeepAgents.services.asset_validator import extract_metadata, get_asset_validator, validate_upload
 from DeepAgents.services.model_registry import (
     get_image_model_options,
     get_model_registry,
@@ -363,7 +363,7 @@ def render_cinematographer_section() -> Dict[str, Any]:
                         continue
 
                     saved_path = _persist_uploaded_file(uploaded, "Video/Recovered")
-                    metadata = validator.extract_metadata(saved_path, "video")
+                    metadata = extract_metadata(saved_path, "video")
                     entry = {
                         "name": uploaded.name,
                         "size": file_size,
@@ -381,9 +381,10 @@ def render_cinematographer_section() -> Dict[str, Any]:
                 ]
 
                 for idx, entry in enumerate(stored_entries, start=1):
+                    entry_path = str(entry.get("path", ""))
                     _render_metadata_block(
-                        f"Video {idx}: {Path(entry['path']).name}",
-                        entry.get("metadata", {}),
+                        f"Video {idx}: {Path(entry_path).name if entry_path else 'unknown'}",
+                        entry.get("metadata", {}) if isinstance(entry.get("metadata", {}), dict) else {},
                     )
 
                 # Auto-configure Composer if active and using model
@@ -812,7 +813,7 @@ def render_composer_section() -> Dict[str, Any]:
                     saved_path = _persist_uploaded_file(
                         uploaded_audio, "Audio/Recovered"
                     )
-                    metadata = validator.extract_metadata(saved_path, "audio")
+                    metadata = extract_metadata(saved_path, "audio")
                     entry = {
                         "name": uploaded_audio.name,
                         "size": file_size,
@@ -824,12 +825,14 @@ def render_composer_section() -> Dict[str, Any]:
                 st.session_state.composer_files = [entry]
                 config["file_paths"] = [entry["path"]]
                 config["file_metadata"] = [entry.get("metadata", {})]
+                entry_path = str(entry.get("path", ""))
+                entry_metadata = entry.get("metadata", {}) or {}
                 _render_metadata_block(
-                    f"Audio: {Path(entry['path']).name}", entry.get("metadata", {})
+                    f"Audio: {Path(entry_path).name if entry_path else 'unknown'}", entry_metadata if isinstance(entry_metadata, dict) else {}
                 )
 
                 # Auto-configure Cinematographer if active and using model
-                audio_duration = entry.get("metadata", {}).get("duration_seconds", 0)
+                audio_duration = entry_metadata.get("duration_seconds", 0) if isinstance(entry_metadata, dict) else 0
                 if audio_duration > 0:
                     _auto_configure_multi_mode(
                         source_agent="composer",
@@ -983,7 +986,7 @@ def render_composer_section() -> Dict[str, Any]:
                     "composer_prompt_widget", prompt_text
                 )
                 st.session_state.composer_prompt_text = widget_value
-                config["params"]["prompt"] = widget_value
+                config["params"]["prompt"] = widget_value  # type: ignore[index]
                 if "composer_params" not in st.session_state:
                     st.session_state.composer_params = {}
                 st.session_state.composer_params["prompt"] = widget_value
@@ -1028,7 +1031,7 @@ def render_composer_section() -> Dict[str, Any]:
                     )
                     st.session_state.composer_lyrics_text = widget_value
                     if widget_value.strip():
-                        config["params"]["lyrics"] = widget_value
+                        config["params"]["lyrics"] = widget_value  # type: ignore[index]
                         if "composer_params" not in st.session_state:
                             st.session_state.composer_params = {}
                         st.session_state.composer_params["lyrics"] = widget_value
@@ -1115,7 +1118,7 @@ def render_composer_section() -> Dict[str, Any]:
                 if result.is_valid:
                     st.success(f"✓ {result.message}")
                     st.session_state.composer_voice_file = uploaded
-                    config["voice_file"] = uploaded
+                    config["voice_file"] = uploaded  # type: ignore[assignment]
                 else:
                     st.error(f"✗ {result.message}")
             else:
@@ -1320,7 +1323,7 @@ def calculate_cost_estimate(config: Dict[str, Any]) -> Dict[str, Any]:
         Dict with cost breakdown and total
     """
     registry = get_model_registry()
-    costs = {
+    costs: Dict[str, Any] = {
         "video": None,
         "storyboard": None,
         "music": None,

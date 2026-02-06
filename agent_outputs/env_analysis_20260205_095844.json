@@ -1,0 +1,86 @@
+{
+  "analysis_timestamp": "2026-02-05T16:58:44.749938",
+  "locations_analyzed": 5,
+  "data_sources_available": 0,
+  "location_results": [
+    {
+      "location": "San Francisco",
+      "coordinates": {
+        "lat": 37.7749,
+        "lon": -122.4194
+      },
+      "quick_check": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "full_analysis": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "timestamp": "2026-02-05T16:58:44.285534"
+    },
+    {
+      "location": "Los Angeles",
+      "coordinates": {
+        "lat": 34.0522,
+        "lon": -118.2437
+      },
+      "quick_check": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "full_analysis": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "timestamp": "2026-02-05T16:58:44.396975"
+    },
+    {
+      "location": "New York",
+      "coordinates": {
+        "lat": 40.7128,
+        "lon": -74.006
+      },
+      "quick_check": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "full_analysis": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "timestamp": "2026-02-05T16:58:44.507960"
+    },
+    {
+      "location": "Seattle",
+      "coordinates": {
+        "lat": 47.6062,
+        "lon": -122.3321
+      },
+      "quick_check": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "full_analysis": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "timestamp": "2026-02-05T16:58:44.641808"
+    },
+    {
+      "location": "Miami",
+      "coordinates": {
+        "lat": 25.7617,
+        "lon": -80.1918
+      },
+      "quick_check": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "full_analysis": {
+        "error": "{\"detail\":\"Not Found\"}"
+      },
+      "timestamp": "2026-02-05T16:58:44.749938"
+    }
+  ],
+  "patterns_found": {
+    "seismic_activity": []
+  },
+  "recommendations": [
+    "Monitor air quality during temperature inversions",
+    "Check water quality after seismic events",
+    "Track wildfire smoke transport patterns",
+    "Correlate marine temperatures with coastal weather"
+  ]
+}

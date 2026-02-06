@@ -324,18 +324,14 @@ def main():
         else []
     )
     comp_caps = composer.get("capabilities", []) if isinstance(composer, dict) else []
-    print(
-        f"Total video models: {len(cine_caps[0].get('models', [])) if len(cine_caps) > 0 else 0}"
-    )
-    print(
-        f"Total image models: {len(cine_caps[1].get('models', [])) if len(cine_caps) > 1 else 0}"
-    )
-    print(
-        f"Total music models: {len(comp_caps[0].get('models', [])) if len(comp_caps) > 0 else 0}"
-    )
-    print(
-        f"Total voice models: {len(comp_caps[1].get('models', [])) if len(comp_caps) > 1 else 0}"
-    )
+    video_count = len(cine_caps[0].get('models', [])) if len(cine_caps) > 0 and isinstance(cine_caps[0], dict) else 0
+    image_count = len(cine_caps[1].get('models', [])) if len(cine_caps) > 1 and isinstance(cine_caps[1], dict) else 0
+    music_count = len(comp_caps[0].get('models', [])) if len(comp_caps) > 0 and isinstance(comp_caps[0], dict) else 0
+    voice_count = len(comp_caps[1].get('models', [])) if len(comp_caps) > 1 and isinstance(comp_caps[1], dict) else 0
+    print(f"Total video models: {video_count}")
+    print(f"Total image models: {image_count}")
+    print(f"Total music models: {music_count}")
+    print(f"Total voice models: {voice_count}")
 
     # Format as ChatPromptTemplate for Hub
     config_content = json.dumps(UPDATED_SYSTEM_CONFIG, indent=2)

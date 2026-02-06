@@ -9,7 +9,7 @@ env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(env_path)
 
 api_key = os.getenv("LANGCHAIN_API_KEY")
-print(f"Testing API Key: {api_key[:10]}...{api_key[-4:] if api_key else 'None'}")
+print(f"Testing API Key: {api_key[:10] if api_key else 'None'}...{api_key[-4:] if api_key else 'None'}")
 
 if not api_key:
     sys.exit(1)

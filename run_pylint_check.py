@@ -1,7 +1,7 @@
 # pylint imports - may not be installed in all environments
 try:
-    from pylint.lint import Run
-    from pylint.reporters.text import TextReporter
+    from pylint.lint import Run  # type: ignore[import-not-found]
+    from pylint.reporters.text import TextReporter  # type: ignore[import-not-found]
 
     HAS_PYLINT = True
 except ImportError:

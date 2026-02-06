@@ -1,0 +1,7 @@
+   SERVICE          REGION       URL                                                       LAST DEPLOYED BY         LAST DEPLOYED AT
++  env-monitor-api  us-central1  https://env-monitor-api-758343025648.us-central1.run.app  damienfosborn@gmail.com  2026-02-05T20:28:33.915562Z
+ID                                    CREATE_TIME                DURATION  SOURCE                                                                                               IMAGES                                                  STATUS
+b170a7b4-918d-45d8-bcf6-b59dbb290ed9  2026-02-05T20:09:54+00:00  13M25S    gs://crafty-hook-483415-b3_cloudbuild/source/1770322193.493128-ac6fc7ea1d2d4869b0807700355ad258.tgz  gcr.io/crafty-hook-483415-b3/env-monitor-api (+1 more)  SUCCESS
+06ed92ba-e841-44c7-845d-c187c0c67f68  2026-02-05T19:40:52+00:00  15M10S    gs://crafty-hook-483415-b3_cloudbuild/source/1770320450.892855-825bb42a760a4926bdece5697e3505c0.tgz  gcr.io/crafty-hook-483415-b3/env-monitor-api (+1 more)  SUCCESS
+838c5ea5-b3db-4f0f-b57e-2e48cb69663d  2026-02-05T19:14:44+00:00  20M21S    gs://crafty-hook-483415-b3_cloudbuild/source/1770318883.017511-dc826d3c830a4bc992252218afae4e67.tgz  gcr.io/crafty-hook-483415-b3/env-monitor-api (+1 more)  SUCCESS
+ERROR: (gcloud.run.services.describe) Cannot find service [env-monitor-dashboard]

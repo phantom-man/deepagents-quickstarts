@@ -7,6 +7,10 @@ if not comms.connect():
     print("❌ Failed to connect to DB")
     exit(1)
 
+if comms.conn is None:
+    print("❌ Connection is None")
+    exit(1)
+
 sql = "SELECT id, sender, recipient, status, left(content, 50) as snippet, timestamp FROM agent_messages ORDER BY id DESC LIMIT 10"
 
 with comms.conn.cursor() as cur:
@@ -26,5 +30,6 @@ print("\nChecking specifically for unread messages for 'Cinematographer':")
 unread_sql = "SELECT count(*) FROM agent_messages WHERE recipient = 'Cinematographer' AND status = 'unread'"
 with comms.conn.cursor() as cur:
     cur.execute(unread_sql)
-    count = cur.fetchone()[0]
+    result = cur.fetchone()
+    count = result[0] if result else 0
     print(f"Unread Count for 'Cinematographer': {count}")

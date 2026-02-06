@@ -264,7 +264,8 @@ async def director_node(
         # Always set prompt to directive (fixes UnboundLocalError)
         prompt = directive if directive else "Create a compelling creative directive."
 
-    base_directive = prompt
+    # Ensure base_directive is always a string (content can be str or list)
+    base_directive = prompt if isinstance(prompt, str) else str(prompt)
 
     def _summarize_assets(label: str, assets: List[str]) -> str:
         lines = []
@@ -676,7 +677,7 @@ async def cinematographer_node(
             return Command(update=state_update, goto="editor")
         else:
             logger.info("[CINEMA] Both production agents disabled, ending workflow")
-            return Command(update=state_update, goto=END)
+            return Command(update=state_update, goto=END)  # type: ignore[return-value]
 
     _emit_progress("Cinematographer", "Generating video assets...")
     plan = state.get("director_plan", "")
@@ -928,7 +929,7 @@ async def composer_node(
             return Command(update=state_update, goto="editor")
         else:
             logger.info("[COMPOSER] No assets and composer disabled, ending workflow")
-            return Command(update=state_update, goto=END)
+            return Command(update=state_update, goto=END)  # type: ignore[return-value]
 
     _emit_progress("Composer", "Generating audio/music...")
     plan = state.get("director_plan", "")
@@ -1053,7 +1054,7 @@ async def composer_node(
 
                 # Generate this track
                 result = run_composer_task(
-                    plan=f"Track {idx}: {track_prompt}",
+                    request_description=f"Track {idx}: {track_prompt}",
                     model_id=model_id,
                     model_params=track_params,
                     voice_source=voice_source,
@@ -1141,7 +1142,7 @@ async def composer_node(
         if cinematographer_disabled and not has_video:
             # Audio-only workflow - end after generating music
             logger.info("[COMPOSER] Audio-only workflow complete. Ending.")
-            return Command(update=state_update, goto=END)
+            return Command(update=state_update, goto=END)  # type: ignore[return-value]
         elif assets and has_video:
             # Both audio and video ready - go to editor
             logger.info("[COMPOSER] Audio and video ready. Routing to Editor.")

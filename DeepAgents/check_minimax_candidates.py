@@ -19,7 +19,10 @@ for c in candidates:
         print(f"Checking {c}...")
         m = replicate.models.get(c)
         print(f"FOUND: {m.owner}/{m.name}")
-        print(f"  ID: {m.latest_version.id}")
-        print(f"  Schema: {json.dumps(m.latest_version.openapi_schema, indent=2)}")
+        if m.latest_version is not None:
+            print(f"  ID: {m.latest_version.id}")
+            print(f"  Schema: {json.dumps(m.latest_version.openapi_schema, indent=2)}")
+        else:
+            print("  No version available")
     except Exception as e:
         print(f"  Failed: {e}")

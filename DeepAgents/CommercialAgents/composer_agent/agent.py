@@ -13,7 +13,7 @@ import re
 import sys
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import google.auth
 import requests
@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from google.auth.transport.requests import Request
 from langchain.tools import tool
 from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from DeepAgents.agent_brain import AgentComms
@@ -331,7 +331,7 @@ def _generate_lyrics_and_style(
         else:
             schema_compliant_prompt = MINIMAX_SCHEMA.format(input_text=input_text)
 
-    messages = [HumanMessage(content=schema_compliant_prompt)]
+    messages: List[BaseMessage] = [HumanMessage(content=schema_compliant_prompt)]
     last_valid_result = {}
 
     try:
@@ -431,7 +431,7 @@ def _safe_replicate_run(
             "GUI",
             f"Calling {model_short} API (this may take 1-3 minutes)...",
         )
-        comms.close()
+        # Note: AgentComms doesn't have a close() method
     except Exception:
         pass  # Non-critical
 
@@ -440,14 +440,15 @@ def _safe_replicate_run(
 
     if ":" not in model_id and "/" in model_id:
         try:
-            model = replicate.models.get(model_id)
+            model = replicate.models.get(model_id)  # type: ignore[union-attr]
             version = model.latest_version
-            model_id = f"{model_id}:{version.id}"
-            logger.info(f"   Resolved latest version: {version.id}")
+            if version is not None:
+                model_id = f"{model_id}:{version.id}"
+                logger.info(f"   Resolved latest version: {version.id}")
         except Exception as e:
             logger.warning(f"Could not resolve version for {model_id}: {e}")
 
-    return replicate.run(model_id, input=input_data)
+    return replicate.run(model_id, input=input_data)  # type: ignore[union-attr]
 
 
 def _extract_replicate_url(output: Any) -> Optional[str]:
@@ -984,7 +985,7 @@ def _select_optimal_music_model(prompt: str, llm: Any) -> str:
             candidates = [{"id": m["id"], "score": m["priority"]} for m in models]
             candidates.sort(key=lambda x: x["score"], reverse=True)
 
-        best_model = candidates[0].get("id")
+        best_model = candidates[0].get("id") or "minimax/music-1.5"
         logger.info(
             f"🧠 Model Selection: Request(Lyrics={requires_lyrics}, Duration={requires_duration}) -> Selected '{best_model}' (Score: {candidates[0]['score']})"
         )
@@ -1160,7 +1161,7 @@ def create_composer_agent(
         )
 
         if brain_provider == "Anthropic":
-            llm = ChatAnthropic(model_name=brain_model, temperature=0.7)
+            llm = ChatAnthropic(model_name=brain_model, temperature=0.7)  # type: ignore[call-arg]
 
         if brain_provider == "Replicate":
             # Requires REPLICATE_API_TOKEN in env
@@ -1249,7 +1250,7 @@ def create_composer_agent(
     # tool_choice="any" maps to Gemini's FunctionCallingConfig(mode='ANY')
     # This MANDATES the model MUST call one of the provided tools.
     target_tools = [generate_music_tool, browse_library_tool]
-    llm_with_tools = llm.bind_tools(target_tools, tool_choice="any")
+    llm_with_tools = llm.bind_tools(target_tools, tool_choice="any")  # type: ignore[union-attr]
     logger.info(
         "[TOOL BINDING] Composer tools bound with tool_choice='any' (forced execution)"
     )
@@ -1321,11 +1322,11 @@ def create_composer_agent(
 
 def run_composer_task(
     request_description: str,
-    model_id: str = None,
-    model_params: dict = None,
-    voice_source: str = None,
-    voice_file: any = None,
-    voice_model_id: str = None,
+    model_id: Optional[str] = None,
+    model_params: Optional[dict] = None,
+    voice_source: Optional[str] = None,
+    voice_file: Any = None,
+    voice_model_id: Optional[str] = None,
 ) -> str:
     """
     Synchronous entry point for the Director to consult the Composer.

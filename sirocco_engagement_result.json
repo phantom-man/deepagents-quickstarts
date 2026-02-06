@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-02-05T14:44:56.603988",
+  "context": {
+    "comments_found": 0,
+    "sirocco_posts_found": 0,
+    "direct_comment": false
+  },
+  "result": {
+    "message_sent": false,
+    "method": null,
+    "post_id": null,
+    "comment_id": null,
+    "error": "Failed to create post: {'error': 'rate_limited', 'retry_after': 60}"
+  }
+}

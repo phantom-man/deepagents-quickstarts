@@ -15,7 +15,7 @@ try:
     import graph_app
 
     print("\nSUCCESS: Graph imported successfully!")
-    print("Graph object:", graph_app.graph)
+    print("Graph object:", getattr(graph_app, "graph", "(no graph attribute)"))
 except Exception:
     print("\nFAILURE: Could not import graph.")
     traceback.print_exc()

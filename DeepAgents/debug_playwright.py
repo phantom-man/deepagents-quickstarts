@@ -1,10 +1,18 @@
 import time
 
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright  # type: ignore[import-not-found]
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+    sync_playwright = None  # type: ignore[assignment,misc]
 
 
 def run_streamlit_test():
-    with sync_playwright() as p:
+    if not HAS_PLAYWRIGHT:
+        print("Playwright not installed. Run: pip install playwright && playwright install")
+        return
+    with sync_playwright() as p:  # type: ignore[union-attr]
         # Launch browser (headless=True for automation)
         print("🎬 Launching Browser (Headless Mode)...")
         browser = p.chromium.launch(headless=True, slow_mo=50)

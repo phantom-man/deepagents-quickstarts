@@ -30,7 +30,6 @@ except Exception:
         model="gemini-2.0-flash-exp",
         temperature=0.8,
     )
-    )
 
 AGENTS = [
     {"name": "Director", "role": "Orchestrator, strategic, polite but firm."},

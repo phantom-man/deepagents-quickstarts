@@ -119,9 +119,7 @@ def _create_composer_graph():
         c_prov, c_mod = sys_conf.get_agent_params("Composer")
 
         # This returns a RunnableLambda, NOT a Graph
-        composer_runnable = factories["composer"](
-            model_config={"provider": c_prov, "model": c_mod}
-        )
+        composer_runnable = factories["composer"]()  # type: ignore[call-arg]
 
         def composer_node_adapter(state):
             # RunnableLambda expects a dict, which MessagesState is compatible with
@@ -167,7 +165,7 @@ def _create_cinematographer_graph():
 
     try:
         # Get the cinematographer function
-        cinema_func = factories["cinematographer"](model_config=None)
+        cinema_func = factories["cinematographer"]()  # type: ignore[call-arg]
 
         def run_cinema_node(state):
             if not state.get("messages"):
@@ -176,10 +174,14 @@ def _create_cinematographer_graph():
             user_input = state["messages"][-1].content
             final_output = []
 
-            # Consume the generator
-            for msg_type, content in cinema_func(input_text=user_input):
-                if msg_type == "output":
-                    final_output.append(content)
+            # Consume the generator if it's iterable
+            try:
+                result = cinema_func.invoke({"messages": state["messages"]})  # type: ignore[union-attr]
+                if isinstance(result, dict) and "messages" in result:
+                    return result
+                final_output.append(str(result))
+            except Exception as e:
+                final_output.append(f"Error: {e}")
 
             result_text = (
                 "\n\n".join(final_output) if final_output else "No output generated."

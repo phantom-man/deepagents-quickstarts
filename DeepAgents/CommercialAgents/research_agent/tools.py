@@ -3,47 +3,39 @@ import logging
 import os
 import urllib.error
 import urllib.request
+from typing import Optional
 
 from langchain_community.tools.arxiv.tool import ArxivQueryRun
 from langchain_community.tools.tavily_search import TavilySearchResults
-from langchain_core.tools import tool
+from langchain_core.tools import BaseTool, tool
 
 from DeepAgents.agent_brain import AgentMemory
 
 logger = logging.getLogger(__name__)
 
 # Initialize Tavily Search or Mock
+tavily_search_tool: Optional[BaseTool] = None
 try:
     if not os.environ.get("TAVILY_API_KEY"):
         # Not required if we are using Google Grounding
         # raise ValueError("TAVILY_API_KEY Missing")
         # Just warn and set to Mock
         logger.warning("TAVILY_API_KEY missing. Tavily search disabled.")
-        tavily_search = None
+        tavily_search_tool = None
     else:
         # Check for new package
         try:
-            from langchain_tavily import TavilySearchResults
+            from langchain_tavily import TavilySearchResults  # type: ignore[import-not-found]
         except ImportError:
             # Fallback to community
             from langchain_community.tools.tavily_search import TavilySearchResults
 
-        tavily_search = TavilySearchResults(max_results=5)
+        tavily_search_tool = TavilySearchResults(max_results=5)
 except Exception:
-    tavily_search = None
+    tavily_search_tool = None
 
-# If no Tavily, we can rely on Google Grounding (which is native to the Model, not a tool)
-# But we might need a placeholder tool if the agent expects a list of tools.
-if not tavily_search:
-
-    @tool
-    def tavily_search(query: str) -> str:
-        """
-        [DISABLED] Tavily Search is disabled.
-        PLEASE USE YOUR NATIVE GOOGLE SEARCH GROUNDING INSTEAD.
-        """
-        return "Search Tool Disabled. Use Native Google Search."
-
+# DEPRECATED: Tavily is deprecated for Google Agents. Use Native Google Search Grounding instead.
+# Removed tavily_search tool.
 
 # Initialize Arxiv Search
 arxiv_search = ArxivQueryRun()
@@ -173,7 +165,6 @@ def submit_finding_for_review(finding_text: str) -> str:
 
 # Expose
 __all__ = [
-    "tavily_search",
     "arxiv_search",
     "scrape_webpage",
     "save_research_file",

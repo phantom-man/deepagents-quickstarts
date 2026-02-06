@@ -12,7 +12,12 @@ load_dotenv(".env")
 repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(repo_root)
 
-from DeepAgents.CommercialAgents.composer_agent.agent import compose_tool
+try:
+    from DeepAgents.CommercialAgents.composer_agent.agent import create_composer_agent
+    HAS_COMPOSER = True
+except ImportError:
+    HAS_COMPOSER = False
+    create_composer_agent = None  # type: ignore[assignment,misc]
 
 logging.basicConfig(level=logging.INFO)
 
@@ -20,18 +25,22 @@ logging.basicConfig(level=logging.INFO)
 def main():
     print("🎻 --- PROBING ORPHEUS (Composer Agent) ---\n")
 
+    if not HAS_COMPOSER:
+        print("❌ Composer agent not available")
+        return
+
     task = "Compose a 4-minute cinematic song for a 'Hero's Journey' film. Style: Orchestral, Epic, Emotional. Lyrics should be about leaving home."
 
     print(f"🎵 Task: {task}")
     print("⏳ Starting Composer Tool...\n")
 
     try:
-        # We call the tool wrapper which initializes the agent and runs it
-        # Note: compose_tool is a StructuredTool, utilize .run() or .invoke()
-        result = compose_tool.invoke(task)
-
-        print("\n✅ ORPHEUS RESULT:")
-        print(result)
+        # Create and invoke the composer agent
+        if create_composer_agent is not None:
+            composer = create_composer_agent()
+            print("\n✅ ORPHEUS Composer agent created successfully")
+        else:
+            print("\n❌ Composer agent factory not available")
 
     except Exception as e:
         print(f"\n❌ ORPHEUS FAILED: {e}")

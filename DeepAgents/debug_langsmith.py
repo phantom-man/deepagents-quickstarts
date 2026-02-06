@@ -7,7 +7,7 @@ load_dotenv("DeepAgents/.env")
 
 print("🔍 Debugging LangSmith Connection...")
 api_key = os.getenv("LANGCHAIN_API_KEY")
-print(f"API Key present: {'Yes' if api_key else 'No'} ({api_key[:10]}...)")
+print(f"API Key present: {'Yes' if api_key else 'No'} ({api_key[:10] if api_key else 'N/A'}...)")
 
 try:
     client = Client()

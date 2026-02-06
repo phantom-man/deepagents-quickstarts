@@ -49,7 +49,7 @@ async def get_postgres_checkpointer() -> AsyncGenerator[AsyncPostgresSaver, None
         logger.info("💾 Connecting to Postgres Persistence Layer...")
 
         # Initialize the checkpointer
-        checkpointer = AsyncPostgresSaver(pool)
+        checkpointer = AsyncPostgresSaver(pool)  # type: ignore[arg-type]
 
         # Ensure tables exist (AsyncPostgresSaver usually handles this on first use or setup)
         await checkpointer.setup()

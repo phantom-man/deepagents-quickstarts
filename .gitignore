@@ -189,3 +189,14 @@ Artifacts/**/*.wav
 Artifacts/**/*.mp3
 Artifacts/**/*.jpg
 Artifacts/**/*.jpeg
+
+# Sensitive Files - Security
+.env.local
+.env.*.local
+*.pem
+*.key
+*_secret*
+*_token*
+credentials.json
+service-account*.json
+environmental_monitoring.db

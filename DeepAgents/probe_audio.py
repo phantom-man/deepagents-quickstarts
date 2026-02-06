@@ -21,17 +21,21 @@ for model_id in models_to_test:
             config={"response_mime_type": "audio/wav"},
         )
         # Check if we got audio back
-        if response.candidates and response.candidates[0].content.parts:
+        if response.candidates and response.candidates[0].content and response.candidates[0].content.parts:
             part = response.candidates[0].content.parts[0]
             # Check for inline data (blob)
             if hasattr(part, "inline_data") and part.inline_data:
                 print("✅ SUCCESS: Model returned inline data (likely audio).")
-                with open(f"test_audio_{model_id}.wav", "wb") as f:
-                    f.write(part.inline_data.data)
-                    print(f"   Saved to test_audio_{model_id}.wav")
+                if part.inline_data.data:
+                    with open(f"test_audio_{model_id}.wav", "wb") as f:
+                        f.write(part.inline_data.data)
+                        print(f"   Saved to test_audio_{model_id}.wav")
+                else:
+                    print("⚠️ No data in inline_data")
             else:
                 print("⚠️ Model returned text (or other) instead of audio data.")
-                print(f"   Response: {part.text}")
+                if hasattr(part, "text"):
+                    print(f"   Response: {part.text}")
         else:
             print("❌ No candidates returned.")
 

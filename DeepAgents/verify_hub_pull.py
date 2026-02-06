@@ -19,9 +19,10 @@ try:
 except Exception as e:
     print(f"❌ Pull Failed: {e}")
     # Print the full error structure if possible
-    if hasattr(e, "response"):
-        print(f"Response Status: {e.response.status_code}")
-        print(f"Response Text: {e.response.text}")
+    response = getattr(e, "response", None)
+    if response is not None:
+        print(f"Response Status: {getattr(response, 'status_code', 'N/A')}")
+        print(f"Response Text: {getattr(response, 'text', 'N/A')}")
 
 print("\nAttempting Pull for 'director-system-prompt' (Simple Name)...")
 try:

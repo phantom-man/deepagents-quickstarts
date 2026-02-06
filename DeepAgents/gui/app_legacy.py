@@ -231,8 +231,10 @@ with tab_director:
             est = estimate_cost("Director", config_manager.config)
             st.toast(f"Total Project Est: ${est.get('total_max', 0.0):.2f}")
             with st.expander("Project Cost Breakdown", expanded=True):
-                for d in est["details"]:
-                    st.write(f"- {d}")
+                details = est.get("details", [])
+                if isinstance(details, list):
+                    for d in details:
+                        st.write(f"- {d}")
 
         st.info("ℹ️ Director Mode: Autonomous. Results depend on your prompt.")
 
@@ -533,8 +535,10 @@ with tab_cinematographer:
             est = estimate_cost("Cinematographer", temp_conf)
             st.toast(f"Total Est: ${est['total']:.2f}")
             with st.expander("Cost Breakdown", expanded=True):
-                for d in est["details"]:
-                    st.write(f"- {d}")
+                details = est.get("details", [])
+                if isinstance(details, list):
+                    for d in details:
+                        st.write(f"- {d}")
                 if man_mode == "storyboard":
                     st.warning("(Note: Estimates assume Video Generation)")
 
@@ -687,8 +691,10 @@ with tab_composer:
             est = estimate_cost("Composer", config_manager.config)
             st.toast(f"Total Est: ${est['total']:.2f}")
             with st.expander("Cost Breakdown", expanded=True):
-                for d in est["details"]:
-                    st.write(f"- {d}")
+                details = est.get("details", [])
+                if isinstance(details, list):
+                    for d in details:
+                        st.write(f"- {d}")
 
     # Output
     comp_container = st.container()

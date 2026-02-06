@@ -32,10 +32,12 @@ def consult_agent_mesh(target_agent: str, request: str) -> str:
             if target_agent.lower() in key:  # e.g. "research" in "research_agent"
                 registry_key = key
                 break
-            if target_agent.lower() in data["name"].lower():
+            name = data.get("name", "")
+            role = data.get("role", "")
+            if isinstance(name, str) and target_agent.lower() in name.lower():
                 registry_key = key
                 break
-            if target_agent.lower() in data["role"].lower():
+            if isinstance(role, str) and target_agent.lower() in role.lower():
                 registry_key = key
                 break
 
@@ -46,6 +48,10 @@ def consult_agent_mesh(target_agent: str, request: str) -> str:
     agent_metadata = AGENCY_REGISTRY[registry_key]
     module_path = agent_metadata["module"]
     entry_point_name = agent_metadata["entry_point"]
+    
+    # Ensure module_path and entry_point_name are strings
+    if not isinstance(module_path, str) or not isinstance(entry_point_name, str):
+        return f"❌ ERROR: Invalid registry entry for '{registry_key}'"
 
     logger.info(
         "🔗 Routing to: %s (%s.%s)", registry_key, module_path, entry_point_name

@@ -54,5 +54,5 @@ agent = create_deep_agent(
     model=model,
     tools=[tavily_search, think_tool],
     system_prompt=INSTRUCTIONS,
-    subagents=[research_sub_agent],
+    subagents=[research_sub_agent],  # type: ignore[arg-type]
 )

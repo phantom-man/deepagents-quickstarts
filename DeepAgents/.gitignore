@@ -10,4 +10,15 @@ references/
 
 # Environment Variables
 .env
+.env.local
+.env.*.local
 ini .env
+
+# Sensitive Files - Security
+*.pem
+*.key
+*_secret*
+*_token*
+credentials.json
+service-account*.json
+environmental_monitoring.db

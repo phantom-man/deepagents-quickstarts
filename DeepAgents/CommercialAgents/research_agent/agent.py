@@ -29,7 +29,6 @@ from DeepAgents.CommercialAgents.research_agent.tools import (
     arxiv_search,
     scrape_webpage,
     submit_finding_for_review,
-    tavily_search,
 )
 
 # Load environment variables
@@ -46,7 +45,7 @@ def create_research_agent(model_name="gemini-2.0-flash-001", provider="Google"):
     # Initialize the model
     model = None
     if provider == "Anthropic":
-        model = ChatAnthropic(model_name=model_name, temperature=0.0)
+        model = ChatAnthropic(model_name=model_name, temperature=0.0)  # type: ignore[call-arg]
 
     elif model_name.startswith("meta/") or "llama" in model_name.lower():
         # Replicate
@@ -85,19 +84,11 @@ def create_research_agent(model_name="gemini-2.0-flash-001", provider="Google"):
     # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
 
     # Determine Tools based on Provider
-    # If Google, we use Native Grounding (No Tavily needed)
-    if provider == "Google":
-        agent_tools = [scrape_webpage, arxiv_search, submit_finding_for_review]
-    else:
-        agent_tools = [
-            tavily_search,
-            scrape_webpage,
-            arxiv_search,
-            submit_finding_for_review,
-        ]
+    # Google uses Native Grounding (No Tavily needed)
+    agent_tools = [scrape_webpage, arxiv_search, submit_finding_for_review]
 
     agent = create_deep_agent(
-        model=model,
+        model=model,  # type: ignore[arg-type]
         tools=agent_tools,
         system_prompt=RESEARCHER_INSTRUCTIONS,
     )
@@ -171,6 +162,9 @@ def run_research_task(
 
     if not memory:
         memory = AgentMemory()
+    
+    # Ensure memory is not None for type checker
+    assert memory is not None
 
     # Model Init with Fallback
     agent = create_research_agent(model_name=model_name, provider=provider)

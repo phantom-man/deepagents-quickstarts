@@ -259,11 +259,11 @@ def merge_ffmpeg_python(
     logger.info("[FFMPEG-PY] Merging: video=%s, audio=%s", video_path, audio_path)
 
     try:
-        video = ffmpeg_lib.input(video_path)
-        audio = ffmpeg_lib.input(audio_path)
+        video = ffmpeg_lib.input(video_path)  # type: ignore[union-attr]
+        audio = ffmpeg_lib.input(audio_path)  # type: ignore[union-attr]
 
         # Stream copy for video, AAC encode for audio
-        output_kwargs = {
+        output_kwargs: dict[str, str | None] = {
             "vcodec": "copy",  # Stream copy video
             "acodec": "aac",  # Encode audio to AAC
             "audio_bitrate": "192k",
@@ -272,12 +272,12 @@ def merge_ffmpeg_python(
         if shortest:
             output_kwargs["shortest"] = None
 
-        stream = ffmpeg_lib.output(
+        stream = ffmpeg_lib.output(  # type: ignore[union-attr]
             video.video, audio.audio, output_path, **output_kwargs
         )
 
         # Run with overwrite
-        ffmpeg_lib.run(stream, overwrite_output=True, quiet=True)
+        ffmpeg_lib.run(stream, overwrite_output=True, quiet=True)  # type: ignore[union-attr]
 
         if os.path.exists(output_path):
             logger.info("[SUCCESS] ffmpeg-python merge complete: %s", output_path)

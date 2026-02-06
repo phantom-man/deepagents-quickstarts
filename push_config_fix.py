@@ -42,9 +42,13 @@ def push_config():
     cinematographer = agents.get("Cinematographer", {})  # type: ignore[union-attr]
     capabilities = cinematographer.get("capabilities", [])  # type: ignore[union-attr]
     if capabilities and len(capabilities) > 0:
-        models = capabilities[0].get("models", [])  # type: ignore[union-attr]
-        if models and len(models) > 0:
-            print(f"Video model ID in config: {models[0].get('id', 'unknown')}")
+        cap = capabilities[0]
+        if isinstance(cap, dict):
+            models = cap.get("models", [])
+            if isinstance(models, list) and len(models) > 0:
+                first_model = models[0]
+                if isinstance(first_model, dict):
+                    print(f"Video model ID in config: {first_model.get('id', 'unknown')}")
 
     # Push the prompt
     url = client.push_prompt(repo_name, object=prompt)

@@ -12,7 +12,7 @@ print("--- Verify Hub Clean ---")
 api_key = os.getenv("LANGCHAIN_API_KEY")
 ws_id = os.getenv("LANGSMITH_WORKSPACE_ID")
 handle = os.getenv("LANGCHAIN_HUB_HANDLE")
-print(f"Key: {api_key[:5]}...")
+print(f"Key: {api_key[:5] if api_key else 'N/A'}...")
 print(f"Workspace: {ws_id}")
 print(f"Handle: {handle}")
 

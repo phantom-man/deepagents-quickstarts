@@ -4,10 +4,20 @@ import sys
 
 # Ensure we can import from local
 sys.path.append(os.path.dirname(__file__))
-from atlas_db import add_command, init_db
+try:
+    from atlas_db import add_command, init_db  # type: ignore[import-not-found]
+    HAS_ATLAS_DB = True
+except ImportError:
+    HAS_ATLAS_DB = False
+    add_command = None  # type: ignore[assignment]
+    init_db = None  # type: ignore[assignment]
 
 
 def main():
+    if not HAS_ATLAS_DB or init_db is None or add_command is None:
+        print("atlas_db module not available. Cannot inject commands.")
+        return
+
     parser = argparse.ArgumentParser(
         description="Inject a command into the Atlas Agent stream."
     )

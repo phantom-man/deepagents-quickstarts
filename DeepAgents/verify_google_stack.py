@@ -100,7 +100,7 @@ def test_fast_imagen():
         if response.generated_images:
             img = response.generated_images[0]
             # Verify we have data
-            if img.image:
+            if img.image and img.image.image_bytes:
                 # Save just to prove it worked
                 with open("test_imagen_fast.png", "wb") as f:
                     f.write(img.image.image_bytes)
@@ -128,6 +128,10 @@ def check_quotas():
     # Attempting to run gcloud command if available
     try:
         import subprocess
+
+        if PROJECT_ID is None:
+            logger.warning("PROJECT_ID not set, skipping gcloud quota check")
+            return
 
         res = subprocess.run(
             [

@@ -65,7 +65,7 @@ def create_confidence_agent(model_name="gemini-2.0-flash-001", provider="Google"
 
     # Initialize Model (Fail Fast - No Try/Except hiding)
     if provider == "Anthropic":
-        model = ChatAnthropic(model_name=model_name, temperature=0.0)
+        model = ChatAnthropic(model_name=model_name, temperature=0.0)  # type: ignore[call-arg]
     elif "meta" in model_name or "replicate" in model_name.lower():
         model = ChatReplicate(
             model=model_name, model_kwargs={"temperature": 0.0, "max_length": 4096}
@@ -89,7 +89,7 @@ def create_confidence_agent(model_name="gemini-2.0-flash-001", provider="Google"
     # 🔗 HUB INTEGRATION: Prompt already pulled in prompts.py
 
     agent = create_deep_agent(
-        model=model,
+        model=model,  # type: ignore[arg-type]
         tools=[consult_research_agent],
         system_prompt=CONFIDENCE_INSTRUCTIONS,
     )
@@ -190,7 +190,8 @@ def run_confidence_audit(content_to_audit: str):
                 "Format: A Table with columns [Claim | Verification Status | Confidence | Notes].\n\n"
                 f"REPORT:\n{final_report}"
             )
-            dashboard = dash_llm.invoke(dash_prompt).content
+            dash_response = dash_llm.invoke(dash_prompt).content
+            dashboard = dash_response if isinstance(dash_response, str) else str(dash_response)
             print(f"\n{dashboard}\n")
         except Exception as e:
             logger.warning("Dashboard generation failed: %s", e)
