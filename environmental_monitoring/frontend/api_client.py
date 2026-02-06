@@ -111,9 +111,14 @@ class APIClient:
             params["categories"] = ",".join(categories)
         return await self.get("/api/v1/hub/location", params)
     
-    async def get_category_data(self, category: str) -> Dict:
+    async def get_category_data(
+        self,
+        category: str,
+        lat: float = 37.7749,
+        lon: float = -122.4194
+    ) -> Dict:
         """Get data from all sources in a category."""
-        return await self.get(f"/api/v1/hub/category/{category}")
+        return await self.get(f"/api/v1/hub/category/{category}", {"lat": lat, "lon": lon})
     
     async def analyze_location(
         self,
@@ -231,9 +236,9 @@ def get_location_data(lat: float, lon: float, **kwargs) -> Dict:
     return sync_api_call(api_client.get_location_data(lat, lon, **kwargs))
 
 
-def get_category_data(category: str) -> Dict:
+def get_category_data(category: str, lat: float = 37.7749, lon: float = -122.4194) -> Dict:
     """Sync wrapper for get_category_data."""
-    return sync_api_call(api_client.get_category_data(category))
+    return sync_api_call(api_client.get_category_data(category, lat, lon))
 
 
 def analyze_location(lat: float, lon: float, days: int = 7) -> Dict:
