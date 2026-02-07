@@ -420,7 +420,8 @@ def update_category_graphs(loaded_data):
     graph_cards = []
     
     for cat_id, data in categories_data.items():
-        if not data or "error" in data:
+        # Skip only if data is explicitly None or contains an error
+        if data is None or (isinstance(data, dict) and "error" in data):
             continue
         
         # Get category info

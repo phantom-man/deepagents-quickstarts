@@ -36,7 +36,17 @@ async def test_dashboard():
             'https://env-monitor-dashboard-758343025648.us-central1.run.app',
             timeout=60000
         )
-        await page.wait_for_timeout(8000)  # Wait for callbacks to complete
+        
+        # Wait for graphs to potentially load - look for dash-graph elements
+        print('Waiting for graphs to load...')
+        try:
+            await page.wait_for_selector('.dash-graph', timeout=15000)
+            print('Found dash-graph elements')
+        except Exception:
+            print('No dash-graph elements found after 15s')
+        
+        # Additional wait for API callbacks
+        await page.wait_for_timeout(5000)
         
         print('\n=== API Calls Made ===')
         for url in api_calls:
@@ -46,44 +56,60 @@ async def test_dashboard():
             print(f'  [{status}] {url}')
             print(f'       Keys: {keys}')
         if not api_calls:
-            print('  (none)')
+            print('  (none - callbacks may call internal API)')
         
         # Check for specific data elements
         print('\n=== Data Presence Check ===')
         
         # Check AQI gauge
-        aqi_text = await page.inner_text('#aqi-gauge-container')
-        print(f'AQI Gauge: {"HAS DATA" if "Air Quality" in aqi_text else "EMPTY"}')
+        try:
+            aqi_text = await page.inner_text('#aqi-gauge-container')
+            print(f'AQI Gauge: {"HAS DATA" if "Air Quality" in aqi_text else "EMPTY"}')
+        except Exception:
+            print('AQI Gauge: NOT FOUND')
         
         # Check weather summary  
-        weather_text = await page.inner_text('#weather-summary-container')
-        has_weather = 'N/A' not in weather_text and 'Unavailable' not in weather_text
-        print(f'Weather: {"HAS DATA" if has_weather else "N/A or UNAVAILABLE"}')
-        print(f'  Content: {weather_text[:100]}...')
+        try:
+            weather_text = await page.inner_text('#weather-summary-container')
+            has_weather = 'N/A' not in weather_text and 'Unavailable' not in weather_text
+            print(f'Weather: {"HAS DATA" if has_weather else "N/A or UNAVAILABLE"}')
+        except Exception:
+            print('Weather: NOT FOUND')
         
-        # Check categories loaded indicator
-        cat_summary = await page.inner_text('#categories-summary-container')
-        print(f'Categories Summary: {cat_summary[:200]}...')
+        # Count graphs
+        graphs = await page.query_selector_all('.dash-graph')
+        print(f'Graph elements found: {len(graphs)}')
         
-        # Check graph container
-        graphs_container = await page.query_selector('#category-graphs-container')
-        if graphs_container:
-            graphs_html = await graphs_container.inner_html()
-            graph_count = graphs_html.count('dash-graph')
-            print(f'Graphs Rendered: {graph_count}')
-            
-            if 'No data' in graphs_html:
-                print('  WARNING: Some graphs show "No data"')
+        # Check category graphs container
+        try:
+            graphs_container = await page.query_selector('#category-graphs-container')
+            if graphs_container:
+                graphs_html = await graphs_container.inner_html()
+                print(f'Category graphs container HTML length: {len(graphs_html)}')
+                if 'No data' in graphs_html:
+                    print('  Contains "No data" message')
+                if 'Select categories' in graphs_html:
+                    print('  Contains "Select categories" message')
+        except Exception as e:
+            print(f'Category graphs check error: {e}')
         
-        # Get body text for overall view
-        text = await page.inner_text('body')
+        # Get full body text to diagnose
+        body_text = await page.inner_text('body')
+        
+        # Check for loaded categories
+        if 'Loaded:' in body_text:
+            # Find the line with "Loaded:"
+            for line in body_text.split('\n'):
+                if 'Loaded:' in line:
+                    print(f'Categories status: {line.strip()}')
+                    break
         
         # Check for errors
-        if 'Error' in text:
+        if 'Error' in body_text:
             print('\n=== ERRORS FOUND ===')
-            for line in text.split('\n'):
+            for line in body_text.split('\n'):
                 if 'Error' in line or 'error' in line:
-                    print(f'  {line[:100]}')
+                    print(f'  {line[:150]}')
         
         # Take screenshot
         await page.screenshot(path='dashboard_debug.png', full_page=True)
