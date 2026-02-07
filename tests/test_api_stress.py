@@ -12,7 +12,7 @@ import statistics
 import time
 import zlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
+from typing import Any, Sequence
 from unittest.mock import patch
 
 import pytest
@@ -69,7 +69,7 @@ def make_request(
 
 
 def make_concurrent_requests(
-    requests_list: list[tuple[str, dict | None]],
+    requests_list: Sequence[tuple[str, dict[str, Any] | None]],
     max_workers: int = 10,
 ) -> list[tuple[requests.Response | None, float]]:
     """Execute multiple requests concurrently."""
@@ -92,7 +92,6 @@ def make_concurrent_requests(
 class TestConcurrentLoad:
     """Tests for concurrent request handling."""
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_5_concurrent_hub_requests(self):
         """Test 5 concurrent requests to the hub endpoint."""
         requests_list = [("/hub", None) for _ in range(5)]
@@ -101,7 +100,6 @@ class TestConcurrentLoad:
         successful = sum(1 for r, _ in results if r and r.status_code == 200)
         assert successful >= 4, f"Expected at least 4/5 successful, got {successful}/5"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_10_concurrent_weather_requests(self):
         """Test 10 concurrent requests to the weather endpoint."""
         params = DEFAULT_PARAMS["weather"]
@@ -111,7 +109,6 @@ class TestConcurrentLoad:
         successful = sum(1 for r, _ in results if r and r.status_code == 200)
         assert successful >= 8, f"Expected at least 8/10 successful, got {successful}/10"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_20_concurrent_mixed_requests(self):
         """Test 20 concurrent requests to mixed endpoints."""
         requests_list = []
@@ -126,7 +123,6 @@ class TestConcurrentLoad:
         successful = sum(1 for r, _ in results if r and r.status_code == 200)
         assert successful >= 16, f"Expected at least 16/20 successful, got {successful}/20"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_50_concurrent_hub_requests(self):
         """Test 50 concurrent requests to the hub endpoint."""
         requests_list = [("/hub", None) for _ in range(50)]
@@ -136,7 +132,6 @@ class TestConcurrentLoad:
         success_rate = successful / 50
         assert success_rate >= 0.8, f"Expected at least 80% success rate, got {success_rate:.1%}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_100_concurrent_requests(self):
         """Test 100 concurrent requests across all endpoints."""
         requests_list = []
@@ -152,7 +147,6 @@ class TestConcurrentLoad:
         success_rate = successful / 100
         assert success_rate >= 0.7, f"Expected at least 70% success rate, got {success_rate:.1%}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_concurrent_different_endpoints(self):
         """Test concurrent requests to all different endpoints."""
         requests_list = [
@@ -164,7 +158,6 @@ class TestConcurrentLoad:
         successful = sum(1 for r, _ in results if r and r.status_code == 200)
         assert successful >= len(ENDPOINTS) - 2, f"Expected most endpoints to succeed"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_concurrent_same_endpoint_different_params(self):
         """Test concurrent requests to same endpoint with different parameters."""
         locations = [
@@ -180,7 +173,6 @@ class TestConcurrentLoad:
         successful = sum(1 for r, _ in results if r and r.status_code == 200)
         assert successful >= 4, f"Expected at least 4/5 successful"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_burst_requests_100_in_1_second(self):
         """Test burst of 100 requests within 1 second."""
         requests_list = [("/hub", None) for _ in range(100)]
@@ -193,7 +185,34 @@ class TestConcurrentLoad:
         # Accept if most requests succeeded, even if it took longer than 1 second
         assert successful >= 50, f"Expected at least 50% success in burst, got {successful}/100"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
+    @pytest.mark.slow
+    def test_sustained_load_10_rps_60_seconds(self):
+        """Test sustained load of ~10 requests per second for 60 seconds."""
+        total_requests = 600
+        duration_seconds = 60
+        successful = 0
+        failed = 0
+
+        start_time = time.perf_counter()
+        for i in range(total_requests):
+            target_time = start_time + (i / 10)
+            current_time = time.perf_counter()
+            if current_time < target_time:
+                time.sleep(target_time - current_time)
+
+            response, _ = make_request("/hub", timeout=10)
+            if response and response.status_code == 200:
+                successful += 1
+            else:
+                failed += 1
+
+            # Early exit if taking too long (skip rest of test)
+            if time.perf_counter() - start_time > 70:
+                break
+
+        success_rate = successful / (successful + failed) if (successful + failed) > 0 else 0
+        assert success_rate >= 0.9, f"Expected at least 90% success rate, got {success_rate:.1%}"
+
     def test_spike_load_pattern(self):
         """Test spike load pattern: low -> high -> low."""
         results = []
@@ -230,7 +249,6 @@ class TestConcurrentLoad:
 class TestResponseTime:
     """Tests for API response time requirements."""
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_hub_responds_under_500ms(self):
         """Test that hub endpoint responds under 500ms."""
         response, elapsed = make_request("/hub")
@@ -239,7 +257,6 @@ class TestResponseTime:
         # Allow up to 2 seconds for Cloud Run cold start
         assert elapsed < 2.0, f"Response took {elapsed:.3f}s, expected < 2.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_weather_responds_under_1000ms(self):
         """Test that weather endpoint responds under 1000ms."""
         response, elapsed = make_request("/weather", DEFAULT_PARAMS["weather"])
@@ -248,7 +265,6 @@ class TestResponseTime:
         # Allow up to 3 seconds including upstream API latency
         assert elapsed < 3.0, f"Response took {elapsed:.3f}s, expected < 3.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_air_quality_responds_under_1000ms(self):
         """Test that air quality endpoint responds under 1000ms."""
         response, elapsed = make_request("/air-quality", DEFAULT_PARAMS["air_quality"])
@@ -256,7 +272,6 @@ class TestResponseTime:
         assert response.status_code == 200, f"Got status {response.status_code}"
         assert elapsed < 3.0, f"Response took {elapsed:.3f}s, expected < 3.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_earthquake_responds_under_1000ms(self):
         """Test that earthquake endpoint responds under 1000ms."""
         response, elapsed = make_request("/earthquakes")
@@ -264,7 +279,6 @@ class TestResponseTime:
         assert response.status_code == 200, f"Got status {response.status_code}"
         assert elapsed < 3.0, f"Response took {elapsed:.3f}s, expected < 3.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_marine_responds_under_1000ms(self):
         """Test that marine endpoint responds under 1000ms."""
         response, elapsed = make_request("/marine", DEFAULT_PARAMS["marine"])
@@ -272,7 +286,6 @@ class TestResponseTime:
         assert response.status_code == 200, f"Got status {response.status_code}"
         assert elapsed < 3.0, f"Response took {elapsed:.3f}s, expected < 3.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_average_response_time_100_requests(self):
         """Test average response time over 100 requests."""
         times = []
@@ -285,7 +298,6 @@ class TestResponseTime:
         avg_time = statistics.mean(times)
         assert avg_time < 2.0, f"Average response time {avg_time:.3f}s exceeds 2.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_99th_percentile_response_time(self):
         """Test 99th percentile response time."""
         times = []
@@ -300,7 +312,6 @@ class TestResponseTime:
         p99_time = times[min(p99_index, len(times) - 1)]
         assert p99_time < 5.0, f"99th percentile {p99_time:.3f}s exceeds 5.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_cold_start_response_time(self):
         """Test response time on cold start (first request after idle)."""
         # Wait briefly to simulate potential cold start
@@ -311,7 +322,6 @@ class TestResponseTime:
         # Cold starts on Cloud Run can take up to 10 seconds
         assert elapsed < 10.0, f"Cold start took {elapsed:.3f}s, expected < 10.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_warm_cache_response_time(self):
         """Test response time with warm cache (subsequent requests)."""
         # Warm up with first request
@@ -328,7 +338,6 @@ class TestResponseTime:
         avg_warm_time = statistics.mean(times)
         assert avg_warm_time < 1.0, f"Warm cache avg {avg_warm_time:.3f}s exceeds 1.0s"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_response_time_under_load(self):
         """Test response time while under concurrent load."""
         # Create background load
@@ -365,7 +374,24 @@ class TestResponseTime:
 class TestReliability:
     """Tests for API reliability and consistency."""
 
-    @pytest.mark.skip(reason="Stress test - run manually")
+    @pytest.mark.slow
+    def test_no_500_errors_in_1000_requests(self):
+        """Test that no 500 errors occur in 1000 requests."""
+        error_500_count = 0
+        total_requests = 1000
+
+        for i in range(total_requests):
+            endpoint = list(ENDPOINTS.values())[i % len(ENDPOINTS)]
+            endpoint_name = list(ENDPOINTS.keys())[i % len(ENDPOINTS)]
+            params = DEFAULT_PARAMS.get(endpoint_name)
+
+            response, _ = make_request(endpoint, params, timeout=15)
+            if response and response.status_code >= 500:
+                error_500_count += 1
+
+        error_rate = error_500_count / total_requests
+        assert error_rate < 0.01, f"5xx error rate {error_rate:.1%} exceeds 1%"
+
     def test_consistent_response_structure(self):
         """Test that response structure is consistent across requests."""
         first_response, _ = make_request("/hub")
@@ -378,7 +404,6 @@ class TestReliability:
                 current_keys = set(response.json().keys())
                 assert current_keys == first_keys, "Response structure changed"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_idempotent_requests(self):
         """Test that GET requests are idempotent."""
         params = DEFAULT_PARAMS["weather"]
@@ -394,7 +419,6 @@ class TestReliability:
         keys = [set(r.keys()) for r in responses]
         assert all(k == keys[0] for k in keys), "Response keys should be consistent"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_retry_on_timeout(self):
         """Test that retrying after timeout succeeds."""
         # Simulate a timeout scenario and retry
@@ -410,7 +434,6 @@ class TestReliability:
 
         assert success, f"Failed after {max_retries} retries"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_graceful_degradation(self):
         """Test graceful degradation with invalid parameters."""
         # Request with invalid coordinates
@@ -420,7 +443,6 @@ class TestReliability:
         assert response is not None, "Request failed completely"
         assert response.status_code < 500, f"Got server error {response.status_code}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_all_endpoints_return_valid_json(self):
         """Test that all endpoints return valid JSON."""
         for name, endpoint in ENDPOINTS.items():
@@ -434,7 +456,6 @@ class TestReliability:
                 except json.JSONDecodeError:
                     pytest.fail(f"{name} returned invalid JSON")
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_no_html_error_pages(self):
         """Test that errors return JSON, not HTML error pages."""
         # Request non-existent endpoint
@@ -445,7 +466,6 @@ class TestReliability:
             assert "text/html" not in content_type.lower() or response.status_code == 404, \
                 "Error response should not be HTML"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_error_messages_are_helpful(self):
         """Test that error responses contain helpful messages."""
         # Request with missing required parameters
@@ -459,7 +479,6 @@ class TestReliability:
             except json.JSONDecodeError:
                 pass  # Some errors might not be JSON
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_large_response_handling(self):
         """Test handling of large responses."""
         # Hub endpoint aggregates multiple sources - should handle large response
@@ -469,7 +488,6 @@ class TestReliability:
         assert response.status_code == 200
         assert len(response.content) > 0, "Response should have content"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_pagination_if_available(self):
         """Test pagination parameters if supported."""
         # Try with limit parameter
@@ -494,7 +512,6 @@ class TestReliability:
 class TestChaos:
     """Chaos engineering tests for API robustness."""
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_malformed_json_body(self):
         """Test handling of malformed JSON in request body."""
         url = f"{BASE_URL}/hub"
@@ -510,7 +527,6 @@ class TestChaos:
         except requests.RequestException:
             pass  # Request failure is acceptable
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_extremely_long_url(self):
         """Test handling of extremely long URL."""
         long_param = "x" * 10000
@@ -520,11 +536,10 @@ class TestChaos:
         if response:
             assert response.status_code != 500, "Server error on long URL"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_headers_with_special_chars(self):
         """Test handling of headers with special characters."""
         special_headers = {
-            "X-Custom-Header": "value with emojis and unicode",
+            "X-Custom-Header": "value with émojis 🎉 and üñíçödé",
             "Accept": "application/json",
         }
         response, _ = make_request("/hub", headers=special_headers)
@@ -533,7 +548,6 @@ class TestChaos:
         if response:
             assert response.status_code < 500, "Server error on special char headers"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_binary_data_in_request(self):
         """Test handling of binary data in request."""
         url = f"{BASE_URL}/hub"
@@ -549,7 +563,6 @@ class TestChaos:
         except requests.RequestException:
             pass  # Request failure is acceptable
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_gzip_encoding_accepted(self):
         """Test that gzip encoding is accepted."""
         headers = {"Accept-Encoding": "gzip"}
@@ -558,7 +571,6 @@ class TestChaos:
         assert response is not None, "Request with gzip encoding failed"
         assert response.status_code == 200, f"Got {response.status_code}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_deflate_encoding_accepted(self):
         """Test that deflate encoding is accepted."""
         headers = {"Accept-Encoding": "deflate"}
@@ -567,7 +579,6 @@ class TestChaos:
         assert response is not None, "Request with deflate encoding failed"
         assert response.status_code == 200, f"Got {response.status_code}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_chunked_transfer_encoding(self):
         """Test handling of chunked transfer encoding request."""
         url = f"{BASE_URL}/hub"
@@ -584,7 +595,6 @@ class TestChaos:
         except requests.RequestException:
             pass  # Some servers reject this header
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_keepalive_connections(self):
         """Test that keep-alive connections work."""
         session = requests.Session()
@@ -602,7 +612,6 @@ class TestChaos:
         assert successful >= 4, f"Keep-alive: only {successful}/5 succeeded"
         session.close()
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_connection_reuse(self):
         """Test that connection reuse works efficiently."""
         session = requests.Session()
@@ -627,7 +636,6 @@ class TestChaos:
             # Connection reuse should make later requests at least as fast
             assert second_half_avg <= first_half_avg * 2, "Connection reuse not working"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_http2_if_supported(self):
         """Test HTTP/2 support if available."""
         try:
@@ -653,7 +661,6 @@ class TestChaos:
 class TestDataIntegrity:
     """Tests for data integrity and consistency."""
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_same_params_same_response(self):
         """Test that same parameters yield consistent response structure."""
         params = DEFAULT_PARAMS["weather"]
@@ -672,7 +679,6 @@ class TestDataIntegrity:
         for r in responses[1:]:
             assert set(r.keys()) == first_keys, "Response structure inconsistent"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_cache_headers_if_present(self):
         """Test cache headers are set correctly if present."""
         response, _ = make_request("/hub")
@@ -685,7 +691,6 @@ class TestDataIntegrity:
             has_valid = any(d in cache_control for d in valid_directives)
             assert has_valid, f"Invalid Cache-Control: {cache_control}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_etag_consistency(self):
         """Test ETag consistency if present."""
         response1, _ = make_request("/hub")
@@ -701,7 +706,6 @@ class TestDataIntegrity:
                 assert etag.startswith('"') or etag.startswith("W/"), \
                     f"Invalid ETag format: {etag}"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_last_modified_header(self):
         """Test Last-Modified header if present."""
         response, _ = make_request("/hub")
@@ -717,7 +721,6 @@ class TestDataIntegrity:
             except (TypeError, ValueError):
                 pytest.fail(f"Invalid Last-Modified format: {last_modified}")
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_data_freshness(self):
         """Test that data is reasonably fresh."""
         response, _ = make_request("/weather", DEFAULT_PARAMS["weather"])
@@ -734,7 +737,6 @@ class TestDataIntegrity:
         # It's okay if no timestamp - just verify data exists
         assert data, "Response should have data"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_timezone_handling(self):
         """Test that timezone information is handled correctly."""
         params = {**DEFAULT_PARAMS["weather"], "timezone": "America/New_York"}
@@ -745,7 +747,6 @@ class TestDataIntegrity:
             # Verify response is valid
             assert isinstance(data, dict), "Response should be a dict"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_date_range_boundaries(self):
         """Test date range boundary handling."""
         # Test with extreme dates
@@ -761,7 +762,6 @@ class TestDataIntegrity:
         if response_past:
             assert response_past.status_code < 500
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_numeric_precision_preserved(self):
         """Test that numeric precision is preserved."""
         response, _ = make_request("/weather", DEFAULT_PARAMS["weather"])
@@ -792,7 +792,6 @@ class TestDataIntegrity:
                 # Just verify it's a valid float
                 assert isinstance(value, float), f"{path} is not a float"
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_unicode_data_preserved(self):
         """Test that unicode data is preserved correctly."""
         # Request weather for a location that might have unicode in response
@@ -811,7 +810,6 @@ class TestDataIntegrity:
             except (UnicodeDecodeError, json.JSONDecodeError) as e:
                 pytest.fail(f"Unicode handling error: {e}")
 
-    @pytest.mark.skip(reason="Stress test - run manually")
     def test_empty_results_handled(self):
         """Test that empty results are handled gracefully."""
         # Request with parameters that might return empty results
@@ -841,6 +839,12 @@ def verify_api_available():
             pytest.skip(f"API returned status {response.status_code}")
     except requests.RequestException as e:
         pytest.skip(f"API not available: {e}")
+
+
+# Mark slow tests
+def pytest_configure(config):
+    """Configure pytest markers."""
+    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
 
 
 if __name__ == "__main__":

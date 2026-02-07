@@ -94,11 +94,12 @@ class TestAPIEdgeCases:
     @pytest.mark.api
     def test_unicode_in_query_params(self):
         """Test API handles unicode characters in query parameters."""
+        # Some APIs accept location names - test unicode handling
         headers = {"Accept": "application/json"}
         response = requests.get(
             f"{API_BASE_URL}/",
             headers=headers,
-            params={"test_param": "Test Unicode"},
+            params={"test_param": "东京 München Москва"},
             timeout=30
         )
         # Should not crash - may return 200 or 422 depending on validation
@@ -112,7 +113,7 @@ class TestAPIEdgeCases:
             response = requests.get(
                 f"{API_BASE_URL}/",
                 headers=headers,
-                params={"test": "value"},
+                params={"test": "value\x00null"},
                 timeout=30
             )
             # Should handle gracefully - not crash
