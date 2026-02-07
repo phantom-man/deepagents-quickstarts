@@ -126,7 +126,7 @@ def create_sidebar() -> dbc.Col:
                     {"label": f"{cat['icon']} {cat['name']}", "value": cat["id"]}
                     for cat in DATA_CATEGORIES
                 ],
-                value=["air_quality", "weather"],
+                value=["air_quality", "weather", "earthquakes", "radiation", "climate", "soil"],
                 className="category-checklist"
             ),
             

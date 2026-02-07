@@ -232,7 +232,7 @@ def load_all_category_data(quick_clicks, search_clicks, categories, reload_click
     
     # Use default categories if none provided (for initial load)
     if not categories:
-        categories = ["air_quality", "weather"]  # Default selected categories
+        categories = ["air_quality", "weather", "earthquakes", "radiation", "climate", "soil"]
     
     loaded_data = {
         "location": {"lat": lat, "lon": lon},
