@@ -436,120 +436,211 @@ def create_water_graph(data: Dict[str, Any]) -> go.Figure:
 
 
 def create_soil_graph(data: Dict[str, Any]) -> go.Figure:
-    """Create soil data visualization."""
+    """Create soil data visualization from USDA Soil Data Access."""
     fig = go.Figure()
     
-    moisture = data.get("moisture", data.get("soil_moisture", []))
+    # Try USDA soil_data.Table format first
+    soil_data = data.get("soil_data", {})
+    table = soil_data.get("Table", [])
     
-    if moisture:
-        if isinstance(moisture, list):
-            depths = [f"{i*10}cm" for i in range(len(moisture))]
-            values = moisture
+    if table and len(table) > 1:
+        # First row is headers, rest are data
+        headers = table[0] if table else []
+        
+        # Find indices for key soil properties
+        try:
+            sand_idx = headers.index("sandtotal_r") if "sandtotal_r" in headers else -1
+            silt_idx = headers.index("silttotal_r") if "silttotal_r" in headers else -1
+            clay_idx = headers.index("claytotal_r") if "claytotal_r" in headers else -1
+            om_idx = headers.index("om_r") if "om_r" in headers else -1
+            ph_idx = headers.index("ph1to1h2o_r") if "ph1to1h2o_r" in headers else -1
+        except (ValueError, AttributeError):
+            sand_idx = silt_idx = clay_idx = om_idx = ph_idx = -1
+        
+        # Aggregate values from data rows
+        sand_vals, silt_vals, clay_vals, om_vals, ph_vals = [], [], [], [], []
+        
+        for row in table[1:]:
+            if len(row) > max(sand_idx, silt_idx, clay_idx, om_idx, ph_idx):
+                if sand_idx >= 0 and row[sand_idx]: 
+                    try: sand_vals.append(float(row[sand_idx]))
+                    except: pass
+                if silt_idx >= 0 and row[silt_idx]:
+                    try: silt_vals.append(float(row[silt_idx]))
+                    except: pass
+                if clay_idx >= 0 and row[clay_idx]:
+                    try: clay_vals.append(float(row[clay_idx]))
+                    except: pass
+                if om_idx >= 0 and row[om_idx]:
+                    try: om_vals.append(float(row[om_idx]))
+                    except: pass
+                if ph_idx >= 0 and row[ph_idx]:
+                    try: ph_vals.append(float(row[ph_idx]))
+                    except: pass
+        
+        # Calculate averages
+        metrics = []
+        values = []
+        colors = []
+        
+        if sand_vals:
+            metrics.append("Sand %")
+            values.append(sum(sand_vals)/len(sand_vals))
+            colors.append("#F4D03F")
+        if silt_vals:
+            metrics.append("Silt %")
+            values.append(sum(silt_vals)/len(silt_vals))
+            colors.append("#A9CCE3")
+        if clay_vals:
+            metrics.append("Clay %")
+            values.append(sum(clay_vals)/len(clay_vals))
+            colors.append("#D35400")
+        if om_vals:
+            metrics.append("Organic %")
+            values.append(sum(om_vals)/len(om_vals))
+            colors.append("#27AE60")
+        if ph_vals:
+            metrics.append("pH")
+            values.append(sum(ph_vals)/len(ph_vals))
+            colors.append("#8E44AD")
+        
+        if metrics:
+            fig.add_trace(go.Bar(
+                x=metrics,
+                y=values,
+                marker_color=colors,
+                text=[f"{v:.1f}" for v in values],
+                textposition='outside'
+            ))
+            
+            fig.update_layout(
+                title=f"Soil Composition ({len(table)-1} samples)",
+                xaxis_title="Property",
+                yaxis_title="Value"
+            )
         else:
-            depths = ["Surface"]
-            values = [moisture]
-        
-        fig.add_trace(go.Bar(
-            x=depths,
-            y=values,
-            marker_color='#795548',
-            text=[f"{v:.1f}%" for v in values],
-            textposition='outside'
-        ))
-        
-        fig.update_layout(
-            title="Soil Moisture by Depth",
-            xaxis_title="Depth",
-            yaxis_title="Moisture (%)"
-        )
+            # No numeric data extracted
+            fig.add_annotation(
+                text="Soil data available but contains no numeric values",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     else:
-        fig.add_annotation(
-            text="No soil data available",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
+        # Fallback: try moisture format
+        moisture = data.get("moisture", data.get("soil_moisture", []))
+        
+        if moisture:
+            if isinstance(moisture, list):
+                depths = [f"{i*10}cm" for i in range(len(moisture))]
+                vals = moisture
+            else:
+                depths = ["Surface"]
+                vals = [moisture]
+            
+            fig.add_trace(go.Bar(
+                x=depths,
+                y=vals,
+                marker_color='#795548',
+                text=[f"{v:.1f}%" for v in vals],
+                textposition='outside'
+            ))
+            
+            fig.update_layout(
+                title="Soil Moisture by Depth",
+                xaxis_title="Depth",
+                yaxis_title="Moisture (%)"
+            )
+        else:
+            fig.add_annotation(
+                text="No soil data available",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     
     fig.update_layout(margin=dict(l=40, r=40, t=50, b=40), height=300)
     return fig
 
 
 def create_climate_graph(data: Dict[str, Any]) -> go.Figure:
-    """Create climate data visualization from Open-Meteo historical data."""
+    """Create climate data visualization from Open-Meteo historical/daily data."""
     fig = go.Figure()
     
-    # Try to extract Open-Meteo hourly data
-    hourly = data.get("hourly", {})
-    temperatures = hourly.get("temperature_2m", [])
-    time_data = hourly.get("time", [])
+    # Try to extract Open-Meteo daily data first (most common from climate endpoint)
+    daily = data.get("daily", {})
+    daily_temps = daily.get("temperature_2m_mean", daily.get("temperature_2m_max", []))
+    daily_times = daily.get("time", [])
     
-    if temperatures and time_data:
-        # Sample the data (daily averages for last 30 days worth)
-        # Open-Meteo returns hourly data, so 24 * 30 = 720 points for a month
-        sample_size = min(720, len(temperatures))
-        temps = temperatures[-sample_size:]
-        times = time_data[-sample_size:]
+    if daily_temps and daily_times:
+        # Use up to last 30 days
+        temps = daily_temps[-30:]
+        times = daily_times[-30:]
         
-        # Calculate daily averages (group by 24 hours)
-        daily_temps = []
-        daily_dates = []
-        for i in range(0, len(temps), 24):
-            chunk = temps[i:i+24]
-            if chunk:
-                avg = sum(chunk) / len(chunk)
-                daily_temps.append(avg)
-                if i < len(times):
-                    daily_dates.append(times[i][:10])  # Just the date part
+        # Color based on temperature
+        colors = ['#e74c3c' if t and t > 20 else '#3498db' if t and t < 10 else '#f39c12' 
+                  for t in temps]
         
-        if daily_temps:
-            # Limit to last 14 days for readability
-            daily_temps = daily_temps[-14:]
-            daily_dates = daily_dates[-14:]
-            
-            # Calculate color based on temperature
-            colors = ['#e74c3c' if t > 20 else '#3498db' if t < 10 else '#f39c12' for t in daily_temps]
-            
-            fig.add_trace(go.Scatter(
-                x=daily_dates,
-                y=daily_temps,
-                mode='lines+markers',
-                marker=dict(color=colors, size=8),
-                line=dict(color='#7f8c8d'),
-                name='Daily Avg'
-            ))
-            
-            # Add average line
-            avg_temp = sum(daily_temps) / len(daily_temps)
+        fig.add_trace(go.Scatter(
+            x=times,
+            y=temps,
+            mode='lines+markers',
+            marker=dict(color=colors, size=6),
+            line=dict(color='#7f8c8d', width=2),
+            name='Daily Mean Temp'
+        ))
+        
+        # Add average line
+        valid_temps = [t for t in temps if t is not None]
+        if valid_temps:
+            avg_temp = sum(valid_temps) / len(valid_temps)
             fig.add_hline(y=avg_temp, line_dash="dash", line_color="orange",
                          annotation_text=f"Avg: {avg_temp:.1f}°C")
+        
+        fig.update_layout(
+            title=f"Climate: Temperature Trend ({len(temps)} Days)",
+            xaxis_title="Date",
+            yaxis_title="Temperature (°C)",
+            xaxis_tickangle=45
+        )
+    else:
+        # Fallback: try hourly data
+        hourly = data.get("hourly", {})
+        temperatures = hourly.get("temperature_2m", [])
+        time_data = hourly.get("time", [])
+        
+        if temperatures and time_data:
+            # Sample last 168 hours (7 days)
+            sample_size = min(168, len(temperatures))
+            temps = temperatures[-sample_size:]
+            times = time_data[-sample_size:]
+            
+            fig.add_trace(go.Scatter(
+                x=times, y=temps,
+                mode='lines',
+                line=dict(color='#3498db', width=1),
+                name='Hourly Temp'
+            ))
             
             fig.update_layout(
-                title=f"Temperature Trend (Last {len(daily_temps)} Days)",
-                xaxis_title="Date",
-                yaxis_title="Temperature (°C)",
-                xaxis_tickangle=45
+                title=f"Temperature (Last {len(temps)} Hours)",
+                xaxis_title="Time",
+                yaxis_title="Temperature (°C)"
             )
         else:
-            fig.add_annotation(
-                text="Could not process temperature data",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False
-            )
-    else:
-        # Fallback: check for anomaly format
-        anomalies = data.get("temperature_anomaly", data.get("anomalies", []))
-        if anomalies and isinstance(anomalies, list):
-            years = list(range(2020, 2020 + len(anomalies)))
-            colors = ['#e74c3c' if a > 0 else '#3498db' for a in anomalies]
-            fig.add_trace(go.Bar(x=years, y=anomalies, marker_color=colors,
-                                text=[f"{a:+.2f}°" for a in anomalies], textposition='outside'))
-            fig.add_hline(y=0, line_dash="dash", line_color="gray")
-            fig.update_layout(title="Temperature Anomalies", xaxis_title="Year", yaxis_title="Anomaly (°C)")
-        else:
-            fig.add_annotation(
-                text="No climate data available",
-                xref="paper", yref="paper",
-                x=0.5, y=0.5, showarrow=False
-            )
+            # Fallback: check for anomaly format
+            anomalies = data.get("temperature_anomaly", data.get("anomalies", []))
+            if anomalies and isinstance(anomalies, list):
+                years = list(range(2020, 2020 + len(anomalies)))
+                colors = ['#e74c3c' if a > 0 else '#3498db' for a in anomalies]
+                fig.add_trace(go.Bar(x=years, y=anomalies, marker_color=colors,
+                                    text=[f"{a:+.2f}°" for a in anomalies], textposition='outside'))
+                fig.add_hline(y=0, line_dash="dash", line_color="gray")
+                fig.update_layout(title="Temperature Anomalies", xaxis_title="Year", yaxis_title="Anomaly (°C)")
+            else:
+                fig.add_annotation(
+                    text="No climate data available",
+                    xref="paper", yref="paper",
+                    x=0.5, y=0.5, showarrow=False
+                )
     
     fig.update_layout(margin=dict(l=40, r=40, t=50, b=80), height=300)
     return fig

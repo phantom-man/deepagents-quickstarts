@@ -1,0 +1,702 @@
+[
+  {
+    "httpRequest": {
+      "latency": "0.046200130s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2830",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "2321",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b0004e952ed3d49ef",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "597e4d2fa290b709",
+    "timestamp": "2026-02-07T22:11:07.271256Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/aa9df630cde93a9e953b7dbdd72d8b01"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.049847200s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2796",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "2061",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b0004e9f49df434c9",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "8afb15878d70334f",
+    "timestamp": "2026-02-07T22:11:07.270848Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/4dac6889bca003d5953b7dbdd72d83a0"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.007194860s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2797",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "269",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b00041fceb6f8dacf",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "f880cc24c09e1cd3",
+    "timestamp": "2026-02-07T22:11:07.261600Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/95861274051b7d2c953b7dbdd72d8124"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.050574890s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2791",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "7987",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b0004af1d174580e5",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "6398d88fccfc54bf",
+    "timestamp": "2026-02-07T22:11:07.255394Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/423b8d7efc97e201953b7dbdd72d8fe6"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.046525990s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2840",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "7332",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b00049bf81b86a9e7",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "b676c67e4b4155d3",
+    "timestamp": "2026-02-07T22:11:07.254267Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/ac5808303136a78a953b7dbdd72d8747"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.030094732s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1788",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "8543",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b0000c69017de99ab",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.385519276Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "5c3d8743bca8a418",
+    "timestamp": "2026-02-07T22:11:07.019586Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/0a9ec1dc4f15ee46953b7dbdd72d8cf8"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.018832321s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1656",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "1852",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87b00009686d416f1d2",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "7b755146ddda2440",
+    "timestamp": "2026-02-07T22:11:07.018553Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/be8170dd93b90b0d953b7dbdd72d8459"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.018650410s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2796",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "2061",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000b6acb0579ef6a",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "44a0adfcebd1f579",
+    "timestamp": "2026-02-07T22:11:06.728253Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/737a17ba74670d34953b7dbdd72d84b3"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.024172240s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2796",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "269",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000b7e4e230b5f4f",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "3db2ae4ed74c481d",
+    "timestamp": "2026-02-07T22:11:06.727663Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/a3ca0e5482f7a0fe953b7dbdd72d8c14"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.021595810s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2791",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "7987",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000b70c04946166e",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "ea864ffc2e169434",
+    "timestamp": "2026-02-07T22:11:06.727223Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/4001541a78e5f847953b7dbdd72d8375"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.019986780s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2839",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "7332",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000b6ac80e051b6b",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "88131b31a09ac400",
+    "timestamp": "2026-02-07T22:11:06.727138Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/d92e296d61247a66953b7dbdd72d8ad6"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.004183300s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "2829",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "2321",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000b29148930564c",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:07.053419184Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "84d0f8177071a461",
+    "timestamp": "2026-02-07T22:11:06.725963Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/554c42c9fa7fd521953b7dbdd72d8237"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.003174890s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "GET",
+      "requestSize": "748",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-component-suites/dash/dcc/async-datepicker.js",
+      "responseSize": "98199",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a00098b79d8c523ff",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "3a6c678527b0d7ba",
+    "timestamp": "2026-02-07T22:11:06.616921Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/02ca14f3ca5ebd47953b7dbdd72d8900"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.016072841s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1126",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "5866",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a00078f24d5fef119",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "76fe6c07e35d3988",
+    "timestamp": "2026-02-07T22:11:06.478238Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/dde5e26ad9ebb9cd953b7dbdd72d8ce0"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.018125921s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1720",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "8543",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000793fc2f8b5f65",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "a4da0c37789dfc08",
+    "timestamp": "2026-02-07T22:11:06.477091Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/433b6366e8a05f4e953b7dbdd72d8441"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.007198730s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1588",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "1852",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000768bf5177d4a8",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "1333107576070904",
+    "timestamp": "2026-02-07T22:11:06.476812Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/e8c18bc7ad473c55953b7dbdd72d8ba2"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.216402628s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "GET",
+      "requestSize": "752",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-component-suites/plotly/package_data/plotly.min.js",
+      "responseSize": "4839131",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000a6673a38eb828",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "7b8481323a3bc3c2",
+    "timestamp": "2026-02-07T22:11:06.463950Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/eb41894d9639d2f4953b7dbdd72d8e0b"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.004085030s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "GET",
+      "requestSize": "743",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-component-suites/dash/dcc/async-graph.js",
+      "responseSize": "9765",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000727c9a79372f2",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "1724642a2adaf117",
+    "timestamp": "2026-02-07T22:11:06.463476Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/92852dc851b4f16d953b7dbdd72d856c"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.007807100s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "POST",
+      "requestSize": "1116",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-update-component",
+      "responseSize": "8230",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a00065eabbfc5f462",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.722129012Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "e1d611b381fb3cd2",
+    "timestamp": "2026-02-07T22:11:06.407834Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/5b75a663b26569dd953b7dbdd72d8559"
+  },
+  {
+    "httpRequest": {
+      "latency": "0.002353240s",
+      "protocol": "HTTP/1.1",
+      "referer": "https://env-monitor-dashboard-758343025648.us-central1.run.app/",
+      "remoteIp": "143.109.147.38",
+      "requestMethod": "GET",
+      "requestSize": "798",
+      "requestUrl": "https://env-monitor-dashboard-758343025648.us-central1.run.app/_dash-dependencies",
+      "responseSize": "14227",
+      "serverIp": "34.143.76.2",
+      "status": 200,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+    },
+    "insertId": "6987b87a000520275de2bca7",
+    "labels": {
+      "instanceId": "005eb6974cfcd77fa60f79433562a7101ed2eccf0ec0d8e5d139caa0bebc53603a0a95fbd882643ff93cc49928c90570c08906d852a8666ed0bff6152a2415f62ff570a7ebb630f3a872662c93edd0"
+    },
+    "logName": "projects/crafty-hook-483415-b3/logs/run.googleapis.com%2Frequests",
+    "receiveTimestamp": "2026-02-07T22:11:06.387845930Z",
+    "resource": {
+      "labels": {
+        "configuration_name": "env-monitor-dashboard",
+        "location": "us-central1",
+        "project_id": "crafty-hook-483415-b3",
+        "revision_name": "env-monitor-dashboard-00010-ccd",
+        "service_name": "env-monitor-dashboard"
+      },
+      "type": "cloud_run_revision"
+    },
+    "severity": "INFO",
+    "spanId": "4b60df84ca8d930a",
+    "timestamp": "2026-02-07T22:11:06.331798Z",
+    "trace": "projects/crafty-hook-483415-b3/traces/1f21fed1bc8df896953b7dbdd72d8ae4"
+  }
+]
