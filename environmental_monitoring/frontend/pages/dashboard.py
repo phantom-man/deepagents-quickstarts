@@ -550,15 +550,16 @@ def update_dashboard_stats(n_clicks, loaded_data):
      Output("weather-summary-container", "children"),
      Output("loading-indicator", "children")],
     [Input("quick-check-btn", "n_clicks"),
-     Input("search-btn", "n_clicks")],
+     Input("search-btn", "n_clicks"),
+     Input("initial-load-trigger", "n_intervals")],
     [State("quick-check-lat", "value"),
      State("quick-check-lon", "value"),
      State("latitude-input", "value"),
      State("longitude-input", "value")],
     prevent_initial_call=False
 )
-def update_quick_check(quick_clicks, search_clicks, quick_lat, quick_lon, sidebar_lat, sidebar_lon):
-    """Update quick check results when location changes."""
+def update_quick_check(quick_clicks, search_clicks, n_intervals, quick_lat, quick_lon, sidebar_lat, sidebar_lon):
+    """Update quick check results when location changes or on initial load."""
     triggered = ctx.triggered_id
     
     if triggered == "search-btn":

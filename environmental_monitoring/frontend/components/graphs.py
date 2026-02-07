@@ -336,44 +336,102 @@ def create_marine_graph(data: Dict[str, Any]) -> go.Figure:
 
 
 def create_water_graph(data: Dict[str, Any]) -> go.Figure:
-    """Create water quality visualization."""
+    """Create water quality visualization from USGS stream data."""
     fig = go.Figure()
     
-    # Try to extract water quality metrics
-    quality = data.get("quality", data.get("results", {}))
+    # Try to extract USGS time series data
+    time_series = data.get("value", {}).get("timeSeries", [])
     
-    if isinstance(quality, dict) and quality:
-        metrics = ["pH", "Turbidity", "DO", "Conductivity"]
-        values = [
-            quality.get("ph", quality.get("pH", 7)),
-            quality.get("turbidity", 0),
-            quality.get("dissolved_oxygen", quality.get("DO", 0)),
-            quality.get("conductivity", 0) / 100  # Normalize
-        ]
+    if time_series:
+        # Group by variable type (streamflow, gage height)
+        streamflow_sites = []
+        gage_height_sites = []
         
-        colors = ["#9b59b6", "#e67e22", "#3498db", "#2ecc71"]
+        for ts in time_series[:20]:  # Limit to first 20 for performance
+            site_info = ts.get("sourceInfo", {})
+            site_name = site_info.get("siteName", "Unknown")[:30]  # Truncate
+            variable = ts.get("variable", {})
+            var_name = variable.get("variableName", "")
+            
+            values_list = ts.get("values", [{}])[0].get("value", [])
+            if values_list:
+                value = values_list[0].get("value", "0")
+                try:
+                    val = float(value)
+                    if val > -999990:  # Filter out no-data values
+                        if "Streamflow" in var_name:
+                            streamflow_sites.append((site_name, val))
+                        elif "Gage height" in var_name:
+                            gage_height_sites.append((site_name, val))
+                except (ValueError, TypeError):
+                    pass
         
-        fig.add_trace(go.Bar(
-            x=metrics,
-            y=values,
-            marker_color=colors,
-            text=[f"{v:.1f}" for v in values],
-            textposition='outside'
-        ))
-        
-        fig.update_layout(
-            title="Water Quality Metrics",
-            xaxis_title="Metric",
-            yaxis_title="Value"
-        )
+        if streamflow_sites:
+            # Show top 8 streamflow sites
+            streamflow_sites.sort(key=lambda x: x[1], reverse=True)
+            top_sites = streamflow_sites[:8]
+            
+            fig.add_trace(go.Bar(
+                x=[s[0] for s in top_sites],
+                y=[s[1] for s in top_sites],
+                marker_color='#3498db',
+                text=[f"{s[1]:.0f}" for s in top_sites],
+                textposition='outside',
+                name='Streamflow (ft³/s)'
+            ))
+            
+            fig.update_layout(
+                title=f"Stream Flow Rates ({len(streamflow_sites)} sites)",
+                xaxis_title="Monitoring Site",
+                yaxis_title="Discharge (ft³/s)",
+                xaxis_tickangle=45
+            )
+        elif gage_height_sites:
+            gage_height_sites.sort(key=lambda x: x[1], reverse=True)
+            top_sites = gage_height_sites[:8]
+            
+            fig.add_trace(go.Bar(
+                x=[s[0] for s in top_sites],
+                y=[s[1] for s in top_sites],
+                marker_color='#2ecc71',
+                text=[f"{s[1]:.1f}" for s in top_sites],
+                textposition='outside',
+                name='Gage Height (ft)'
+            ))
+            
+            fig.update_layout(
+                title=f"Water Levels ({len(gage_height_sites)} sites)",
+                xaxis_title="Monitoring Site",
+                yaxis_title="Gage Height (ft)",
+                xaxis_tickangle=45
+            )
+        else:
+            fig.add_annotation(
+                text="No water data available for this location",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     else:
-        fig.add_annotation(
-            text="No water quality data available",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
+        # Fallback: check for simple quality metrics
+        quality = data.get("quality", data.get("results", {}))
+        if isinstance(quality, dict) and quality:
+            metrics = ["pH", "Turbidity", "DO", "Conductivity"]
+            values = [
+                quality.get("ph", quality.get("pH", 7)),
+                quality.get("turbidity", 0),
+                quality.get("dissolved_oxygen", quality.get("DO", 0)),
+                quality.get("conductivity", 0) / 100
+            ]
+            fig.add_trace(go.Bar(x=metrics, y=values, marker_color=["#9b59b6", "#e67e22", "#3498db", "#2ecc71"]))
+            fig.update_layout(title="Water Quality Metrics", xaxis_title="Metric", yaxis_title="Value")
+        else:
+            fig.add_annotation(
+                text="No water data available",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     
-    fig.update_layout(margin=dict(l=40, r=40, t=50, b=40), height=300)
+    fig.update_layout(margin=dict(l=40, r=40, t=50, b=80), height=300)
     return fig
 
 
@@ -416,39 +474,84 @@ def create_soil_graph(data: Dict[str, Any]) -> go.Figure:
 
 
 def create_climate_graph(data: Dict[str, Any]) -> go.Figure:
-    """Create climate data visualization - temperature anomalies."""
+    """Create climate data visualization from Open-Meteo historical data."""
     fig = go.Figure()
     
-    anomalies = data.get("temperature_anomaly", data.get("anomalies", []))
+    # Try to extract Open-Meteo hourly data
+    hourly = data.get("hourly", {})
+    temperatures = hourly.get("temperature_2m", [])
+    time_data = hourly.get("time", [])
     
-    if anomalies and isinstance(anomalies, list):
-        years = list(range(2020, 2020 + len(anomalies)))
+    if temperatures and time_data:
+        # Sample the data (daily averages for last 30 days worth)
+        # Open-Meteo returns hourly data, so 24 * 30 = 720 points for a month
+        sample_size = min(720, len(temperatures))
+        temps = temperatures[-sample_size:]
+        times = time_data[-sample_size:]
         
-        colors = ['#e74c3c' if a > 0 else '#3498db' for a in anomalies]
+        # Calculate daily averages (group by 24 hours)
+        daily_temps = []
+        daily_dates = []
+        for i in range(0, len(temps), 24):
+            chunk = temps[i:i+24]
+            if chunk:
+                avg = sum(chunk) / len(chunk)
+                daily_temps.append(avg)
+                if i < len(times):
+                    daily_dates.append(times[i][:10])  # Just the date part
         
-        fig.add_trace(go.Bar(
-            x=years,
-            y=anomalies,
-            marker_color=colors,
-            text=[f"{a:+.2f}°" for a in anomalies],
-            textposition='outside'
-        ))
-        
-        fig.add_hline(y=0, line_dash="dash", line_color="gray")
-        
-        fig.update_layout(
-            title="Temperature Anomalies",
-            xaxis_title="Year",
-            yaxis_title="Anomaly (°C)"
-        )
+        if daily_temps:
+            # Limit to last 14 days for readability
+            daily_temps = daily_temps[-14:]
+            daily_dates = daily_dates[-14:]
+            
+            # Calculate color based on temperature
+            colors = ['#e74c3c' if t > 20 else '#3498db' if t < 10 else '#f39c12' for t in daily_temps]
+            
+            fig.add_trace(go.Scatter(
+                x=daily_dates,
+                y=daily_temps,
+                mode='lines+markers',
+                marker=dict(color=colors, size=8),
+                line=dict(color='#7f8c8d'),
+                name='Daily Avg'
+            ))
+            
+            # Add average line
+            avg_temp = sum(daily_temps) / len(daily_temps)
+            fig.add_hline(y=avg_temp, line_dash="dash", line_color="orange",
+                         annotation_text=f"Avg: {avg_temp:.1f}°C")
+            
+            fig.update_layout(
+                title=f"Temperature Trend (Last {len(daily_temps)} Days)",
+                xaxis_title="Date",
+                yaxis_title="Temperature (°C)",
+                xaxis_tickangle=45
+            )
+        else:
+            fig.add_annotation(
+                text="Could not process temperature data",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     else:
-        fig.add_annotation(
-            text="No climate data available",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
-        )
+        # Fallback: check for anomaly format
+        anomalies = data.get("temperature_anomaly", data.get("anomalies", []))
+        if anomalies and isinstance(anomalies, list):
+            years = list(range(2020, 2020 + len(anomalies)))
+            colors = ['#e74c3c' if a > 0 else '#3498db' for a in anomalies]
+            fig.add_trace(go.Bar(x=years, y=anomalies, marker_color=colors,
+                                text=[f"{a:+.2f}°" for a in anomalies], textposition='outside'))
+            fig.add_hline(y=0, line_dash="dash", line_color="gray")
+            fig.update_layout(title="Temperature Anomalies", xaxis_title="Year", yaxis_title="Anomaly (°C)")
+        else:
+            fig.add_annotation(
+                text="No climate data available",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
     
-    fig.update_layout(margin=dict(l=40, r=40, t=50, b=40), height=300)
+    fig.update_layout(margin=dict(l=40, r=40, t=50, b=80), height=300)
     return fig
 
 
