@@ -66,6 +66,24 @@ class BasePage:
         """Get the page title."""
         return self.page.title()
 
+    def get_all_visible_text(self) -> str:
+        """Get all visible text on the page."""
+        return self.page.inner_text("body")
+    
+    def has_error_message(self) -> bool:
+        """Check if there's an error message displayed."""
+        error_selectors = [
+            '.error', '.alert-error', '.error-message',
+            '[class*="error"]', '[role="alert"]',
+        ]
+        for selector in error_selectors:
+            try:
+                if self.page.locator(selector).first.is_visible(timeout=1000):
+                    return True
+            except:
+                continue
+        return False
+
 
 class DashboardPage(BasePage):
     """Page object for the main Dashboard page (/)."""
@@ -162,25 +180,6 @@ class DashboardPage(BasePage):
         """Check if the map is visible."""
         map_elem = self.get_map_container()
         return map_elem is not None and map_elem.is_visible()
-    
-    def get_all_visible_text(self) -> str:
-        """Get all visible text on the page."""
-        return self.page.inner_text("body")
-    
-    def has_error_message(self) -> bool:
-        """Check if there's an error message displayed."""
-        error_selectors = [
-            '.error', '.alert-error', '.error-message',
-            '[class*="error"]', '[role="alert"]',
-            ':has-text("error")', ':has-text("Error")',
-        ]
-        for selector in error_selectors:
-            try:
-                if self.page.locator(selector).first.is_visible(timeout=1000):
-                    return True
-            except:
-                continue
-        return False
 
 
 class ExplorePage(BasePage):
