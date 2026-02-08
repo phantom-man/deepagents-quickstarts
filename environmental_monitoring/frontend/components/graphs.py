@@ -293,37 +293,89 @@ def create_weather_graph(data: Dict[str, Any]) -> go.Figure:
 
 
 def create_marine_graph(data: Dict[str, Any]) -> go.Figure:
-    """Create marine visualization - wave and buoy data."""
+    """Create marine visualization from NOAA NDBC observations."""
+    import re
     fig = go.Figure()
     
+    # Handle NOAA NDBC observations format
+    observations = data.get("observations", [])
     stations = data.get("stations", [])
     
-    if stations:
+    if observations:
+        wind_data = []  # [(station_name, wind_speed)]
+        wave_data = []  # [(station_name, wave_height)]
+        
+        for obs in observations[:12]:  # Limit to 12 stations
+            station = obs.get("station", "Unknown")
+            # Clean station name
+            station_clean = station.split(" - ")[-1][:25] if " - " in station else station[:25]
+            conditions = obs.get("conditions", "")
+            
+            # Parse wind speed and wave height from HTML content
+            wind_match = re.search(r'Wind Speed:</b>\s*(\d+)\s*knots', conditions)
+            wave_match = re.search(r'Wave Height:</b>\s*(\d+)\s*ft', conditions)
+            
+            if wind_match:
+                wind_data.append((station_clean, int(wind_match.group(1))))
+            if wave_match:
+                wave_data.append((station_clean, int(wave_match.group(1))))
+        
+        # Display wind data if available
+        if wind_data:
+            station_names = [d[0] for d in wind_data]
+            wind_speeds = [d[1] for d in wind_data]
+            fig.add_trace(go.Bar(
+                x=station_names,
+                y=wind_speeds,
+                marker_color='#3498db',
+                text=[f"{s} kts" for s in wind_speeds],
+                textposition='outside',
+                name='Wind Speed'
+            ))
+            fig.update_layout(
+                title=f"Wind Speeds ({len(wind_speeds)} stations)",
+                xaxis_title="Station",
+                yaxis_title="Wind Speed (knots)",
+                xaxis_tickangle=45
+            )
+        # Fall back to wave data if no wind data
+        elif wave_data:
+            station_names = [d[0] for d in wave_data]
+            wave_heights = [d[1] for d in wave_data]
+            fig.add_trace(go.Bar(
+                x=station_names,
+                y=wave_heights,
+                marker_color='#2ecc71',
+                text=[f"{h} ft" for h in wave_heights],
+                textposition='outside',
+                name='Wave Height'
+            ))
+            fig.update_layout(
+                title=f"Wave Heights ({len(wave_heights)} readings)",
+                xaxis_title="Station",
+                yaxis_title="Wave Height (ft)",
+                xaxis_tickangle=45
+            )
+        else:
+            # No parseable data in observations - show raw count
+            fig.add_annotation(
+                text=f"Marine data: {len(observations)} observations (unparseable)",
+                xref="paper", yref="paper",
+                x=0.5, y=0.5, showarrow=False
+            )
+    elif stations:
+        # Fallback to old format
         wave_heights = []
         station_names = []
-        
-        for s in stations[:10]:  # Limit to 10 stations
+        for s in stations[:10]:
             obs = s.get("latest_observation", {})
             wh = obs.get("wave_height", obs.get("WVHT"))
             if wh:
                 wave_heights.append(float(wh))
                 station_names.append(s.get("name", s.get("station_id", "Unknown"))[:20])
-        
         if wave_heights:
-            fig.add_trace(go.Bar(
-                x=station_names,
-                y=wave_heights,
-                marker_color='#3498db',
-                text=[f"{h:.1f}m" for h in wave_heights],
-                textposition='outside'
-            ))
-            
-            fig.update_layout(
-                title="Wave Heights by Station",
-                xaxis_title="Station",
-                yaxis_title="Wave Height (m)",
-                xaxis_tickangle=45
-            )
+            fig.add_trace(go.Bar(x=station_names, y=wave_heights, marker_color='#3498db'))
+            fig.update_layout(title="Wave Heights", xaxis_title="Station", yaxis_title="Height (m)")
     else:
         fig.add_annotation(
             text="No marine data available",
@@ -331,7 +383,7 @@ def create_marine_graph(data: Dict[str, Any]) -> go.Figure:
             x=0.5, y=0.5, showarrow=False
         )
     
-    fig.update_layout(margin=dict(l=40, r=40, t=50, b=70), height=300)
+    fig.update_layout(margin=dict(l=40, r=40, t=50, b=80), height=300)
     return fig
 
 

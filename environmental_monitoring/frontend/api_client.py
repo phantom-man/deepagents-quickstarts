@@ -5,6 +5,7 @@ Handles all communication with the backend API.
 """
 import asyncio
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -12,6 +13,9 @@ from cachetools import TTLCache
 
 from config import API_BASE_URL, API_TIMEOUT, CACHE_TTL_SHORT
 
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # In-memory cache for frequently accessed data
 _cache = TTLCache(maxsize=1000, ttl=CACHE_TTL_SHORT)
@@ -214,6 +218,12 @@ def sync_api_call(coro):
     """Run async API call synchronously for Dash callbacks."""
     try:
         loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Event loop already running (e.g., in production), use thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, coro)
+                return future.result(timeout=API_TIMEOUT)
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -221,66 +231,75 @@ def sync_api_call(coro):
     return loop.run_until_complete(coro)
 
 
+def sync_get(endpoint: str, params: Optional[Dict] = None) -> Dict:
+    """Make synchronous GET request to API."""
+    url = f"{API_BASE_URL.rstrip('/')}{endpoint}"
+    cache_key = f"{endpoint}:{json.dumps(params or {}, sort_keys=True)}"
+    
+    # Check cache
+    if cache_key in _cache:
+        return _cache[cache_key]
+    
+    try:
+        with httpx.Client(timeout=API_TIMEOUT, follow_redirects=True) as client:
+            response = client.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            _cache[cache_key] = data
+            return data
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error {e.response.status_code} for {endpoint}: {e.response.text[:100]}")
+        return {"error": f"HTTP {e.response.status_code}", "success": False}
+    except httpx.RequestError as e:
+        logger.error(f"Request error for {endpoint}: {str(e)}")
+        return {"error": f"Request failed: {str(e)}", "success": False}
+    except Exception as e:
+        logger.error(f"Unexpected error for {endpoint}: {str(e)}")
+        return {"error": f"Unexpected error: {str(e)}", "success": False}
+
+
 def get_sources(category: Optional[str] = None) -> Dict:
-    """Sync wrapper for get_sources."""
-    return sync_api_call(api_client.get_sources(category))
+    """Sync wrapper for get_sources using direct HTTP client."""
+    params = {"category": category} if category else None
+    return sync_get("/api/v1/hub/sources", params)
 
 
 def get_categories() -> Dict:
-    """Sync wrapper for get_categories."""
-    return sync_api_call(api_client.get_categories())
+    """Sync wrapper for get_categories using direct HTTP client."""
+    return sync_get("/api/v1/hub/categories")
 
 
 def get_location_data(lat: float, lon: float, **kwargs) -> Dict:
-    """Sync wrapper for get_location_data."""
-    return sync_api_call(api_client.get_location_data(lat, lon, **kwargs))
+    """Sync wrapper for get_location_data using direct HTTP client."""
+    params = {"lat": lat, "lon": lon, **kwargs}
+    return sync_get("/api/v1/hub/location", params)
 
 
 def get_category_data(category: str, lat: float = 37.7749, lon: float = -122.4194) -> Dict:
-    """Sync wrapper for get_category_data."""
-    return sync_api_call(api_client.get_category_data(category, lat, lon))
+    """Sync wrapper for get_category_data using direct HTTP client."""
+    return sync_get(f"/api/v1/hub/category/{category}", {"lat": lat, "lon": lon})
 
 
 def analyze_location(lat: float, lon: float, days: int = 7) -> Dict:
-    """Sync wrapper for analyze_location."""
-    return sync_api_call(api_client.analyze_location(lat, lon, days))
+    """Sync wrapper for analyze_location using direct HTTP client."""
+    return sync_get("/api/v1/hub/analyze", {"lat": lat, "lon": lon, "days": days})
 
 
 def quick_check(lat: float, lon: float) -> Dict:
-    """Sync wrapper for quick_check."""
-    return sync_api_call(api_client.quick_check(lat, lon))
-
-
-def get_air_quality(**kwargs) -> Dict:
-    """Sync wrapper for get_air_quality."""
-    return sync_api_call(api_client.get_air_quality(**kwargs))
-
-
-def get_water_quality(state_code: str = "CA") -> Dict:
-    """Sync wrapper for get_water_quality."""
-    return sync_api_call(api_client.get_water_quality(state_code))
-
-
-def get_weather(lat: float, lon: float) -> Dict:
-    """Sync wrapper for get_weather."""
-    return sync_api_call(api_client.get_weather(lat, lon))
-
-
-def get_marine_data(**kwargs) -> Dict:
-    """Sync wrapper for get_marine_data."""
-    return sync_api_call(api_client.get_marine_data(**kwargs))
+    """Sync wrapper for quick_check using direct HTTP client."""
+    return sync_get("/api/v1/hub/quick", {"lat": lat, "lon": lon})
 
 
 def get_hub_info() -> Dict:
-    """Sync wrapper for get_hub_info."""
-    return sync_api_call(api_client.get_hub_info())
+    """Sync wrapper for get_hub_info using direct HTTP client."""
+    return sync_get("/api/v1/hub")
 
 
 def get_health() -> Dict:
-    """Sync wrapper for get_health."""
-    return sync_api_call(api_client.get_health())
+    """Sync wrapper for get_health using direct HTTP client."""
+    return sync_get("/health")
 
 
 def proxy_request(source_id: str, endpoint: str) -> Dict:
-    """Sync wrapper for proxy_request."""
-    return sync_api_call(api_client.proxy_request(source_id, endpoint))
+    """Sync wrapper for proxy_request using direct HTTP client."""
+    return sync_get(f"/api/v1/hub/proxy/{source_id}", {"endpoint": endpoint})

@@ -96,7 +96,8 @@ def search_location(n_clicks, search_query):
 @callback(
     [Output("custom-date-div", "style"),
      Output("start-date", "date"),
-     Output("end-date", "date")],
+     Output("end-date", "date"),
+     Output("selected-time-range", "data")],
     [Input("time-1H", "n_clicks"),
      Input("time-6H", "n_clicks"),
      Input("time-24H", "n_clicks"),
@@ -110,7 +111,7 @@ def search_location(n_clicks, search_query):
 def handle_time_range_buttons(*args):
     """Handle time range button clicks in the sidebar."""
     if not ctx.triggered:
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update
     
     triggered_id = ctx.triggered_id
     now = datetime.now()
@@ -125,15 +126,28 @@ def handle_time_range_buttons(*args):
         "time-1Y": timedelta(days=365),
     }
     
+    # Map button IDs to time range labels
+    time_labels = {
+        "time-1H": "1H",
+        "time-6H": "6H",
+        "time-24H": "24H",
+        "time-7D": "7D",
+        "time-30D": "30D",
+        "time-90D": "90D",
+        "time-1Y": "1Y",
+        "time-custom": "Custom"
+    }
+    
     if triggered_id == "time-custom":
         # Show custom date picker
-        return {"display": "block"}, no_update, no_update
+        return {"display": "block"}, no_update, no_update, "Custom"
     elif triggered_id in time_deltas:
         # Set dates based on selection
         start = now - time_deltas[triggered_id]
-        return {"display": "none"}, start.date(), now.date()
+        time_label = time_labels.get(triggered_id, "7D")
+        return {"display": "none"}, start.date(), now.date(), time_label
     
-    return no_update, no_update, no_update
+    return no_update, no_update, no_update, no_update
 
 
 # ==================== Settings Modal ====================

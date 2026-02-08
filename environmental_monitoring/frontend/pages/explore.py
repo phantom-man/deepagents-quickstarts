@@ -22,7 +22,7 @@ from components.layout import (
     create_time_range_selector
 )
 from data_processing import DataProcessor
-from config import DATA_CATEGORIES, MAP_CONFIG
+from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES
 
 
 def create_explore_layout() -> html.Div:
@@ -38,8 +38,20 @@ def create_explore_layout() -> html.Div:
         # Data Source Selection
         create_data_source_selector(),
         
-        # Time Range Selection
-        create_time_range_selector(),
+        # Time Range Selection - Simplified inline version
+        dbc.Card([
+            dbc.CardHeader(html.H5("📅 Time Range", className="mb-0")),
+            dbc.CardBody([
+                dbc.ButtonGroup([
+                    dbc.Button(tr["label"], id=f"explore-time-{tr['value']}", 
+                              color="outline-primary" if tr["value"] != "7D" else "primary", 
+                              size="sm", className="me-1")
+                    for tr in TIME_RANGES if tr["value"] != "custom"
+                ], className="mb-3 flex-wrap"),
+                dcc.Store(id="explore-time-range", data="7D"),
+                html.Div(id="explore-time-display", className="text-muted small")
+            ])
+        ], className="mb-4"),
         
         # Location Filter
         dbc.Card([
@@ -100,6 +112,55 @@ def create_explore_layout() -> html.Div:
     ])
 
 
+# ==================== TIME RANGE CALLBACKS ====================
+
+@callback(
+    [Output("explore-time-range", "data"),
+     Output("explore-time-display", "children"),
+     Output("explore-time-1H", "color"),
+     Output("explore-time-6H", "color"),
+     Output("explore-time-24H", "color"),
+     Output("explore-time-7D", "color"),
+     Output("explore-time-30D", "color"),
+     Output("explore-time-90D", "color"),
+     Output("explore-time-1Y", "color")],
+    [Input("explore-time-1H", "n_clicks"),
+     Input("explore-time-6H", "n_clicks"),
+     Input("explore-time-24H", "n_clicks"),
+     Input("explore-time-7D", "n_clicks"),
+     Input("explore-time-30D", "n_clicks"),
+     Input("explore-time-90D", "n_clicks"),
+     Input("explore-time-1Y", "n_clicks")],
+    prevent_initial_call=False
+)
+def handle_explore_time_buttons(*args):
+    """Handle time range button clicks for explore page."""
+    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+    time_labels = {
+        "1H": "Last 1 Hour",
+        "6H": "Last 6 Hours", 
+        "24H": "Last 24 Hours",
+        "7D": "Last 7 Days",
+        "30D": "Last 30 Days",
+        "90D": "Last 90 Days",
+        "1Y": "Last Year"
+    }
+    
+    # Default to 7D
+    selected = "7D"
+    
+    if ctx.triggered_id:
+        triggered = ctx.triggered_id.replace("explore-time-", "")
+        if triggered in button_ids:
+            selected = triggered
+    
+    # Set button colors
+    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
+    display_text = f"Selected: {time_labels.get(selected, selected)}"
+    
+    return [selected, display_text] + colors
+
+
 @callback(
     Output("source-selector", "options"),
     Input("source-category-filter", "value"),
@@ -151,16 +212,24 @@ def update_source_badges(selected_sources):
      State("explore-lon", "value"),
      State("explore-radius", "value"),
      State("source-selector", "value"),
-     State("category-checklist", "value")],
+     State("category-checklist", "value"),
+     State("explore-time-range", "data")],
     prevent_initial_call=True
 )
-def fetch_exploration_data(n_clicks, lat, lon, radius, sources, categories):
+def fetch_exploration_data(n_clicks, lat, lon, radius, sources, categories, time_range):
     """Fetch data based on exploration filters."""
     if lat is None or lon is None:
         return None, dbc.Alert("Please enter valid coordinates", color="warning")
     
+    # Convert time range to days for API
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
+    }
+    days = time_to_days.get(time_range, 7)
+    
     try:
-        # Get location data
+        # Get location data with time range
         result = get_location_data(lat, lon, radius_km=radius or 50, categories=categories)
         
         if result.get("error"):

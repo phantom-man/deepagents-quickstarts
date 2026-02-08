@@ -1,7 +1,7 @@
 """
 Reports Page - Generate and export comprehensive reports.
 """
-from dash import html, dcc, callback, Input, Output, State
+from dash import html, dcc, callback, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
 import pandas as pd
 from datetime import datetime, timedelta
@@ -17,7 +17,7 @@ from components.charts import (
 )
 from components.layout import create_report_panel
 from data_processing import DataProcessor
-from config import REPORT_TYPES, EXPORT_FORMATS, DATA_CATEGORIES
+from config import REPORT_TYPES, EXPORT_FORMATS, DATA_CATEGORIES, TIME_RANGES
 
 
 def create_reports_layout() -> html.Div:
@@ -28,6 +28,21 @@ def create_reports_layout() -> html.Div:
             html.H3("📋 Reports", className="mb-2"),
             html.P("Generate comprehensive environmental reports and export data", 
                    className="text-muted")
+        ], className="mb-4"),
+        
+        # Time Range Selector for Reports
+        dbc.Card([
+            dbc.CardHeader(html.H5("⏱️ Report Time Range", className="mb-0")),
+            dbc.CardBody([
+                dbc.ButtonGroup([
+                    dbc.Button(tr["label"], id=f"report-time-{tr['value']}", 
+                              color="primary" if tr["value"] == "7D" else "outline-primary",
+                              size="sm")
+                    for tr in TIME_RANGES if tr["value"] != "custom"
+                ], className="me-3"),
+                html.Div(id="report-time-display", className="d-inline text-muted ms-3"),
+                dcc.Store(id="report-time-range", data="7D")
+            ])
         ], className="mb-4"),
         
         # Report Configuration
@@ -263,6 +278,55 @@ def create_reports_layout() -> html.Div:
     ])
 
 
+# ==================== TIME RANGE CALLBACKS ====================
+
+@callback(
+    [Output("report-time-range", "data"),
+     Output("report-time-display", "children"),
+     Output("report-time-1H", "color"),
+     Output("report-time-6H", "color"),
+     Output("report-time-24H", "color"),
+     Output("report-time-7D", "color"),
+     Output("report-time-30D", "color"),
+     Output("report-time-90D", "color"),
+     Output("report-time-1Y", "color")],
+    [Input("report-time-1H", "n_clicks"),
+     Input("report-time-6H", "n_clicks"),
+     Input("report-time-24H", "n_clicks"),
+     Input("report-time-7D", "n_clicks"),
+     Input("report-time-30D", "n_clicks"),
+     Input("report-time-90D", "n_clicks"),
+     Input("report-time-1Y", "n_clicks")],
+    prevent_initial_call=False
+)
+def handle_report_time_buttons(*args):
+    """Handle time range button clicks for reports page."""
+    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+    time_labels = {
+        "1H": "Last 1 Hour",
+        "6H": "Last 6 Hours", 
+        "24H": "Last 24 Hours",
+        "7D": "Last 7 Days",
+        "30D": "Last 30 Days",
+        "90D": "Last 90 Days",
+        "1Y": "Last Year"
+    }
+    
+    # Default to 7D
+    selected = "7D"
+    
+    if ctx.triggered_id:
+        triggered = ctx.triggered_id.replace("report-time-", "")
+        if triggered in button_ids:
+            selected = triggered
+    
+    # Set button colors
+    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
+    display_text = f"Selected: {time_labels.get(selected, selected)}"
+    
+    return [selected, display_text] + colors
+
+
 @callback(
     Output("report-preview-container", "children"),
     Input("generate-report-btn", "n_clicks"),
@@ -270,16 +334,29 @@ def create_reports_layout() -> html.Div:
      State("export-format-selector", "value"),
      State("report-sections-checklist", "value"),
      State("report-title-input", "value"),
-     State("report-author-input", "value")],
+     State("report-author-input", "value"),
+     State("report-time-range", "data")],
     prevent_initial_call=True
 )
-def generate_report_preview(n_clicks, report_type, export_format, sections, title, author):
+def generate_report_preview(n_clicks, report_type, export_format, sections, title, author, time_range):
     """Generate a preview of the report."""
     if not sections:
         return dbc.Alert("Please select at least one section to include", color="warning")
     
     title = title or "Environmental Report"
     author = author or "Environmental Monitoring System"
+    
+    # Convert time range to days
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
+    }
+    time_labels = {
+        "1H": "Last 1 Hour", "6H": "Last 6 Hours", "24H": "Last 24 Hours",
+        "7D": "Last 7 Days", "30D": "Last 30 Days", "90D": "Last 90 Days", "1Y": "Last Year"
+    }
+    days = time_to_days.get(time_range, 7)
+    time_label = time_labels.get(time_range, "Last 7 Days")
     
     # Build report preview
     preview_sections = []
@@ -290,6 +367,7 @@ def generate_report_preview(n_clicks, report_type, export_format, sections, titl
         html.P(f"Generated on {datetime.now().strftime('%B %d, %Y at %H:%M')}", 
                className="text-center text-muted"),
         html.P(f"Author: {author}", className="text-center text-muted"),
+        html.P(f"Time Period: {time_label}", className="text-center text-muted"),
         html.Hr()
     ]))
     
@@ -339,18 +417,19 @@ def generate_report_preview(n_clicks, report_type, export_format, sections, titl
         ]))
     
     if "charts" in sections:
-        # Generate sample chart
+        # Generate sample chart using selected time range
         import numpy as np
-        dates = pd.date_range(start=datetime.now() - timedelta(days=7), periods=168, freq="h")
+        periods = days * 24  # hourly periods
+        dates = pd.date_range(start=datetime.now() - timedelta(days=days), periods=periods, freq="h")
         df = pd.DataFrame({
-            "AQI": np.abs(np.cumsum(np.random.randn(168)) + 42),
-            "Temperature": np.cumsum(np.random.randn(168)) / 5 + 18
+            "AQI": np.abs(np.cumsum(np.random.randn(periods)) + 42),
+            "Temperature": np.cumsum(np.random.randn(periods)) / 5 + 18
         }, index=dates)
         
         fig = create_time_series_chart(
             df, 
             columns=["AQI"],
-            title="Air Quality Index - 7 Day Trend",
+            title=f"Air Quality Index - {time_label}",
             y_title="AQI",
             show_range_slider=False,
             show_range_buttons=False,
@@ -463,21 +542,30 @@ def toggle_schedule_modal(open_clicks, cancel_clicks, create_clicks, is_open):
     Output("report-download", "data"),
     Input("download-report-btn", "n_clicks"),
     [State("export-format-selector", "value"),
-     State("report-title-input", "value")],
+     State("report-title-input", "value"),
+     State("report-time-range", "data")],
     prevent_initial_call=True
 )
-def download_report(n_clicks, export_format, title):
+def download_report(n_clicks, export_format, title, time_range):
     """Generate and download the report."""
     title = title or "Environmental_Report"
     filename = f"{title.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}"
     
+    # Convert time range to days
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
+    }
+    days = time_to_days.get(time_range, 7)
+    periods = days * 24  # hourly periods
+    
     if export_format == "csv":
-        # Generate sample CSV data
+        # Generate sample CSV data with selected time range
         df = pd.DataFrame({
-            "timestamp": pd.date_range(start=datetime.now() - timedelta(days=7), periods=168, freq="h"),
-            "aqi": [42 + i % 20 for i in range(168)],
-            "temperature": [18 + (i % 10) / 2 for i in range(168)],
-            "humidity": [65 + i % 15 for i in range(168)]
+            "timestamp": pd.date_range(start=datetime.now() - timedelta(days=days), periods=periods, freq="h"),
+            "aqi": [42 + i % 20 for i in range(periods)],
+            "temperature": [18 + (i % 10) / 2 for i in range(periods)],
+            "humidity": [65 + i % 15 for i in range(periods)]
         })
         return dcc.send_data_frame(df.to_csv, f"{filename}.csv", index=False)
     

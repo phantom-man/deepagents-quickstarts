@@ -27,6 +27,7 @@ def create_dashboard_layout() -> html.Div:
         # === Central Data Store - triggers on location/category/time changes ===
         dcc.Store(id="dashboard-data-store", data={}),
         dcc.Store(id="loaded-category-data", data={}),
+        dcc.Store(id="selected-time-range", data="7D"),  # Default to 7 days
         
         # === Initial Load Trigger - fires once after page renders ===
         dcc.Interval(id="initial-load-trigger", interval=500, n_intervals=0, max_intervals=1),
@@ -232,7 +233,7 @@ def load_all_category_data(quick_clicks, search_clicks, categories, reload_click
     
     # Use default categories if none provided (for initial load)
     if not categories:
-        categories = ["air_quality", "weather", "earthquakes", "radiation", "climate", "soil"]
+        categories = ["air_quality", "weather", "water", "marine", "earthquakes", "radiation", "climate", "soil"]
     
     loaded_data = {
         "location": {"lat": lat, "lon": lon},

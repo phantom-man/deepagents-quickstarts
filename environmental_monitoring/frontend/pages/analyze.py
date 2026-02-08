@@ -26,7 +26,7 @@ from components.layout import (
     create_cross_domain_panel
 )
 from data_processing import DataProcessor
-from config import DATA_CATEGORIES, ANALYSIS_TYPES, STAT_METHODS
+from config import DATA_CATEGORIES, ANALYSIS_TYPES, STAT_METHODS, TIME_RANGES
 
 
 def create_analyze_layout() -> html.Div:
@@ -37,6 +37,21 @@ def create_analyze_layout() -> html.Div:
             html.H3("🔬 Advanced Analytics", className="mb-2"),
             html.P("Statistical analysis, anomaly detection, trend forecasting, and cross-domain insights", 
                    className="text-muted")
+        ], className="mb-4"),
+        
+        # Time Range Selector for Analysis
+        dbc.Card([
+            dbc.CardHeader(html.H5("⏱️ Analysis Time Range", className="mb-0")),
+            dbc.CardBody([
+                dbc.ButtonGroup([
+                    dbc.Button(tr["label"], id=f"analyze-time-{tr['value']}", 
+                              color="primary" if tr["value"] == "7D" else "outline-primary",
+                              size="sm")
+                    for tr in TIME_RANGES if tr["value"] != "custom"
+                ], className="me-3"),
+                html.Div(id="analyze-time-display", className="d-inline text-muted ms-3"),
+                dcc.Store(id="analyze-time-range", data="7D")
+            ])
         ], className="mb-4"),
         
         # Analysis Configuration
@@ -266,6 +281,53 @@ def create_analyze_layout() -> html.Div:
 
 
 @callback(
+    [Output("analyze-time-range", "data"),
+     Output("analyze-time-display", "children"),
+     Output("analyze-time-1H", "color"),
+     Output("analyze-time-6H", "color"),
+     Output("analyze-time-24H", "color"),
+     Output("analyze-time-7D", "color"),
+     Output("analyze-time-30D", "color"),
+     Output("analyze-time-90D", "color"),
+     Output("analyze-time-1Y", "color")],
+    [Input("analyze-time-1H", "n_clicks"),
+     Input("analyze-time-6H", "n_clicks"),
+     Input("analyze-time-24H", "n_clicks"),
+     Input("analyze-time-7D", "n_clicks"),
+     Input("analyze-time-30D", "n_clicks"),
+     Input("analyze-time-90D", "n_clicks"),
+     Input("analyze-time-1Y", "n_clicks")],
+    prevent_initial_call=False
+)
+def handle_analyze_time_buttons(*args):
+    """Handle time range button clicks for analyze page."""
+    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+    time_labels = {
+        "1H": "Last 1 Hour",
+        "6H": "Last 6 Hours", 
+        "24H": "Last 24 Hours",
+        "7D": "Last 7 Days",
+        "30D": "Last 30 Days",
+        "90D": "Last 90 Days",
+        "1Y": "Last Year"
+    }
+    
+    # Default to 7D
+    selected = "7D"
+    
+    if ctx.triggered_id:
+        triggered = ctx.triggered_id.replace("analyze-time-", "")
+        if triggered in button_ids:
+            selected = triggered
+    
+    # Set button colors
+    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
+    display_text = f"Selected: {time_labels.get(selected, selected)}"
+    
+    return [selected, display_text] + colors
+
+
+@callback(
     Output("analysis-options-container", "children"),
     Input("analysis-type-selector", "value"),
     prevent_initial_call=False
@@ -346,17 +408,25 @@ def update_dataset_options(category):
      State("statistic-selector", "value"),
      State("explore-lat", "value"),
      State("explore-lon", "value"),
-     State("analysis-type-tabs", "active_tab")],
+     State("analysis-type-tabs", "active_tab"),
+     State("analyze-time-range", "data")],
     prevent_initial_call=True
 )
-def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, active_tab):
+def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, active_tab, time_range):
     """Execute the selected analysis."""
     if lat is None or lon is None:
         lat, lon = 37.7749, -122.4194
     
+    # Convert time range to days
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
+    }
+    days = time_to_days.get(time_range, 7)
+    
     try:
-        # Fetch data
-        data = analyze_location(lat, lon, days=7)
+        # Fetch data with selected time range
+        data = analyze_location(lat, lon, days=days)
         
         if data.get("error"):
             return None, dbc.Alert(f"Error: {data['error']}", color="danger")
@@ -409,17 +479,26 @@ def update_analysis_stats(results):
 @callback(
     Output("analysis-chart-container", "children"),
     Input("analysis-results-store", "data"),
-    [State("analysis-type-tabs", "active_tab")],
+    [State("analysis-type-tabs", "active_tab"),
+     State("analyze-time-range", "data")],
     prevent_initial_call=True
 )
-def update_analysis_chart(results, analysis_type):
+def update_analysis_chart(results, analysis_type, time_range):
     """Update the main analysis chart."""
     if not results:
         return html.P("Run an analysis to see the chart.", className="text-muted")
     
-    # Generate sample data for visualization
-    dates = pd.date_range(start=datetime.now() - timedelta(days=7), periods=168, freq="h")
-    values = np.cumsum(np.random.randn(168)) + 50
+    # Convert time range to days and periods
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
+    }
+    days = time_to_days.get(time_range, 7)
+    periods = days * 24  # hourly periods
+    
+    # Generate sample data for visualization using selected time range
+    dates = pd.date_range(start=datetime.now() - timedelta(days=days), periods=periods, freq="h")
+    values = np.cumsum(np.random.randn(periods)) + 50
     df = pd.DataFrame({"value": values}, index=dates)
     
     if analysis_type == "time-series":
