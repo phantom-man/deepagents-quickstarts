@@ -10,7 +10,7 @@ import httpx
 
 from api_client import (
     get_location_data, get_sources, get_categories, get_category_data,
-    quick_check, get_air_quality, get_water_quality, get_weather, get_marine_data
+    quick_check
 )
 from config import DATA_CATEGORIES, TIME_RANGES
 
@@ -91,63 +91,18 @@ def search_location(n_clicks, search_query):
         return no_update, no_update, no_update
 
 
-# ==================== Sidebar Time Range Buttons ====================
+# ==================== Global Time Range Dropdown ====================
 
 @callback(
-    [Output("custom-date-div", "style"),
-     Output("start-date", "date"),
-     Output("end-date", "date"),
-     Output("selected-time-range", "data")],
-    [Input("time-1H", "n_clicks"),
-     Input("time-6H", "n_clicks"),
-     Input("time-24H", "n_clicks"),
-     Input("time-7D", "n_clicks"),
-     Input("time-30D", "n_clicks"),
-     Input("time-90D", "n_clicks"),
-     Input("time-1Y", "n_clicks"),
-     Input("time-custom", "n_clicks")],
+    Output("selected-time-range", "data"),
+    Input("global-time-range", "value"),
     prevent_initial_call=True
 )
-def handle_time_range_buttons(*args):
-    """Handle time range button clicks in the sidebar."""
-    if not ctx.triggered:
-        return no_update, no_update, no_update, no_update
-    
-    triggered_id = ctx.triggered_id
-    now = datetime.now()
-    
-    time_deltas = {
-        "time-1H": timedelta(hours=1),
-        "time-6H": timedelta(hours=6),
-        "time-24H": timedelta(days=1),
-        "time-7D": timedelta(days=7),
-        "time-30D": timedelta(days=30),
-        "time-90D": timedelta(days=90),
-        "time-1Y": timedelta(days=365),
-    }
-    
-    # Map button IDs to time range labels
-    time_labels = {
-        "time-1H": "1H",
-        "time-6H": "6H",
-        "time-24H": "24H",
-        "time-7D": "7D",
-        "time-30D": "30D",
-        "time-90D": "90D",
-        "time-1Y": "1Y",
-        "time-custom": "Custom"
-    }
-    
-    if triggered_id == "time-custom":
-        # Show custom date picker
-        return {"display": "block"}, no_update, no_update, "Custom"
-    elif triggered_id in time_deltas:
-        # Set dates based on selection
-        start = now - time_deltas[triggered_id]
-        time_label = time_labels.get(triggered_id, "7D")
-        return {"display": "none"}, start.date(), now.date(), time_label
-    
-    return no_update, no_update, no_update, no_update
+def handle_time_range_dropdown(selected_value):
+    """Handle time range dropdown selection - simple and reliable."""
+    if selected_value:
+        return selected_value
+    return "7D"  # Default
 
 
 # ==================== Settings Modal ====================

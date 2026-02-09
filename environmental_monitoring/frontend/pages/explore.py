@@ -9,7 +9,7 @@ import json
 
 from api_client import (
     get_sources, get_categories, get_location_data, get_category_data,
-    proxy_request, get_air_quality, get_water_quality, get_weather, get_marine_data
+    proxy_request
 )
 from components.charts import (
     create_time_series_chart,
@@ -38,17 +38,20 @@ def create_explore_layout() -> html.Div:
         # Data Source Selection
         create_data_source_selector(),
         
-        # Time Range Selection - Simplified inline version
+        # Time Range Selection - Simple Dropdown (uses global time range from sidebar)
         dbc.Card([
             dbc.CardHeader(html.H5("📅 Time Range", className="mb-0")),
             dbc.CardBody([
-                dbc.ButtonGroup([
-                    dbc.Button(tr["label"], id=f"explore-time-{tr['value']}", 
-                              color="outline-primary" if tr["value"] != "7D" else "primary", 
-                              size="sm", className="me-1")
-                    for tr in TIME_RANGES if tr["value"] != "custom"
-                ], className="mb-3 flex-wrap"),
-                dcc.Store(id="explore-time-range", data="7D"),
+                dcc.Dropdown(
+                    id="explore-time-range",
+                    options=[
+                        {"label": tr["label"], "value": tr["value"]}
+                        for tr in TIME_RANGES if tr["value"] != "custom"
+                    ],
+                    value="7D",
+                    clearable=False,
+                    className="mb-2"
+                ),
                 html.Div(id="explore-time-display", className="text-muted small")
             ])
         ], className="mb-4"),
@@ -112,30 +115,15 @@ def create_explore_layout() -> html.Div:
     ])
 
 
-# ==================== TIME RANGE CALLBACKS ====================
+# ==================== TIME RANGE CALLBACK ====================
 
 @callback(
-    [Output("explore-time-range", "data"),
-     Output("explore-time-display", "children"),
-     Output("explore-time-1H", "color"),
-     Output("explore-time-6H", "color"),
-     Output("explore-time-24H", "color"),
-     Output("explore-time-7D", "color"),
-     Output("explore-time-30D", "color"),
-     Output("explore-time-90D", "color"),
-     Output("explore-time-1Y", "color")],
-    [Input("explore-time-1H", "n_clicks"),
-     Input("explore-time-6H", "n_clicks"),
-     Input("explore-time-24H", "n_clicks"),
-     Input("explore-time-7D", "n_clicks"),
-     Input("explore-time-30D", "n_clicks"),
-     Input("explore-time-90D", "n_clicks"),
-     Input("explore-time-1Y", "n_clicks")],
+    Output("explore-time-display", "children"),
+    Input("explore-time-range", "value"),
     prevent_initial_call=False
 )
-def handle_explore_time_buttons(*args):
-    """Handle time range button clicks for explore page."""
-    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+def handle_explore_time_dropdown(selected_value):
+    """Display selected time range."""
     time_labels = {
         "1H": "Last 1 Hour",
         "6H": "Last 6 Hours", 
@@ -145,20 +133,7 @@ def handle_explore_time_buttons(*args):
         "90D": "Last 90 Days",
         "1Y": "Last Year"
     }
-    
-    # Default to 7D
-    selected = "7D"
-    
-    if ctx.triggered_id:
-        triggered = ctx.triggered_id.replace("explore-time-", "")
-        if triggered in button_ids:
-            selected = triggered
-    
-    # Set button colors
-    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
-    display_text = f"Selected: {time_labels.get(selected, selected)}"
-    
-    return [selected, display_text] + colors
+    return f"Selected: {time_labels.get(selected_value, selected_value)}"
 
 
 @callback(
@@ -213,7 +188,7 @@ def update_source_badges(selected_sources):
      State("explore-radius", "value"),
      State("source-selector", "value"),
      State("category-checklist", "value"),
-     State("explore-time-range", "data")],
+     State("explore-time-range", "value")],
     prevent_initial_call=True
 )
 def fetch_exploration_data(n_clicks, lat, lon, radius, sources, categories, time_range):
@@ -576,14 +551,9 @@ def quick_fetch_data(n_clicks):
     source_type = ctx.triggered_id["index"]
     
     try:
-        if source_type == "air_quality":
-            return get_air_quality(country="US")
-        elif source_type == "water_quality":
-            return get_water_quality(state_code="CA")
-        elif source_type == "weather":
-            return get_weather(37.7749, -122.4194)
-        elif source_type == "marine":
-            return get_marine_data(station_id="46026")
+        # Use get_category_data for all data types
+        if source_type in ["air_quality", "water_quality", "weather", "marine"]:
+            return get_category_data(source_type, lat=37.7749, lon=-122.4194)
         else:
             return None
     except Exception as e:

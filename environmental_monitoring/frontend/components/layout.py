@@ -87,34 +87,20 @@ def create_sidebar() -> dbc.Col:
             
             html.Hr(),
             
-            # Time Range Selection
+            # Time Range Selection - Simple Dropdown
             html.H6("📅 Time Range", className="mb-3"),
-            dbc.ButtonGroup([
-                dbc.Button(tr["label"], id=f"time-{tr['value']}", color="outline-primary", size="sm")
-                for tr in TIME_RANGES[:4]
-            ], className="mb-2 w-100"),
-            dbc.ButtonGroup([
-                dbc.Button(tr["label"], id=f"time-{tr['value']}", color="outline-primary", size="sm")
-                for tr in TIME_RANGES[4:]
-            ], className="mb-2 w-100"),
-            
-            # Custom Date Range
-            html.Div([
-                dbc.Label("Start Date", className="small"),
-                dcc.DatePickerSingle(
-                    id="start-date",
-                    date=datetime.now() - timedelta(days=7),
-                    display_format="YYYY-MM-DD",
-                    className="w-100"
-                ),
-                dbc.Label("End Date", className="small mt-2"),
-                dcc.DatePickerSingle(
-                    id="end-date",
-                    date=datetime.now(),
-                    display_format="YYYY-MM-DD",
-                    className="w-100"
-                )
-            ], id="custom-date-div", style={"display": "none"}),
+            dcc.Dropdown(
+                id="global-time-range",
+                options=[
+                    {"label": tr["label"], "value": tr["value"]}
+                    for tr in TIME_RANGES if tr["value"] != "custom"
+                ],
+                value="7D",
+                clearable=False,
+                className="mb-3"
+            ),
+            # Store for sharing time range across pages
+            dcc.Store(id="selected-time-range", data="7D"),
             
             html.Hr(),
             

@@ -27,7 +27,7 @@ def create_dashboard_layout() -> html.Div:
         # === Central Data Store - triggers on location/category/time changes ===
         dcc.Store(id="dashboard-data-store", data={}),
         dcc.Store(id="loaded-category-data", data={}),
-        dcc.Store(id="selected-time-range", data="7D"),  # Default to 7 days
+        # Note: selected-time-range is now defined in the sidebar (global)
         
         # === Initial Load Trigger - fires once after page renders ===
         dcc.Interval(id="initial-load-trigger", interval=500, n_intervals=0, max_intervals=1),
@@ -176,7 +176,7 @@ def create_dashboard_layout() -> html.Div:
      Output("filter-categories-display", "children")],
     [Input("quick-check-lat", "value"),
      Input("quick-check-lon", "value"),
-     Input("selected-time-range", "data"),
+     Input("global-time-range", "value"),
      Input("category-checklist", "value")],
     prevent_initial_call=False
 )

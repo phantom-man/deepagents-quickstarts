@@ -39,18 +39,22 @@ def create_analyze_layout() -> html.Div:
                    className="text-muted")
         ], className="mb-4"),
         
-        # Time Range Selector for Analysis
+        # Time Range Selector for Analysis - Simple Dropdown
         dbc.Card([
             dbc.CardHeader(html.H5("⏱️ Analysis Time Range", className="mb-0")),
             dbc.CardBody([
-                dbc.ButtonGroup([
-                    dbc.Button(tr["label"], id=f"analyze-time-{tr['value']}", 
-                              color="primary" if tr["value"] == "7D" else "outline-primary",
-                              size="sm")
-                    for tr in TIME_RANGES if tr["value"] != "custom"
-                ], className="me-3"),
-                html.Div(id="analyze-time-display", className="d-inline text-muted ms-3"),
-                dcc.Store(id="analyze-time-range", data="7D")
+                dcc.Dropdown(
+                    id="analyze-time-range",
+                    options=[
+                        {"label": tr["label"], "value": tr["value"]}
+                        for tr in TIME_RANGES if tr["value"] != "custom"
+                    ],
+                    value="7D",
+                    clearable=False,
+                    style={"width": "200px"},
+                    className="d-inline-block"
+                ),
+                html.Span(id="analyze-time-display", className="text-muted ms-3")
             ])
         ], className="mb-4"),
         
@@ -281,27 +285,12 @@ def create_analyze_layout() -> html.Div:
 
 
 @callback(
-    [Output("analyze-time-range", "data"),
-     Output("analyze-time-display", "children"),
-     Output("analyze-time-1H", "color"),
-     Output("analyze-time-6H", "color"),
-     Output("analyze-time-24H", "color"),
-     Output("analyze-time-7D", "color"),
-     Output("analyze-time-30D", "color"),
-     Output("analyze-time-90D", "color"),
-     Output("analyze-time-1Y", "color")],
-    [Input("analyze-time-1H", "n_clicks"),
-     Input("analyze-time-6H", "n_clicks"),
-     Input("analyze-time-24H", "n_clicks"),
-     Input("analyze-time-7D", "n_clicks"),
-     Input("analyze-time-30D", "n_clicks"),
-     Input("analyze-time-90D", "n_clicks"),
-     Input("analyze-time-1Y", "n_clicks")],
+    Output("analyze-time-display", "children"),
+    Input("analyze-time-range", "value"),
     prevent_initial_call=False
 )
-def handle_analyze_time_buttons(*args):
-    """Handle time range button clicks for analyze page."""
-    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+def handle_analyze_time_dropdown(selected_value):
+    """Display selected time range."""
     time_labels = {
         "1H": "Last 1 Hour",
         "6H": "Last 6 Hours", 
@@ -311,20 +300,7 @@ def handle_analyze_time_buttons(*args):
         "90D": "Last 90 Days",
         "1Y": "Last Year"
     }
-    
-    # Default to 7D
-    selected = "7D"
-    
-    if ctx.triggered_id:
-        triggered = ctx.triggered_id.replace("analyze-time-", "")
-        if triggered in button_ids:
-            selected = triggered
-    
-    # Set button colors
-    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
-    display_text = f"Selected: {time_labels.get(selected, selected)}"
-    
-    return [selected, display_text] + colors
+    return f"Selected: {time_labels.get(selected_value, selected_value)}"
 
 
 @callback(
@@ -409,7 +385,7 @@ def update_dataset_options(category):
      State("explore-lat", "value"),
      State("explore-lon", "value"),
      State("analysis-type-tabs", "active_tab"),
-     State("analyze-time-range", "data")],
+     State("analyze-time-range", "value")],
     prevent_initial_call=True
 )
 def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, active_tab, time_range):
@@ -480,7 +456,7 @@ def update_analysis_stats(results):
     Output("analysis-chart-container", "children"),
     Input("analysis-results-store", "data"),
     [State("analysis-type-tabs", "active_tab"),
-     State("analyze-time-range", "data")],
+     State("analyze-time-range", "value")],
     prevent_initial_call=True
 )
 def update_analysis_chart(results, analysis_type, time_range):

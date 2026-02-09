@@ -30,18 +30,22 @@ def create_reports_layout() -> html.Div:
                    className="text-muted")
         ], className="mb-4"),
         
-        # Time Range Selector for Reports
+        # Time Range Selector for Reports - Simple Dropdown
         dbc.Card([
             dbc.CardHeader(html.H5("⏱️ Report Time Range", className="mb-0")),
             dbc.CardBody([
-                dbc.ButtonGroup([
-                    dbc.Button(tr["label"], id=f"report-time-{tr['value']}", 
-                              color="primary" if tr["value"] == "7D" else "outline-primary",
-                              size="sm")
-                    for tr in TIME_RANGES if tr["value"] != "custom"
-                ], className="me-3"),
-                html.Div(id="report-time-display", className="d-inline text-muted ms-3"),
-                dcc.Store(id="report-time-range", data="7D")
+                dcc.Dropdown(
+                    id="report-time-range",
+                    options=[
+                        {"label": tr["label"], "value": tr["value"]}
+                        for tr in TIME_RANGES if tr["value"] != "custom"
+                    ],
+                    value="7D",
+                    clearable=False,
+                    style={"width": "200px"},
+                    className="d-inline-block"
+                ),
+                html.Span(id="report-time-display", className="text-muted ms-3")
             ])
         ], className="mb-4"),
         
@@ -278,30 +282,15 @@ def create_reports_layout() -> html.Div:
     ])
 
 
-# ==================== TIME RANGE CALLBACKS ====================
+# ==================== TIME RANGE CALLBACK ====================
 
 @callback(
-    [Output("report-time-range", "data"),
-     Output("report-time-display", "children"),
-     Output("report-time-1H", "color"),
-     Output("report-time-6H", "color"),
-     Output("report-time-24H", "color"),
-     Output("report-time-7D", "color"),
-     Output("report-time-30D", "color"),
-     Output("report-time-90D", "color"),
-     Output("report-time-1Y", "color")],
-    [Input("report-time-1H", "n_clicks"),
-     Input("report-time-6H", "n_clicks"),
-     Input("report-time-24H", "n_clicks"),
-     Input("report-time-7D", "n_clicks"),
-     Input("report-time-30D", "n_clicks"),
-     Input("report-time-90D", "n_clicks"),
-     Input("report-time-1Y", "n_clicks")],
+    Output("report-time-display", "children"),
+    Input("report-time-range", "value"),
     prevent_initial_call=False
 )
-def handle_report_time_buttons(*args):
-    """Handle time range button clicks for reports page."""
-    button_ids = ["1H", "6H", "24H", "7D", "30D", "90D", "1Y"]
+def handle_report_time_dropdown(selected_value):
+    """Display selected time range."""
     time_labels = {
         "1H": "Last 1 Hour",
         "6H": "Last 6 Hours", 
@@ -311,20 +300,7 @@ def handle_report_time_buttons(*args):
         "90D": "Last 90 Days",
         "1Y": "Last Year"
     }
-    
-    # Default to 7D
-    selected = "7D"
-    
-    if ctx.triggered_id:
-        triggered = ctx.triggered_id.replace("report-time-", "")
-        if triggered in button_ids:
-            selected = triggered
-    
-    # Set button colors
-    colors = ["primary" if bid == selected else "outline-primary" for bid in button_ids]
-    display_text = f"Selected: {time_labels.get(selected, selected)}"
-    
-    return [selected, display_text] + colors
+    return f"Selected: {time_labels.get(selected_value, selected_value)}"
 
 
 @callback(
@@ -335,7 +311,7 @@ def handle_report_time_buttons(*args):
      State("report-sections-checklist", "value"),
      State("report-title-input", "value"),
      State("report-author-input", "value"),
-     State("report-time-range", "data")],
+     State("report-time-range", "value")],
     prevent_initial_call=True
 )
 def generate_report_preview(n_clicks, report_type, export_format, sections, title, author, time_range):
@@ -543,7 +519,7 @@ def toggle_schedule_modal(open_clicks, cancel_clicks, create_clicks, is_open):
     Input("download-report-btn", "n_clicks"),
     [State("export-format-selector", "value"),
      State("report-title-input", "value"),
-     State("report-time-range", "data")],
+     State("report-time-range", "value")],
     prevent_initial_call=True
 )
 def download_report(n_clicks, export_format, title, time_range):

@@ -431,6 +431,14 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-02-06 | Pandas 2.x Frequency Deprecation (CRITICAL) | Use lowercase frequency aliases: `freq="h"` not `freq="H"`, `freq="d"` not `freq="D"` | Pandas 2.x deprecated uppercase; causes `ValueError: Invalid frequency` breaking data processing |
 | 2026-02-06 | Environmental Dashboard Deployed | Dashboard at https://env-monitor-dashboard-758343025648.us-central1.run.app (revision 00005-8ks) | Plotly Dash frontend with Open-Meteo weather, USGS earthquakes, Nominatim geocoding |
 | 2026-02-06 | Cloud Run Error Log Filter | `gcloud logging read "resource.type=cloud_run_revision AND severity>=ERROR" --freshness=5m` | Surfaces Python exceptions and callback failures not visible in HTTP logs |
+| 2026-02-08 | FastAPI Route Splitting Pattern | Split monolithic 777-line routes.py into 9 domain modules (sensors, predictions, gis, alerts, dashboard, collaboration, system, data_sources, hub) | Improves maintainability; each module has single responsibility with own rate limits and auth |
+| 2026-02-08 | Pydantic Settings for Config | Centralized config via `app/config.py` using `pydantic-settings` with `BaseSettings` class | Environment variables auto-loaded; `settings.is_production` property for environment checks |
+| 2026-02-08 | Custom Exception Hierarchy | Created `app/exceptions.py` with `EnvironmentalMonitoringError` base class and domain-specific subclasses | Each exception has `status_code`, `error_code`, `to_dict()` method; global exception handlers in main.py |
+| 2026-02-08 | API Key Authentication Pattern | Implemented `verify_api_key()` dependency supporting both `X-API-Key` header and `Authorization: Bearer` token | `require_admin()` for admin-only endpoints; separate `API_KEY` and `ADMIN_API_KEY` env vars |
+| 2026-02-08 | In-Memory Rate Limiting | `RateLimiter` class using sliding window with `defaultdict` for IP-based tracking | Configurable `calls` and `period` params; used as FastAPI `Depends()` on routes |
+| 2026-02-08 | Correlation ID Middleware | Middleware adds UUID correlation ID to each request; propagates via `request.state.correlation_id` | Returned in `X-Correlation-ID` response header; included in all structured log entries |
+| 2026-02-08 | Health Check Endpoints Pattern | `/ok` (liveness), `/ready` (readiness with DB check), `/health` (detailed with all dependencies) | Cloud Run uses `/ok` for startup/liveness probes; `/ready` returns 503 if DB unavailable |
+| 2026-02-08 | Protected Admin Endpoint Pattern | `/system/reset` requires `require_admin` dependency AND checks `settings.is_production` to block in prod | Double protection: auth + environment check prevents accidental production data wipe |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:
