@@ -4,6 +4,7 @@ Explore Page - Data exploration with filtering and visualization.
 from dash import html, dcc, callback, Input, Output, State, ALL, MATCH, ctx
 import dash_bootstrap_components as dbc
 import pandas as pd
+import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import json
 
@@ -14,15 +15,14 @@ from api_client import (
 from components.charts import (
     create_time_series_chart,
     create_histogram,
-    create_box_plot,
-    create_mapbox_scatter
+    create_box_plot
 )
 from components.layout import (
     create_data_source_selector,
     create_time_range_selector
 )
 from data_processing import DataProcessor
-from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES
+from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES, API_BASE_URL
 
 
 def create_explore_layout() -> html.Div:
@@ -63,11 +63,11 @@ def create_explore_layout() -> html.Div:
                 dbc.Row([
                     dbc.Col([
                         dbc.Label("Latitude"),
-                        dbc.Input(id="explore-lat", type="number", value=37.7749, step=0.0001)
+                        dbc.Input(id="explore-lat", type="number", step=0.0001, value=MAP_CONFIG["default_lat"])
                     ], md=3),
                     dbc.Col([
                         dbc.Label("Longitude"),
-                        dbc.Input(id="explore-lon", type="number", value=-122.4194, step=0.0001)
+                        dbc.Input(id="explore-lon", type="number", step=0.0001, value=MAP_CONFIG["default_lon"])
                     ], md=3),
                     dbc.Col([
                         dbc.Label("Radius (km)"),
@@ -182,19 +182,19 @@ def update_source_badges(selected_sources):
 @callback(
     [Output("explore-data-store", "data"),
      Output("explore-loading-output", "children")],
-    Input("explore-search-btn", "n_clicks"),
+    [Input("explore-search-btn", "n_clicks"),
+     Input("category-checklist", "value")],
     [State("explore-lat", "value"),
      State("explore-lon", "value"),
      State("explore-radius", "value"),
      State("source-selector", "value"),
-     State("category-checklist", "value"),
      State("explore-time-range", "value")],
-    prevent_initial_call=True
+    prevent_initial_call=False
 )
-def fetch_exploration_data(n_clicks, lat, lon, radius, sources, categories, time_range):
-    """Fetch data based on exploration filters."""
-    if lat is None or lon is None:
-        return None, dbc.Alert("Please enter valid coordinates", color="warning")
+def fetch_exploration_data(n_clicks, categories, lat, lon, radius, sources, time_range):
+    """Fetch data based on exploration filters. Auto-loads on page visit."""
+    lat = lat or MAP_CONFIG["default_lat"]
+    lon = lon or MAP_CONFIG["default_lon"]
     
     # Convert time range to days for API
     time_to_days = {
@@ -206,6 +206,20 @@ def fetch_exploration_data(n_clicks, lat, lon, radius, sources, categories, time
     try:
         # Get location data with time range
         result = get_location_data(lat, lon, radius_km=radius or 50, categories=categories)
+        if isinstance(result, dict):
+            result["selected_time_range"] = time_range
+            result["selected_days"] = days
+
+            # Backfill categories that are not location-based using category endpoints
+            result.setdefault("data", {})
+            if categories:
+                for category in categories:
+                    if category in result["data"]:
+                        continue
+
+                    cat_resp = get_category_data(category, lat=lat, lon=lon)
+                    if isinstance(cat_resp, dict):
+                        result["data"][category] = cat_resp.get("data", [])
         
         if result.get("error"):
             return None, dbc.Alert(f"Error: {result['error']}", color="danger")
@@ -304,22 +318,62 @@ def update_explore_map(data, lat, lon):
     
     if not map_data:
         # Just show the search location
-        map_data = [{"source": "Search Location", "latitude": lat, "longitude": lon, "value": "Center"}]
+        map_data = [{"source": "Search Location", "latitude": lat or MAP_CONFIG['default_lat'], "longitude": lon or MAP_CONFIG['default_lon'], "value": "Center"}]
     
-    fig = create_mapbox_scatter(
-        map_data,
-        lat_col="latitude",
-        lon_col="longitude",
-        color_col="source",
-        hover_cols=["source", "value"],
-        title="Environmental Data Points",
-        center_lat=lat or 37.7749,
-        center_lon=lon or -122.4194,
-        zoom=8,
-        height=500
+    # Build Plotly Scattermapbox (no API key needed, uses OpenStreetMap tiles)
+    # Group points by source for separate colored traces
+    cat_colors = {
+        "earthquakes": "#C73E1D", "wildfires": "#F18F01", "air_quality": "#2E86AB",
+        "radiation": "#8F3F97", "marine": "#00B4D8", "biodiversity": "#2D6A4F",
+        "weather": "#E9C46A", "water": "#0077B6", "climate": "#6C757D",
+        "soil": "#BC6C25", "Search Location": "#333333",
+    }
+
+    by_source: dict = {}
+    for pt in map_data:
+        src = pt.get("source", "Unknown")
+        by_source.setdefault(src, []).append(pt)
+
+    fig = go.Figure()
+    for source_name, points in by_source.items():
+        lats = [p["latitude"] for p in points]
+        lons = [p["longitude"] for p in points]
+        texts = [f"{source_name}: {p.get('value', '')}" for p in points]
+        color = cat_colors.get(source_name, "#6C757D")
+        fig.add_trace(go.Scattermapbox(
+            lat=lats, lon=lons, mode="markers",
+            marker=dict(size=10, color=color, opacity=0.85),
+            text=texts, hoverinfo="text",
+            name=source_name.replace("_", " ").title(),
+        ))
+
+    center_lat = lat or MAP_CONFIG["default_lat"]
+    center_lon = lon or MAP_CONFIG["default_lon"]
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",
+            center=dict(lat=center_lat, lon=center_lon),
+            zoom=6 if len(map_data) > 5 else 8,
+        ),
+        margin=dict(l=0, r=0, t=0, b=0),
+        height=500,
+        showlegend=True,
+        legend=dict(
+            yanchor="top", y=0.99, xanchor="left", x=0.01,
+            bgcolor="rgba(255,255,255,0.85)", font=dict(size=11),
+        ),
     )
-    
-    return dcc.Graph(figure=fig, config={"displayModeBar": True})
+
+    map_component = dcc.Graph(
+        figure=fig,
+        config={"displayModeBar": True, "scrollZoom": True},
+        style={"borderRadius": "8px", "overflow": "hidden"},
+    )
+
+    return html.Div([
+        map_component,
+        html.Div(f"{len(map_data)} data points", className="text-muted small mt-2")
+    ])
 
 
 @callback(
@@ -405,10 +459,121 @@ def update_explore_table(data):
                             striped=True, bordered=True, hover=True, responsive=True, size="sm"
                         )
                     ]))
+
+            # Handle climate daily data (Open-Meteo Climate format)
+            elif "daily" in source_data:
+                daily = source_data.get("daily", {})
+                times = daily.get("time", [])
+                if times:
+                    rows = []
+                    t_max = daily.get("temperature_2m_max", [])
+                    t_min = daily.get("temperature_2m_min", [])
+                    precip = daily.get("precipitation_sum", [])
+                    for i, t in enumerate(times[:30]):
+                        row = {"Date": t}
+                        if i < len(t_max) and t_max[i] is not None:
+                            row["Max Temp (°C)"] = t_max[i]
+                        if i < len(t_min) and t_min[i] is not None:
+                            row["Min Temp (°C)"] = t_min[i]
+                        if i < len(precip) and precip[i] is not None:
+                            row["Precip (mm)"] = precip[i]
+                        rows.append(row)
+                    if rows:
+                        df = pd.DataFrame(rows)
+                        tables.append(html.Div([
+                            html.H6(f"🌡️ {source_name}", className="mt-3"),
+                            dbc.Table.from_dataframe(
+                                df,
+                                striped=True, bordered=True, hover=True, responsive=True, size="sm"
+                            )
+                        ]))
+
+            # Handle soil layers (SoilGrids format)
+            elif "properties" in source_data and "layers" in source_data.get("properties", {}):
+                layers = source_data["properties"]["layers"]
+                if isinstance(layers, list) and layers:
+                    rows = []
+                    for layer in layers:
+                        if not isinstance(layer, dict):
+                            continue
+                        name = layer.get("name", "Unknown")
+                        unit = layer.get("unit_measure", {}).get("mapped_units", "")
+                        depths = layer.get("depths", [])
+                        mean_val = None
+                        depth_label = ""
+                        if depths and isinstance(depths, list):
+                            depth_label = depths[0].get("label", "")
+                            mean_val = depths[0].get("values", {}).get("mean")
+                        rows.append({
+                            "Property": name,
+                            "Value": mean_val if mean_val is not None else "N/A",
+                            "Unit": unit,
+                            "Depth": depth_label,
+                        })
+                    if rows:
+                        df = pd.DataFrame(rows)
+                        tables.append(html.Div([
+                            html.H6(f"🌱 {source_name}", className="mt-3"),
+                            dbc.Table.from_dataframe(
+                                df,
+                                striped=True, bordered=True, hover=True, responsive=True, size="sm"
+                            )
+                        ]))
+
+            # Handle Open-Meteo hourly data (AQ, Marine, Radiation, Weather hourly)
+            elif "hourly" in source_data:
+                hourly = source_data.get("hourly") or {}
+                times = hourly.get("time", [])
+                if times and isinstance(hourly, dict):
+                    rows = []
+                    # Collect all numeric hourly columns
+                    hourly_cols = [k for k in hourly if k != "time" and isinstance(hourly[k], list)]
+                    for i, t in enumerate(times[:30]):
+                        row = {"Time": t}
+                        for col in hourly_cols[:6]:
+                            vals = hourly[col]
+                            if i < len(vals) and vals[i] is not None:
+                                row[col.replace("_", " ").title()] = vals[i]
+                        rows.append(row)
+                    if rows:
+                        df = pd.DataFrame(rows)
+                        tables.append(html.Div([
+                            html.H6(f"📈 {source_name}", className="mt-3"),
+                            dbc.Table.from_dataframe(
+                                df.head(15),
+                                striped=True, bordered=True, hover=True, responsive=True, size="sm"
+                            )
+                        ]))
+
+            # Handle Open-Meteo current data (single point)
+            elif "current" in source_data:
+                current = source_data.get("current") or {}
+                if isinstance(current, dict) and len(current) > 1:
+                    row = {}
+                    for k, v in current.items():
+                        if k in ("time", "interval"):
+                            continue
+                        row[k.replace("_", " ").title()] = v
+                    if row:
+                        df = pd.DataFrame([row])
+                        tables.append(html.Div([
+                            html.H6(f"📊 {source_name}", className="mt-3"),
+                            dbc.Table.from_dataframe(
+                                df,
+                                striped=True, bordered=True, hover=True, responsive=True, size="sm"
+                            )
+                        ]))
     
     if not tables:
-        return html.P("No tabular data available for the selected sources.", 
-                      className="text-muted")
+        api_links = []
+        for cat in DATA_CATEGORIES:
+            url = f"{API_BASE_URL}/api/v1/hub/category/{cat['id']}?lat={MAP_CONFIG['default_lat']}&lon={MAP_CONFIG['default_lon']}"
+            api_links.append(html.Li(html.A(f"{cat['icon']} {cat['name']} raw data", href=url, target="_blank")))
+        return html.Div([
+            html.P("No tabular data available for the selected sources.", className="text-muted"),
+            html.P("Explore raw API data:", className="fw-bold mt-3"),
+            html.Ul(api_links)
+        ])
     
     return html.Div(tables)
 
@@ -497,6 +662,91 @@ def update_explore_charts(data):
                         charts.append(
                             dbc.Col([dcc.Graph(figure=fig)], md=6, className="mb-3")
                         )
+
+            # Handle climate daily data (Open-Meteo Climate format)
+            elif "daily" in source_data:
+                daily = source_data.get("daily", {})
+                times = daily.get("time", [])
+                t_max = daily.get("temperature_2m_max", [])
+                t_min = daily.get("temperature_2m_min", [])
+                if times and (t_max or t_min):
+                    import plotly.graph_objects as go
+                    fig = go.Figure()
+                    if t_max:
+                        fig.add_trace(go.Scatter(
+                            x=times, y=t_max, name="Max Temp",
+                            line=dict(color="#FF6B6B")
+                        ))
+                    if t_min:
+                        fig.add_trace(go.Scatter(
+                            x=times, y=t_min, name="Min Temp",
+                            line=dict(color="#4ECDC4")
+                        ))
+                    fig.update_layout(
+                        title=f"{source_name} - Daily Temperature",
+                        yaxis_title="Temperature (°C)",
+                        height=300
+                    )
+                    charts.append(
+                        dbc.Col([dcc.Graph(figure=fig)], md=6, className="mb-3")
+                    )
+
+            # Handle soil layers (SoilGrids format)
+            elif "properties" in source_data and "layers" in source_data.get("properties", {}):
+                layers = source_data["properties"]["layers"]
+                if isinstance(layers, list) and layers:
+                    import plotly.graph_objects as go
+                    names = []
+                    vals = []
+                    for layer in layers:
+                        if not isinstance(layer, dict):
+                            continue
+                        name = layer.get("name", "Unknown")
+                        depths = layer.get("depths", [])
+                        if depths and isinstance(depths, list):
+                            mean_val = depths[0].get("values", {}).get("mean")
+                            if mean_val is not None:
+                                names.append(name)
+                                vals.append(float(mean_val))
+                    if names:
+                        fig = go.Figure(data=[
+                            go.Bar(x=names, y=vals, marker_color="#8B4513")
+                        ])
+                        fig.update_layout(
+                            title=f"{source_name} - Soil Properties",
+                            yaxis_title="Value",
+                            height=300
+                        )
+                        charts.append(
+                            dbc.Col([dcc.Graph(figure=fig)], md=6, className="mb-3")
+                        )
+
+            # Handle Open-Meteo hourly data (AQ, Marine, Radiation, Weather)
+            elif "hourly" in source_data:
+                hourly = source_data.get("hourly") or {}
+                times = hourly.get("time", [])
+                if times and isinstance(hourly, dict):
+                    import plotly.graph_objects as go
+                    hourly_cols = [k for k in hourly if k != "time" and isinstance(hourly[k], list)]
+                    if hourly_cols:
+                        fig = go.Figure()
+                        colors = ["#2E86AB", "#C73E1D", "#F18F01", "#28A745", "#8F3F97", "#17A2B8"]
+                        for idx, col in enumerate(hourly_cols[:4]):
+                            vals = hourly[col]
+                            clean_times = times[:len(vals)]
+                            fig.add_trace(go.Scatter(
+                                x=clean_times, y=vals, mode="lines",
+                                name=col.replace("_", " ").title(),
+                                line=dict(color=colors[idx % len(colors)], width=2),
+                            ))
+                        fig.update_layout(
+                            title=f"{source_name} - Hourly Data",
+                            height=300,
+                            legend=dict(orientation="h", y=-0.15),
+                        )
+                        charts.append(
+                            dbc.Col([dcc.Graph(figure=fig)], md=6, className="mb-3")
+                        )
     
     if not charts:
         return html.P("No chartable data available.", className="text-muted")
@@ -541,19 +791,25 @@ def update_explore_raw(data):
 @callback(
     Output("explore-data-store", "data", allow_duplicate=True),
     Input({"type": "quick-fetch", "index": ALL}, "n_clicks"),
+    [State("latitude-input", "value"),
+     State("longitude-input", "value")],
     prevent_initial_call=True
 )
-def quick_fetch_data(n_clicks):
-    """Quick fetch for specific data types."""
+def quick_fetch_data(n_clicks, sidebar_lat, sidebar_lon):
+    """Quick fetch for specific data types using sidebar coordinates."""
     if not ctx.triggered_id or not any(n_clicks):
         return None
-    
+
     source_type = ctx.triggered_id["index"]
-    
+    lat = sidebar_lat or MAP_CONFIG["default_lat"]
+    lon = sidebar_lon or MAP_CONFIG["default_lon"]
+
     try:
         # Use get_category_data for all data types
-        if source_type in ["air_quality", "water_quality", "weather", "marine"]:
-            return get_category_data(source_type, lat=37.7749, lon=-122.4194)
+        if source_type in ["air_quality", "water_quality", "water", "weather", "marine",
+                           "earthquakes", "radiation", "wildfires", "biodiversity",
+                           "climate", "soil"]:
+            return get_category_data(source_type, lat=lat, lon=lon)
         else:
             return None
     except Exception as e:

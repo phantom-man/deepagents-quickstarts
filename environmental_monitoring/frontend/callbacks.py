@@ -12,54 +12,59 @@ from api_client import (
     get_location_data, get_sources, get_categories, get_category_data,
     quick_check
 )
-from config import DATA_CATEGORIES, TIME_RANGES
+from config import DATA_CATEGORIES, TIME_RANGES, GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_REGION
 
 
 # ==================== Geocoding Utility ====================
 
 def geocode_location(query: str) -> dict:
     """
-    Geocode a location string to coordinates using Nominatim (free, no API key).
+    Geocode a location string to coordinates using Google Geocoding API.
     
-    Args:
-        query: Location name (city, address, etc.)
-    
-    Returns:
-        dict with lat, lon, display_name or error
+    Docs: https://developers.google.com/maps/documentation/geocoding/requests-geocoding
     """
+    if not GOOGLE_MAPS_API_KEY:
+        return {"success": False, "error": "Google Maps API key not configured"}
+
     try:
-        # Use Nominatim (OpenStreetMap) - free geocoding
-        url = "https://nominatim.openstreetmap.org/search"
+        url = "https://maps.googleapis.com/maps/api/geocode/json"
         params = {
-            "q": query,
-            "format": "json",
-            "limit": 1,
-            "addressdetails": 1
+            "address": query,
+            "key": GOOGLE_MAPS_API_KEY,
+            "region": GOOGLE_MAPS_REGION
         }
-        headers = {
-            "User-Agent": "EnvironmentalMonitoringDashboard/1.0"
-        }
-        
+
         with httpx.Client(timeout=10) as client:
-            response = client.get(url, params=params, headers=headers)
+            response = client.get(url, params=params)
             response.raise_for_status()
-            results = response.json()
-            
-            if results:
-                result = results[0]
+            payload = response.json()
+
+            status = payload.get("status")
+            if status != "OK":
+                error_message = payload.get("error_message")
                 return {
-                    "success": True,
-                    "lat": float(result["lat"]),
-                    "lon": float(result["lon"]),
-                    "display_name": result["display_name"],
-                    "type": result.get("type", "place")
+                    "success": False,
+                    "error": error_message or f"Geocoding failed: {status}"
                 }
-            else:
+
+            results = payload.get("results", [])
+            if not results:
                 return {
                     "success": False,
                     "error": f"No results found for '{query}'"
                 }
-                
+
+            result = results[0]
+            location = result.get("geometry", {}).get("location", {})
+            return {
+                "success": True,
+                "lat": float(location.get("lat")),
+                "lon": float(location.get("lng")),
+                "display_name": result.get("formatted_address", query),
+                "place_id": result.get("place_id", ""),
+                "location_type": result.get("geometry", {}).get("location_type", "")
+            }
+
     except httpx.TimeoutException:
         return {"success": False, "error": "Geocoding request timed out"}
     except Exception as e:
@@ -71,7 +76,10 @@ def geocode_location(query: str) -> dict:
 @callback(
     [Output("latitude-input", "value"),
      Output("longitude-input", "value"),
-     Output("location-search", "value")],
+     Output("location-search", "value"),
+     Output("search-feedback-toast", "is_open"),
+     Output("search-feedback-toast", "children"),
+     Output("location-updated-trigger", "data")],
     Input("search-btn", "n_clicks"),
     State("location-search", "value"),
     prevent_initial_call=True
@@ -79,16 +87,21 @@ def geocode_location(query: str) -> dict:
 def search_location(n_clicks, search_query):
     """Search for a location and update coordinates."""
     if not search_query or not search_query.strip():
-        return no_update, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update
     
     result = geocode_location(search_query.strip())
     
     if result.get("success"):
-        # Return coordinates and clear search (keep display name as placeholder effect)
-        return result["lat"], result["lon"], ""
+        display = result.get("display_name", search_query)
+        trigger_data = {"lat": result["lat"], "lon": result["lon"], "ts": datetime.now().isoformat()}
+        return (
+            result["lat"], result["lon"], "",
+            True, f"Found: {display} ({result['lat']:.4f}, {result['lon']:.4f})",
+            trigger_data
+        )
     else:
-        # Keep existing values on error
-        return no_update, no_update, no_update
+        error_msg = result.get("error", "Location not found")
+        return no_update, no_update, no_update, True, f"Search failed: {error_msg}", no_update
 
 
 # ==================== Global Time Range Dropdown ====================
@@ -191,8 +204,8 @@ def refresh_global_data(n_clicks, n_intervals, lat, lon, categories):
 # ==================== Coordinate Sync Between Pages ====================
 
 @callback(
-    [Output("quick-check-lat", "value", allow_duplicate=True),
-     Output("quick-check-lon", "value", allow_duplicate=True)],
+    [Output("quick-check-lat", "value"),
+     Output("quick-check-lon", "value")],
     [Input("latitude-input", "value"),
      Input("longitude-input", "value")],
     prevent_initial_call=True
@@ -203,8 +216,8 @@ def sync_sidebar_to_dashboard(lat, lon):
 
 
 @callback(
-    [Output("explore-lat", "value", allow_duplicate=True),
-     Output("explore-lon", "value", allow_duplicate=True)],
+    [Output("explore-lat", "value"),
+     Output("explore-lon", "value")],
     [Input("latitude-input", "value"),
      Input("longitude-input", "value")],
     prevent_initial_call=True

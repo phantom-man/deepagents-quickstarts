@@ -241,6 +241,8 @@ app.layout = html.Div([
     # Global stores
     dcc.Store(id='global-data-store', storage_type='session'),
     dcc.Store(id='user-preferences', storage_type='local'),
+    dcc.Store(id='location-updated-trigger'),
+    dcc.Store(id='linked-datasets-store', storage_type='session'),
     
     # Interval for auto-refresh
     dcc.Interval(
@@ -277,8 +279,32 @@ app.layout = html.Div([
         style={'position': 'fixed', 'top': 170, 'right': 20, 'zIndex': 9999}
     ),
     
+    # Link datasets toast
+    dbc.Toast(
+        "",
+        id="link-datasets-toast",
+        header="Cross-Domain Link",
+        icon="success",
+        duration=6000,
+        is_open=False,
+        dismissable=True,
+        style={'position': 'fixed', 'top': 240, 'right': 20, 'zIndex': 9999}
+    ),
+    
     # Category data toast (hidden, just for callback target)
     html.Div(id="category-data-toast", style={"display": "none"}),
+    
+    # Search feedback toast
+    dbc.Toast(
+        "",
+        id="search-feedback-toast",
+        header="Location Search",
+        icon="info",
+        duration=5000,
+        is_open=False,
+        dismissable=True,
+        style={'position': 'fixed', 'top': 250, 'right': 20, 'zIndex': 9999}
+    ),
     
     # Settings Modal
     dbc.Modal([

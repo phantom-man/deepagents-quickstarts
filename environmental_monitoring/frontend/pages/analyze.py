@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 import json
 
 from api_client import (
-    get_location_data, analyze_location, get_category_data, proxy_request
+    get_location_data, analyze_location, get_category_data, proxy_request,
+    get_categories_parallel,
 )
 from components.charts import (
     create_time_series_chart,
@@ -26,7 +27,234 @@ from components.layout import (
     create_cross_domain_panel
 )
 from data_processing import DataProcessor
-from config import DATA_CATEGORIES, ANALYSIS_TYPES, STAT_METHODS, TIME_RANGES
+from config import DATA_CATEGORIES, ANALYSIS_TYPES, STAT_METHODS, TIME_RANGES, API_BASE_URL
+
+
+# ==================== DATA EXTRACTION HELPERS ====================
+
+def _extract_numeric_values(raw_data: dict) -> list:
+    """Recursively extract numeric values from nested API response."""
+    values = []
+    if not isinstance(raw_data, dict):
+        return values
+
+    # Try known structures
+    # Earthquakes (USGS GeoJSON)
+    for f in raw_data.get("features", []):
+        if not isinstance(f, dict):
+            continue
+        mag = (f.get("properties") or {}).get("mag")
+        if mag is not None:
+            try:
+                values.append(float(mag))
+            except (ValueError, TypeError):
+                pass
+
+    # Air quality — Open-Meteo current{}
+    current_aq = raw_data.get("current") or {}
+    if isinstance(current_aq, dict):
+        for aq_key in ("us_aqi", "pm2_5", "pm10", "carbon_monoxide",
+                        "nitrogen_dioxide", "sulphur_dioxide", "ozone"):
+            v = current_aq.get(aq_key)
+            if v is not None:
+                try:
+                    values.append(float(v))
+                except (ValueError, TypeError):
+                    pass
+
+    # Air quality — legacy measurements/results
+    for m in raw_data.get("measurements", raw_data.get("results", [])):
+        if isinstance(m, dict):
+            v = m.get("value")
+            if v is not None:
+                try:
+                    values.append(float(v))
+                except (ValueError, TypeError):
+                    pass
+
+    # Hourly data (weather, air quality, marine, radiation)
+    hourly = raw_data.get("hourly") or {}
+    if isinstance(hourly, dict):
+        for hourly_key in ("temperature_2m", "us_aqi", "pm2_5", "pm10",
+                           "wave_height", "sea_surface_temperature",
+                           "uv_index", "direct_radiation", "shortwave_radiation",
+                           "relative_humidity_2m", "wind_speed_10m", "precipitation"):
+            for v in hourly.get(hourly_key, []):
+                if v is not None:
+                    try:
+                        values.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+
+    # Climate daily
+    daily = raw_data.get("daily") or {}
+    if isinstance(daily, dict):
+        for daily_key in ("temperature_2m_max", "temperature_2m_min", "precipitation_sum"):
+            for v in daily.get(daily_key, []):
+                if v is not None:
+                    try:
+                        values.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+
+    # Water
+    for ts in (raw_data.get("value") or {}).get("timeSeries", []):
+        try:
+            v = float(ts.get("values", [{}])[0].get("value", [{}])[0].get("value", 0))
+            if v:
+                values.append(v)
+        except (IndexError, TypeError, ValueError):
+            pass
+
+    # Soil (SoilGrids properties.layers)
+    soil_props = raw_data.get("properties") or {}
+    if isinstance(soil_props, dict):
+        for layer in soil_props.get("layers", []):
+            if isinstance(layer, dict):
+                for depth in layer.get("depths", []):
+                    if isinstance(depth, dict):
+                        mean_val = (depth.get("values") or {}).get("mean")
+                        if mean_val is not None:
+                            try:
+                                values.append(float(mean_val))
+                            except (ValueError, TypeError):
+                                pass
+
+    # Biodiversity
+    for r in raw_data.get("results", []):
+        if isinstance(r, dict):
+            for num_key in ("count", "individualCount", "occurrences"):
+                v = r.get(num_key)
+                if v is not None:
+                    try:
+                        values.append(float(v))
+                    except (ValueError, TypeError):
+                        pass
+
+    # Wildfires (NIFC GeoJSON features with attributes)
+    for f in raw_data.get("features", []):
+        if not isinstance(f, dict):
+            continue
+        props = f.get("properties") or f.get("attributes") or {}
+        if isinstance(props, dict):
+            for fire_key in ("GISAcres", "poly_GISAcres", "irwin_DailyAcres",
+                             "PercentContained", "irwin_PercentContained"):
+                v = props.get(fire_key)
+                if v is not None:
+                    try:
+                        values.append(float(str(v).replace(",", "")))
+                    except (ValueError, TypeError):
+                        pass
+
+    # Nested data from analyze_location (data -> category -> sources)
+    for cat_key, cat_val in (raw_data.get("data") or {}).items():
+        if isinstance(cat_val, list):
+            for source in cat_val:
+                if isinstance(source, dict):
+                    inner = source.get("data") or {}
+                    if isinstance(inner, dict):
+                        values.extend(_extract_numeric_values(inner))
+
+    return values
+
+
+def _build_dataframe(raw_data: dict, time_range: str = "7D") -> pd.DataFrame:
+    """Build a time-indexed DataFrame from real API data."""
+    time_to_days = {
+        "1H": 1, "6H": 1, "24H": 1,
+        "7D": 7, "30D": 30, "90D": 90, "1Y": 365,
+    }
+    days = time_to_days.get(time_range, 7)
+
+    # Try weather hourly first (best time series)
+    hourly = raw_data.get("hourly", {})
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    if times and temps:
+        n = min(len(times), len(temps))
+        try:
+            idx = pd.to_datetime(times[:n])
+            return pd.DataFrame({"value": [float(t) for t in temps[:n]]}, index=idx)
+        except Exception:
+            pass
+
+    # Try climate daily
+    daily = raw_data.get("daily", {})
+    dt = daily.get("time", [])
+    t_max = daily.get("temperature_2m_max", [])
+    if dt and t_max:
+        n = min(len(dt), len(t_max))
+        try:
+            idx = pd.to_datetime(dt[:n])
+            return pd.DataFrame({"value": [float(v) for v in t_max[:n]]}, index=idx)
+        except Exception:
+            pass
+
+    # Try nested categories from analyze_location
+    for cat_key, cat_val in raw_data.get("data", {}).items():
+        if isinstance(cat_val, list):
+            for source in cat_val:
+                if isinstance(source, dict):
+                    inner = source.get("data", {})
+                    if isinstance(inner, dict):
+                        df = _build_dataframe(inner, time_range)
+                        if not df.empty:
+                            return df
+
+    # Fallback: extract all numeric values and give them a synthetic index
+    values = _extract_numeric_values(raw_data)
+    if values:
+        idx = pd.date_range(
+            end=datetime.now(), periods=len(values), freq="h"
+        )
+        return pd.DataFrame({"value": values}, index=idx)
+
+    return pd.DataFrame()
+
+
+def _build_multi_column_df(raw_data: dict) -> pd.DataFrame:
+    """Build a multi-column DataFrame from different data categories."""
+    columns = {}
+
+    # Weather temps
+    hourly = raw_data.get("hourly", {})
+    temps = hourly.get("temperature_2m", [])
+    if temps:
+        columns["Temperature"] = [float(v) for v in temps]
+
+    humidity = hourly.get("relative_humidity_2m", hourly.get("relativehumidity_2m", []))
+    if humidity:
+        columns["Humidity"] = [float(v) for v in humidity]
+
+    precip = hourly.get("precipitation", [])
+    if precip:
+        columns["Precipitation"] = [float(v) for v in precip]
+
+    wind = hourly.get("windspeed_10m", hourly.get("wind_speed_10m", []))
+    if wind:
+        columns["Wind Speed"] = [float(v) for v in wind]
+
+    # From nested categories
+    for cat_key, cat_val in raw_data.get("data", {}).items():
+        if isinstance(cat_val, list):
+            for source in cat_val:
+                inner = source.get("data", {}) if isinstance(source, dict) else {}
+                if isinstance(inner, dict):
+                    h2 = inner.get("hourly", {})
+                    for k, label in [
+                        ("temperature_2m", f"Temp ({cat_key})"),
+                        ("relative_humidity_2m", f"Humidity ({cat_key})"),
+                    ]:
+                        vals = h2.get(k, [])
+                        if vals and label not in columns:
+                            columns[label] = [float(v) for v in vals]
+
+    if not columns:
+        return pd.DataFrame()
+
+    # Trim to same length
+    min_len = min(len(v) for v in columns.values())
+    return pd.DataFrame({k: v[:min_len] for k, v in columns.items()})
 
 
 def create_analyze_layout() -> html.Div:
@@ -241,7 +469,8 @@ def create_analyze_layout() -> html.Div:
                 dbc.Button([
                     html.I(className="fas fa-play me-2"),
                     "Run Analysis"
-                ], id="run-analysis-btn", color="success", size="lg", className="w-100")
+                ], id="run-analysis-btn", color="success", size="lg", className="w-100",
+                   disabled=False)
             ], md=4, className="offset-md-4")
         ], className="mb-4"),
         
@@ -258,13 +487,23 @@ def create_analyze_layout() -> html.Div:
             ], className="d-flex justify-content-between align-items-center"),
             dbc.CardBody([
                 # Statistics Summary
-                html.Div(id="analysis-stats-container", className="mb-4"),
+                dcc.Loading(
+                    type="default",
+                    children=html.Div(id="analysis-stats-container", className="mb-4"),
+                ),
                 
                 # Main Chart
-                html.Div(id="analysis-chart-container", className="mb-4"),
+                dcc.Loading(
+                    type="circle",
+                    overlay_style={"visibility": "visible", "filter": "blur(2px)"},
+                    children=html.Div(id="analysis-chart-container", className="mb-4"),
+                ),
                 
                 # Secondary Charts
-                dbc.Row(id="analysis-secondary-charts"),
+                dcc.Loading(
+                    type="default",
+                    children=dbc.Row(id="analysis-secondary-charts"),
+                ),
                 
                 # Insights
                 html.Div(id="analysis-insights-container")
@@ -359,37 +598,39 @@ def update_analysis_options(analysis_type):
 @callback(
     Output("primary-dataset-selector", "options"),
     Output("secondary-dataset-selector", "options"),
-    Input("source-category-filter", "value"),
-    prevent_initial_call=False
+    Input("analyze-time-range", "value"),
+    prevent_initial_call=False,
 )
-def update_dataset_options(category):
-    """Update dataset options for cross-domain analysis."""
-    datasets = []
-    
-    for cat in DATA_CATEGORIES:
-        datasets.append({
-            "label": f"{cat['icon']} {cat['name']}",
-            "value": cat["id"]
-        })
-    
+def update_dataset_options(_time_range):
+    """Populate cross-domain dataset dropdowns on page load.
+
+    Previously depended on ``source-category-filter`` which only existed on
+    the *explore* page, so the dropdowns were always empty on *analyze*.
+    Now fires unconditionally using a component guaranteed to be on this page.
+    """
+    datasets = [
+        {"label": f"{cat['icon']} {cat['name']}", "value": cat["id"]}
+        for cat in DATA_CATEGORIES
+    ]
     return datasets, datasets
 
 
 @callback(
     [Output("analysis-results-store", "data"),
      Output("analysis-loading-output", "children")],
-    Input("run-analysis-btn", "n_clicks"),
+    [Input("run-analysis-btn", "n_clicks"),
+     Input("category-checklist", "value")],
     [State("analysis-type-selector", "value"),
      State("aggregation-selector", "value"),
      State("statistic-selector", "value"),
-     State("explore-lat", "value"),
-     State("explore-lon", "value"),
+        State("latitude-input", "value"),
+        State("longitude-input", "value"),
      State("analysis-type-tabs", "active_tab"),
      State("analyze-time-range", "value")],
-    prevent_initial_call=True
+    prevent_initial_call=False
 )
-def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, active_tab, time_range):
-    """Execute the selected analysis."""
+def run_analysis(n_clicks, categories, analysis_type, aggregation, statistic, lat, lon, active_tab, time_range):
+    """Execute the selected analysis. Auto-triggers on page load."""
     if lat is None or lon is None:
         lat, lon = 37.7749, -122.4194
     
@@ -401,12 +642,37 @@ def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, acti
     days = time_to_days.get(time_range, 7)
     
     try:
-        # Fetch data with selected time range
+        # Fetch raw category data in parallel
+        combined_raw = {}
+        selected_cats = categories if categories else [
+            c["id"] for c in DATA_CATEGORIES
+        ]
+        api_results = get_categories_parallel(selected_cats, lat, lon)
+        for cat_id in selected_cats:
+            try:
+                cat_data = api_results.get(cat_id, {})
+                if cat_data and not cat_data.get("error"):
+                    sources = cat_data.get("data") or cat_data.get("sources") or []
+                    for src in sources:
+                        if isinstance(src, dict) and src.get("success"):
+                            inner = src.get("data", {})
+                            if isinstance(inner, dict):
+                                for key in ("hourly", "daily", "features",
+                                             "measurements", "results",
+                                             "properties", "value"):
+                                    if key in inner and key not in combined_raw:
+                                        combined_raw[key] = inner[key]
+                            combined_raw.setdefault("data", {}).setdefault(
+                                cat_id, []
+                            ).append(src)
+            except Exception:
+                pass
+
+        # Also fetch analysis insights
         data = analyze_location(lat, lon, days=days)
-        
-        if data.get("error"):
-            return None, dbc.Alert(f"Error: {data['error']}", color="danger")
-        
+        if data and not data.get("error"):
+            combined_raw["analysis"] = data
+
         # Process based on analysis type
         results = {
             "analysis_type": active_tab or analysis_type,
@@ -414,7 +680,7 @@ def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, acti
             "statistic": statistic,
             "location": {"lat": lat, "lon": lon},
             "timestamp": datetime.now().isoformat(),
-            "raw_data": data,
+            "raw_data": combined_raw,
             "processed": {}
         }
         
@@ -430,22 +696,43 @@ def run_analysis(n_clicks, analysis_type, aggregation, statistic, lat, lon, acti
     prevent_initial_call=True
 )
 def update_analysis_stats(results):
-    """Update the statistics summary."""
+    """Update the statistics summary from real API data."""
     if not results:
         return html.P("Run an analysis to see statistics.", className="text-muted")
-    
-    # Generate summary statistics
+
+    raw_data = results.get("raw_data", {})
+    values = _extract_numeric_values(raw_data)
+
+    if not values:
+        api_links = [
+            html.Li(html.A(
+                f"{cat['icon']} {cat['name']}",
+                href=f"{API_BASE_URL}/api/v1/hub/category/{cat['id']}?lat=37.7749&lon=-122.4194",
+                target="_blank"
+            ))
+            for cat in DATA_CATEGORIES
+        ]
+        return html.Div([
+            dbc.Alert(
+                "No numeric data available for this location. Try different coordinates.",
+                color="warning",
+            ),
+            html.P("View raw API data:", className="fw-bold mt-2"),
+            html.Ul(api_links, style={"fontSize": "0.85rem"}),
+        ])
+
+    arr = np.array(values, dtype=float)
     stats = {
-        "mean": np.random.uniform(10, 50),
-        "median": np.random.uniform(10, 50),
-        "std": np.random.uniform(1, 10),
-        "min": np.random.uniform(0, 10),
-        "max": np.random.uniform(50, 100),
-        "count": np.random.randint(100, 1000),
-        "p90": np.random.uniform(40, 60),
-        "iqr": np.random.uniform(5, 15)
+        "mean": float(np.mean(arr)),
+        "median": float(np.median(arr)),
+        "std": float(np.std(arr)),
+        "min": float(np.min(arr)),
+        "max": float(np.max(arr)),
+        "count": len(arr),
+        "p90": float(np.percentile(arr, 90)),
+        "iqr": float(np.percentile(arr, 75) - np.percentile(arr, 25)),
     }
-    
+
     return dcc.Graph(
         figure=create_summary_cards(stats),
         config={"displayModeBar": False}
@@ -460,58 +747,52 @@ def update_analysis_stats(results):
     prevent_initial_call=True
 )
 def update_analysis_chart(results, analysis_type, time_range):
-    """Update the main analysis chart."""
+    """Update the main analysis chart using real API data."""
     if not results:
         return html.P("Run an analysis to see the chart.", className="text-muted")
-    
-    # Convert time range to days and periods
-    time_to_days = {
-        "1H": 1, "6H": 1, "24H": 1,
-        "7D": 7, "30D": 30, "90D": 90, "1Y": 365
-    }
-    days = time_to_days.get(time_range, 7)
-    periods = days * 24  # hourly periods
-    
-    # Generate sample data for visualization using selected time range
-    dates = pd.date_range(start=datetime.now() - timedelta(days=days), periods=periods, freq="h")
-    values = np.cumsum(np.random.randn(periods)) + 50
-    df = pd.DataFrame({"value": values}, index=dates)
-    
+
+    raw_data = results.get("raw_data", {})
+    df = _build_dataframe(raw_data, time_range)
+
+    if df.empty or "value" not in df.columns:
+        return dbc.Alert(
+            "No chartable data returned from the API. Try selecting different categories.",
+            color="warning",
+        )
+
     if analysis_type == "time-series":
-        # Add moving average
-        df["moving_avg"] = df["value"].rolling(24).mean()
+        df["moving_avg"] = df["value"].rolling(min(24, max(2, len(df) // 4)), min_periods=1).mean()
         fig = create_time_series_chart(
-            df, 
+            df,
             columns=["value", "moving_avg"],
-            title="Time Series Analysis",
-            y_title="Value"
+            title="Time Series Analysis (Real Data)",
+            y_title="Value",
         )
     elif analysis_type == "correlation":
-        # Generate correlation matrix
-        corr_data = pd.DataFrame(
-            np.random.randn(100, 5),
-            columns=["PM2.5", "Temperature", "Humidity", "Wind", "Pressure"]
-        ).corr()
-        fig = create_correlation_heatmap(corr_data, title="Parameter Correlations")
+        # Build multi-column DF from raw_data categories
+        corr_df = _build_multi_column_df(raw_data)
+        if corr_df.shape[1] >= 2:
+            fig = create_correlation_heatmap(corr_df.corr(), title="Parameter Correlations (Real Data)")
+        else:
+            fig = create_time_series_chart(df, columns=["value"], title="Insufficient data for correlation")
     elif analysis_type == "anomaly":
-        # Mark some anomalies
         processor = DataProcessor()
         anomalies = processor.detect_anomalies(df["value"], method="zscore", threshold=2.0)
-        fig = create_anomaly_chart(df, "value", anomalies, title="Anomaly Detection")
+        fig = create_anomaly_chart(df, "value", anomalies, title="Anomaly Detection (Real Data)")
     elif analysis_type == "trend":
         processor = DataProcessor()
         trend_data = processor.calculate_trend(df["value"])
-        fig = create_trend_chart(df, "value", trend_data, title="Trend Analysis")
+        fig = create_trend_chart(df, "value", trend_data, title="Trend Analysis (Real Data)")
     elif analysis_type == "distribution":
         fig = create_histogram(
             df["value"],
-            title="Value Distribution",
+            title="Value Distribution (Real Data)",
             x_title="Value",
-            show_normal=True
+            show_normal=True,
         )
     else:
-        fig = create_time_series_chart(df, columns=["value"], title="Analysis Results")
-    
+        fig = create_time_series_chart(df, columns=["value"], title="Analysis Results (Real Data)")
+
     return dcc.Graph(figure=fig, config={"displayModeBar": True})
 
 
@@ -521,31 +802,50 @@ def update_analysis_chart(results, analysis_type, time_range):
     prevent_initial_call=True
 )
 def update_secondary_charts(results):
-    """Update secondary analysis charts."""
+    """Update secondary analysis charts using real data."""
     if not results:
         return []
-    
-    # Generate additional visualizations
-    dates = pd.date_range(start=datetime.now() - timedelta(days=7), periods=168, freq="h")
-    df = pd.DataFrame({
-        "value1": np.cumsum(np.random.randn(168)) + 50,
-        "value2": np.cumsum(np.random.randn(168)) + 30
-    }, index=dates)
-    
-    return [
-        dbc.Col([
-            dcc.Graph(
-                figure=create_histogram(df["value1"], title="Distribution", nbins=30, height=300),
-                config={"displayModeBar": False}
+
+    raw_data = results.get("raw_data", {})
+    values = _extract_numeric_values(raw_data)
+    if not values:
+        return []
+
+    arr = np.array(values, dtype=float)
+    df = pd.DataFrame({"value": arr})
+
+    charts = []
+    try:
+        charts.append(
+            dbc.Col([
+                dcc.Graph(
+                    figure=create_histogram(
+                        df["value"], title="Distribution (Real Data)", nbins=min(30, len(arr)), height=350
+                    ),
+                    config={"displayModeBar": False},
+                )
+            ], md=6)
+        )
+    except Exception:
+        pass
+
+    # Build multi-column DF if possible for box plot
+    multi_df = _build_multi_column_df(raw_data)
+    if multi_df.shape[1] >= 2:
+        cols = list(multi_df.columns)[:4]
+        try:
+            charts.append(
+                dbc.Col([
+                    dcc.Graph(
+                        figure=create_box_plot(multi_df, cols, title="Category Comparison", height=350),
+                        config={"displayModeBar": False},
+                    )
+                ], md=6)
             )
-        ], md=6),
-        dbc.Col([
-            dcc.Graph(
-                figure=create_box_plot(df, ["value1", "value2"], title="Comparison", height=300),
-                config={"displayModeBar": False}
-            )
-        ], md=6)
-    ]
+        except Exception:
+            pass
+
+    return charts
 
 
 @callback(
@@ -555,41 +855,73 @@ def update_secondary_charts(results):
     prevent_initial_call=True
 )
 def update_analysis_insights(results, analysis_type):
-    """Generate insights from the analysis."""
+    """Generate real insights from the analysis data."""
     if not results:
         return html.P("Run an analysis to see insights.", className="text-muted")
-    
+
+    raw_data = results.get("raw_data", {})
+    location = results.get("location", {})
+    values = _extract_numeric_values(raw_data)
     insights = []
-    
-    if analysis_type == "time-series":
-        insights = [
-            {"icon": "📈", "text": "Data shows an upward trend over the past 7 days", "type": "info"},
-            {"icon": "🔄", "text": "Clear daily seasonality pattern detected", "type": "info"},
-            {"icon": "⚡", "text": "Peak values typically occur between 2-4 PM", "type": "warning"}
-        ]
-    elif analysis_type == "correlation":
-        insights = [
-            {"icon": "🔗", "text": "Strong positive correlation (r=0.82) between temperature and PM2.5", "type": "warning"},
-            {"icon": "🔗", "text": "Moderate negative correlation (r=-0.45) between wind speed and pollutants", "type": "info"},
-            {"icon": "✅", "text": "Humidity shows no significant correlation with air quality", "type": "success"}
-        ]
-    elif analysis_type == "anomaly":
-        insights = [
-            {"icon": "⚠️", "text": "3 anomalies detected in the past 24 hours", "type": "danger"},
-            {"icon": "📊", "text": "Anomaly rate is within normal bounds (< 5%)", "type": "success"},
-            {"icon": "🔍", "text": "Most anomalies occurred during nighttime hours", "type": "info"}
-        ]
-    elif analysis_type == "trend":
-        insights = [
-            {"icon": "📉", "text": "Long-term trend is statistically significant (p < 0.05)", "type": "info"},
-            {"icon": "📊", "text": "Rate of change: +2.3 units/day", "type": "warning"},
-            {"icon": "🔮", "text": "Forecast suggests continued increase for next 48 hours", "type": "warning"}
-        ]
+
+    if values:
+        arr = np.array(values, dtype=float)
+        mean_val = float(np.mean(arr))
+        std_val = float(np.std(arr))
+        n = len(arr)
+
+        insights.append({
+            "icon": "📊",
+            "text": f"Analysed {n} data points. Mean = {mean_val:.2f}, Std Dev = {std_val:.2f}",
+            "type": "info",
+        })
+
+        # Detect outliers via IQR
+        q1, q3 = float(np.percentile(arr, 25)), float(np.percentile(arr, 75))
+        iqr = q3 - q1
+        outliers = int(np.sum((arr < q1 - 1.5 * iqr) | (arr > q3 + 1.5 * iqr)))
+        pct = outliers / n * 100 if n else 0
+        color = "danger" if pct > 10 else "warning" if pct > 5 else "success"
+        insights.append({
+            "icon": "⚠️" if outliers else "✅",
+            "text": f"{outliers} outliers detected ({pct:.1f}% of data)",
+            "type": color,
+        })
+
+        # Simple trend (first half vs second half)
+        if n >= 10:
+            first_half = np.mean(arr[: n // 2])
+            second_half = np.mean(arr[n // 2 :])
+            change = second_half - first_half
+            direction = "upward" if change > 0 else "downward"
+            insights.append({
+                "icon": "📈" if change > 0 else "📉",
+                "text": f"General {direction} trend ({change:+.2f} change between first and second half)",
+                "type": "warning" if abs(change) > std_val else "info",
+            })
+
+        # Range insight
+        data_range = float(np.max(arr) - np.min(arr))
+        insights.append({
+            "icon": "📏",
+            "text": f"Data range: {float(np.min(arr)):.2f} to {float(np.max(arr)):.2f} (spread {data_range:.2f})",
+            "type": "info",
+        })
     else:
-        insights = [
-            {"icon": "📊", "text": "Analysis complete. Review the charts above for details.", "type": "info"}
-        ]
-    
+        insights.append({
+            "icon": "ℹ️",
+            "text": "No numeric data returned from the API for this location.",
+            "type": "warning",
+        })
+
+    lat = location.get("lat", "?")
+    lon = location.get("lon", "?")
+    insights.append({
+        "icon": "📍",
+        "text": f"Location: ({lat}, {lon})",
+        "type": "secondary",
+    })
+
     return dbc.Card([
         dbc.CardHeader(html.H6("💡 Key Insights", className="mb-0")),
         dbc.CardBody([
@@ -602,3 +934,59 @@ def update_analysis_insights(results, analysis_type):
             ])
         ])
     ])
+
+
+# ==================== CROSS-DOMAIN LINK CALLBACK ====================
+
+@callback(
+    [Output("linked-datasets-store", "data"),
+     Output("link-datasets-toast", "is_open"),
+     Output("link-datasets-toast", "children"),
+     Output("link-datasets-toast", "icon")],
+    Input("link-datasets-btn", "n_clicks"),
+    [State("primary-dataset-selector", "value"),
+     State("secondary-dataset-selector", "value"),
+     State("join-key-selector", "value"),
+     State("time-tolerance-input", "value"),
+     State("time-tolerance-unit", "value")],
+    prevent_initial_call=True
+)
+def link_datasets(n_clicks, primary, secondary, join_key, tolerance, tolerance_unit):
+    """Link two datasets for cross-domain analysis and notify the user."""
+    if not primary or not secondary:
+        return (
+            None, True,
+            "Please select both a primary and secondary dataset before linking.",
+            "warning"
+        )
+
+    if primary == secondary:
+        return (
+            None, True,
+            "Primary and secondary datasets must be different.",
+            "warning"
+        )
+
+    # Look up display names
+    cat_lookup = {c["id"]: c["name"] for c in DATA_CATEGORIES}
+    primary_name = cat_lookup.get(primary, primary)
+    secondary_name = cat_lookup.get(secondary, secondary)
+
+    linked_data = {
+        "primary": primary,
+        "secondary": secondary,
+        "primary_name": primary_name,
+        "secondary_name": secondary_name,
+        "join_key": join_key or "timestamp",
+        "tolerance": tolerance or 1,
+        "tolerance_unit": tolerance_unit or "hour",
+        "linked_at": datetime.now().isoformat(),
+    }
+
+    msg = (
+        f"Successfully linked {primary_name} + {secondary_name} "
+        f"(join: {join_key or 'timestamp'}, tolerance: {tolerance or 1} {tolerance_unit or 'hour'}). "
+        f"View the linked report on the Reports page."
+    )
+
+    return linked_data, True, msg, "success"
