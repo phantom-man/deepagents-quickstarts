@@ -8,8 +8,10 @@ from datetime import datetime, timedelta
 import json
 import io
 import base64
+import time
 
 from api_client import get_location_data, analyze_location, get_category_data, get_categories_parallel
+from components.progress_box import create_progress_box, make_entry, render_entries
 from components.charts import (
     create_time_series_chart,
     create_aqi_gauge,
@@ -305,7 +307,12 @@ def create_reports_layout() -> html.Div:
                 dbc.Button("Cancel", id="cancel-schedule-btn", color="secondary"),
                 dbc.Button("Create Schedule", id="create-schedule-btn", color="primary")
             ])
-        ], id="schedule-modal", is_open=False)
+        ], id="schedule-modal", is_open=False),
+
+        # ── Activity Log ──
+        create_progress_box("reports", [
+            "progress-reports-gen",
+        ]),
     ])
 
 
@@ -331,7 +338,8 @@ def handle_report_time_dropdown(selected_value):
 
 
 @callback(
-    Output("report-preview-container", "children"),
+    [Output("report-preview-container", "children"),
+     Output("progress-reports-gen", "data")],
     [Input("generate-report-btn", "n_clicks"),
      Input("report-type-selector", "value")],
     [State("export-format-selector", "value"),
@@ -354,6 +362,7 @@ def generate_report_preview(
     Triggers on Generate button click AND report-type-selector changes
     (which happen when template buttons are used).
     """
+    _t0 = time.time()
     if not sections:
         sections = ["summary", "charts", "statistics"]
 
@@ -802,6 +811,14 @@ def generate_report_preview(
             dbc.Alert("Review the data above and consult local guidelines.", color="info"),
         ]))
 
+    _elapsed = int((time.time() - _t0) * 1000)
+    _prog = [
+        make_entry("info", f"Generating {(report_type or 'summary').title()} report for ({lat:.2f}, {lon:.2f})"),
+        make_entry("complete", f"Fetched {len(all_data)} data sources, {len(sections)} sections", duration_ms=_elapsed),
+        make_entry("separator", ""),
+        make_entry("success", "Report generated"),
+    ]
+
     return html.Div([
         dbc.Card([
             dbc.CardBody(preview_sections, style={"maxHeight": "700px", "overflow": "auto"})
@@ -822,7 +839,7 @@ def generate_report_preview(
             dbc.Badge(f"Sections: {len(sections)}", color="info"),
             dbc.Badge(f"Sources: {len(all_data)}", color="success", className="ms-2"),
         ], className="mt-3 text-center"),
-    ])
+    ]), _prog
 
 
 def _extract_table_rows(cat_id: str, data: dict) -> list:
@@ -1387,3 +1404,36 @@ def apply_report_template(summary_clicks, detailed_clicks, compliance_clicks, he
     sections = sections_mapping.get(triggered, ["summary", "charts", "statistics"])
     categories = categories_mapping.get(triggered, [cat["id"] for cat in DATA_CATEGORIES])
     return report_type, sections, categories
+
+
+# ==================== PROGRESS BOX CALLBACKS ====================
+
+@callback(
+    Output("progress-entries-reports", "children"),
+    Input("progress-reports-gen", "data"),
+    prevent_initial_call=False,
+)
+def render_reports_progress(gen_prog):
+    """Render the reports page activity log."""
+    entries = []
+    if gen_prog:
+        if isinstance(gen_prog, list):
+            entries.extend(gen_prog)
+        else:
+            entries.append(gen_prog)
+    else:
+        entries.append(make_entry("loading", "Waiting for report generation..."))
+    return render_entries(entries)
+
+
+@callback(
+    [Output("progress-body-reports", "is_open"),
+     Output("progress-icon-reports", "className")],
+    Input("progress-toggle-reports", "n_clicks"),
+    State("progress-body-reports", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_reports_progress(n, is_open):
+    """Toggle the reports progress box."""
+    new_state = not is_open
+    return new_state, "fas fa-chevron-up" if new_state else "fas fa-chevron-down"

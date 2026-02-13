@@ -7,11 +7,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import json
+import time
 
 from api_client import (
     get_location_data, analyze_location, get_category_data, proxy_request,
     get_categories_parallel,
 )
+from components.progress_box import create_progress_box, make_entry, render_entries
 from components.charts import (
     create_time_series_chart,
     create_correlation_heatmap,
@@ -519,7 +521,12 @@ def create_analyze_layout() -> html.Div:
             id="analysis-loading",
             type="circle",
             children=html.Div(id="analysis-loading-output")
-        )
+        ),
+
+        # ── Activity Log ──
+        create_progress_box("analyze", [
+            "progress-analyze-run",
+        ]),
     ])
 
 
@@ -617,7 +624,8 @@ def update_dataset_options(_time_range):
 
 @callback(
     [Output("analysis-results-store", "data"),
-     Output("analysis-loading-output", "children")],
+     Output("analysis-loading-output", "children"),
+     Output("progress-analyze-run", "data")],
     [Input("run-analysis-btn", "n_clicks"),
      Input("category-checklist", "value")],
     [State("analysis-type-selector", "value"),
@@ -631,6 +639,7 @@ def update_dataset_options(_time_range):
 )
 def run_analysis(n_clicks, categories, analysis_type, aggregation, statistic, lat, lon, active_tab, time_range):
     """Execute the selected analysis. Auto-triggers on page load."""
+    _t0 = time.time()
     if lat is None or lon is None:
         lat, lon = 37.7749, -122.4194
     
@@ -684,10 +693,21 @@ def run_analysis(n_clicks, categories, analysis_type, aggregation, statistic, la
             "processed": {}
         }
         
-        return results, dbc.Alert("Analysis complete!", color="success")
+        _elapsed = int((time.time() - _t0) * 1000)
+        _cat_count = len(selected_cats)
+        _data_keys = len(combined_raw)
+        _prog = [
+            make_entry("info", f"Running {active_tab or analysis_type} analysis at ({lat:.2f}, {lon:.2f})"),
+            make_entry("complete", f"Fetched {_cat_count} categories, {_data_keys} data streams", duration_ms=_elapsed),
+            make_entry("separator", ""),
+            make_entry("success", "Analysis complete"),
+        ]
+        return results, dbc.Alert("Analysis complete!", color="success"), _prog
         
     except Exception as e:
-        return None, dbc.Alert(f"Analysis failed: {str(e)}", color="danger")
+        return None, dbc.Alert(f"Analysis failed: {str(e)}", color="danger"), [
+            make_entry("error", f"Analysis failed: {str(e)[:60]}"),
+        ]
 
 
 @callback(
@@ -990,3 +1010,36 @@ def link_datasets(n_clicks, primary, secondary, join_key, tolerance, tolerance_u
     )
 
     return linked_data, True, msg, "success"
+
+
+# ==================== PROGRESS BOX CALLBACKS ====================
+
+@callback(
+    Output("progress-entries-analyze", "children"),
+    Input("progress-analyze-run", "data"),
+    prevent_initial_call=False,
+)
+def render_analyze_progress(run_prog):
+    """Render the analyze page activity log."""
+    entries = []
+    if run_prog:
+        if isinstance(run_prog, list):
+            entries.extend(run_prog)
+        else:
+            entries.append(run_prog)
+    else:
+        entries.append(make_entry("loading", "Waiting for analysis to start..."))
+    return render_entries(entries)
+
+
+@callback(
+    [Output("progress-body-analyze", "is_open"),
+     Output("progress-icon-analyze", "className")],
+    Input("progress-toggle-analyze", "n_clicks"),
+    State("progress-body-analyze", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_analyze_progress(n, is_open):
+    """Toggle the analyze progress box."""
+    new_state = not is_open
+    return new_state, "fas fa-chevron-up" if new_state else "fas fa-chevron-down"

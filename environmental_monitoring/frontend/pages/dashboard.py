@@ -12,8 +12,11 @@ import dash_bootstrap_components as dbc
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import logging
+import time
 
 import plotly.graph_objects as go
+
+from components.progress_box import create_progress_box, make_entry, render_entries
 
 from api_client import (
     get_hub_info, get_sources, quick_check, get_health, get_category_data,
@@ -1374,7 +1377,15 @@ def create_dashboard_layout():
                     ])
                 ])
             ], md=6)
-        ])
+        ]),
+
+        # ── Activity Log ──
+        create_progress_box("dash", [
+            "progress-dash-qc",
+            "progress-dash-cats",
+            "progress-dash-map",
+            "progress-dash-stats",
+        ]),
     ])
 
 
@@ -1407,7 +1418,8 @@ def update_filter_display(lat, lon, time_range, categories):
 # ==================== CENTRAL DATA LOADING CALLBACK ====================
 
 @callback(
-    Output("loaded-category-data", "data"),
+    [Output("loaded-category-data", "data"),
+     Output("progress-dash-cats", "data")],
     [Input("quick-check-btn", "n_clicks"),
      Input("location-updated-trigger", "data"),
      Input("global-time-range", "value"),
@@ -1433,6 +1445,7 @@ def load_all_category_data(
     - Reload all button
     - Initial page load (via interval)
     """
+    _t0 = time.time()
     triggered = ctx.triggered_id
     
     if triggered == "location-updated-trigger" and location_trigger:
@@ -1492,8 +1505,23 @@ def load_all_category_data(
             }
         except Exception as e:
             loaded_data["categories"][cat_id] = {"error": str(e)}
-    
-    return loaded_data
+
+    # ── Build progress log entries ──
+    _elapsed = int((time.time() - _t0) * 1000)
+    progress = []
+    progress.append(make_entry("info", f"Fetching data for ({lat:.2f}, {lon:.2f}), {len(categories)} categories"))
+    for _cid in categories:
+        _cr = loaded_data["categories"].get(_cid, {})
+        if "error" in _cr:
+            progress.append(make_entry("error", f"{_cid}: {str(_cr['error'])[:60]}"))
+        elif _is_category_empty(_cr):
+            progress.append(make_entry("warning", f"{_cid}: No data at this location"))
+        else:
+            _detail = _summarize_for_log(_cid, _cr.get("summary", {}))
+            progress.append(make_entry("complete", f"{_cid}: {_detail}"))
+    progress.append(make_entry("complete", f"All {len(categories)} categories processed", duration_ms=_elapsed))
+
+    return loaded_data, progress
 
 
 def _build_merged_summary(
@@ -1517,12 +1545,14 @@ def _build_merged_summary(
 
 @callback(
     [Output("dashboard-map", "children"),
-     Output("map-data-count", "children")],
+     Output("map-data-count", "children"),
+     Output("progress-dash-map", "data")],
     Input("loaded-category-data", "data"),
     prevent_initial_call=False
 )
 def update_dashboard_map(loaded_data):
     """Update the map with loaded category data using Plotly Scattermapbox (no API key needed)."""
+    _map_t0 = time.time()
     location = loaded_data.get("location", {}) if loaded_data else {}
     lat = location.get("lat", MAP_CONFIG["default_lat"])
     lon = location.get("lon", MAP_CONFIG["default_lon"])
@@ -1850,7 +1880,13 @@ def update_dashboard_map(loaded_data):
     )
 
     count_text = f"{total_points} data points" if total_points > 0 else "No data loaded"
-    return map_component, count_text
+    _map_ms = int((time.time() - _map_t0) * 1000)
+    _map_prog = make_entry(
+        "complete" if total_points > 0 else "warning",
+        f"Map rendered: {count_text} across {len(traces_by_cat)} categories",
+        duration_ms=_map_ms,
+    )
+    return map_component, count_text, _map_prog
 
 
 # ==================== CATEGORY GRAPHS CALLBACK ====================
@@ -1987,13 +2023,15 @@ def update_intersection_graph(loaded_data):
 # ==================== STATS AND STATUS CALLBACKS ====================
 
 @callback(
-    Output("dashboard-stats-row", "children"),
+    [Output("dashboard-stats-row", "children"),
+     Output("progress-dash-stats", "data")],
     [Input("reload-all-data-btn", "n_clicks"),
      Input("loaded-category-data", "data")],
     prevent_initial_call=False
 )
 def update_dashboard_stats(n_clicks, loaded_data):
     """Update the dashboard statistics cards."""
+    _st0 = time.time()
     try:
         hub_info = get_hub_info()
         
@@ -2023,21 +2061,26 @@ def update_dashboard_stats(n_clicks, loaded_data):
             "last_update": datetime.now().strftime("%H:%M:%S")
         }
         
-        return create_stats_cards(stats)
+        return create_stats_cards(stats), make_entry(
+            "complete",
+            f"Stats: {stats['total_sources']} sources, {stats['data_points']} data points",
+            duration_ms=int((time.time() - _st0) * 1000),
+        )
     except Exception as e:
         return create_stats_cards({
             "total_sources": "Error",
             "active_alerts": "Error",
             "data_points": "Error",
             "last_update": str(e)[:20]
-        })
+        }), make_entry("error", f"Stats failed: {str(e)[:50]}")
 
 
 @callback(
     [Output("quick-check-status", "children"),
      Output("aqi-gauge-container", "children"),
      Output("weather-summary-container", "children"),
-     Output("loading-indicator", "children")],
+     Output("loading-indicator", "children"),
+     Output("progress-dash-qc", "data")],
     [Input("quick-check-btn", "n_clicks"),
      Input("location-updated-trigger", "data"),
      Input("initial-load-trigger", "n_intervals")],
@@ -2062,6 +2105,7 @@ def update_quick_check(
         lon = quick_lon or -122.4194
     
     try:
+        _qc0 = time.time()
         result = quick_check(lat, lon)
         
         status_map = {
@@ -2098,7 +2142,14 @@ def update_quick_check(
         
         loading_text = f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
         
-        return status_badge, aqi_gauge, weather_summary, loading_text
+        _qc_ms = int((time.time() - _qc0) * 1000)
+        _qc_prog = make_entry(
+            "complete",
+            f"Quick check: AQI {aqi_value} ({aqi_label}), {temp}\u00b0C",
+            duration_ms=_qc_ms,
+        )
+        
+        return status_badge, aqi_gauge, weather_summary, loading_text, _qc_prog
         
     except Exception as e:
         error_alert = dbc.Alert(f"Error: {str(e)[:50]}", color="danger", className="mb-0 py-2")
@@ -2106,7 +2157,8 @@ def update_quick_check(
             error_alert, 
             html.P("Unable to load AQI"), 
             html.P("Unable to load weather"), 
-            "Error loading data"
+            "Error loading data",
+            make_entry("error", f"Quick check failed: {str(e)[:50]}"),
         )
 
 
@@ -2193,6 +2245,36 @@ def update_data_sources_status(n_clicks):
 
 # ==================== HELPER: CHECK EMPTY CATEGORY ====================
 
+def _summarize_for_log(cat_id: str, summary: Dict[str, Any]) -> str:
+    """One-line human-readable summary of a category for the activity log."""
+    if cat_id == "air_quality":
+        aqi = summary.get("aqi", summary.get("us_aqi", "?"))
+        pm = summary.get("pm25", summary.get("pm2_5", ""))
+        return f"AQI {aqi}" + (f", PM2.5 {pm}" if pm else "")
+    if cat_id == "weather":
+        temp = summary.get("temperature", summary.get("temperature_c", "?"))
+        return f"{temp}\u00b0C"
+    if cat_id == "earthquakes":
+        return f"{summary.get('count', summary.get('total', '?'))} events"
+    if cat_id == "wildfires":
+        return f"{summary.get('count', summary.get('total', '?'))} incidents"
+    if cat_id == "water":
+        return f"{summary.get('station_count', summary.get('count', '?'))} stations"
+    if cat_id == "marine":
+        return f"{summary.get('station_count', summary.get('count', '?'))} observations"
+    if cat_id == "radiation":
+        return f"{summary.get('value', summary.get('avg_value', '?'))} cpm"
+    if cat_id == "climate":
+        return f"Avg {summary.get('avg_temp', summary.get('temperature', '?'))}\u00b0C"
+    if cat_id == "soil":
+        return f"{summary.get('layer_count', summary.get('layers', '?'))} layers"
+    if cat_id == "biodiversity":
+        return f"{summary.get('species_count', summary.get('count', '?'))} species"
+    # Generic fallback
+    parts = [f"{k}: {v}" for k, v in list(summary.items())[:2] if v]
+    return ", ".join(parts) if parts else "Data loaded"
+
+
 def _is_category_empty(cat_data: Dict[str, Any]) -> bool:
     """Check if a category's loaded data is effectively empty."""
     if not cat_data or not isinstance(cat_data, dict):
@@ -2252,3 +2334,67 @@ def update_category_availability(loaded_data):
         options.append(opt)
 
     return options
+
+
+# ==================== PROGRESS BOX CALLBACKS ====================
+
+@callback(
+    Output("progress-entries-dash", "children"),
+    [Input("progress-dash-qc", "data"),
+     Input("progress-dash-cats", "data"),
+     Input("progress-dash-map", "data"),
+     Input("progress-dash-stats", "data")],
+    prevent_initial_call=False,
+)
+def render_dash_progress(qc, cats, map_prog, stats):
+    """Combine all task progress stores into a single rendered activity log."""
+    entries: List[Dict[str, Any]] = []
+
+    # ── Quick Check ──
+    if qc:
+        entries.append(qc) if isinstance(qc, dict) else entries.extend(qc)
+    else:
+        entries.append(make_entry("loading", "Loading quick check (AQI + Weather)..."))
+
+    # ── Category data ──
+    if cats:
+        if isinstance(cats, list):
+            entries.extend(cats)
+        else:
+            entries.append(cats)
+    else:
+        entries.append(make_entry("loading", "Loading 10 data categories..."))
+
+    # ── Map ──
+    if map_prog:
+        entries.append(map_prog) if isinstance(map_prog, dict) else entries.extend(map_prog)
+    else:
+        entries.append(make_entry("loading", "Rendering environmental data map..."))
+
+    # ── Stats ──
+    if stats:
+        entries.append(stats) if isinstance(stats, dict) else entries.extend(stats)
+    else:
+        entries.append(make_entry("loading", "Computing dashboard statistics..."))
+
+    # ── Completion banner ──
+    all_done = all(x is not None for x in [qc, cats, map_prog, stats])
+    if all_done:
+        entries.append(make_entry("separator", ""))
+        entries.append(make_entry("success", "All tasks complete \u2014 Dashboard fully loaded"))
+
+    return render_entries(entries)
+
+
+@callback(
+    [Output("progress-body-dash", "is_open"),
+     Output("progress-icon-dash", "className")],
+    Input("progress-toggle-dash", "n_clicks"),
+    State("progress-body-dash", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_dash_progress(n, is_open):
+    """Toggle the progress box open/closed."""
+    new_state = not is_open
+    icon = "fas fa-chevron-up" if new_state else "fas fa-chevron-down"
+    return new_state, icon

@@ -7,11 +7,13 @@ import pandas as pd
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import json
+import time
 
 from api_client import (
     get_sources, get_categories, get_location_data, get_category_data,
     proxy_request
 )
+from components.progress_box import create_progress_box, make_entry, render_entries
 from components.charts import (
     create_time_series_chart,
     create_histogram,
@@ -111,7 +113,12 @@ def create_explore_layout() -> html.Div:
             id="explore-loading",
             type="circle",
             children=html.Div(id="explore-loading-output")
-        )
+        ),
+
+        # ── Activity Log ──
+        create_progress_box("explore", [
+            "progress-explore-fetch",
+        ]),
     ])
 
 
@@ -181,7 +188,8 @@ def update_source_badges(selected_sources):
 
 @callback(
     [Output("explore-data-store", "data"),
-     Output("explore-loading-output", "children")],
+     Output("explore-loading-output", "children"),
+     Output("progress-explore-fetch", "data")],
     [Input("explore-search-btn", "n_clicks"),
      Input("category-checklist", "value")],
     [State("explore-lat", "value"),
@@ -193,6 +201,7 @@ def update_source_badges(selected_sources):
 )
 def fetch_exploration_data(n_clicks, categories, lat, lon, radius, sources, time_range):
     """Fetch data based on exploration filters. Auto-loads on page visit."""
+    _t0 = time.time()
     lat = lat or MAP_CONFIG["default_lat"]
     lon = lon or MAP_CONFIG["default_lon"]
     
@@ -222,7 +231,9 @@ def fetch_exploration_data(n_clicks, categories, lat, lon, radius, sources, time
                         result["data"][category] = cat_resp.get("data", [])
         
         if result.get("error"):
-            return None, dbc.Alert(f"Error: {result['error']}", color="danger")
+            return None, dbc.Alert(f"Error: {result['error']}", color="danger"), [
+                make_entry("error", f"API error: {str(result['error'])[:60]}"),
+            ]
         
         # Count successful sources
         sources_count = 0
@@ -242,13 +253,22 @@ def fetch_exploration_data(n_clicks, categories, lat, lon, radius, sources, time
                                 elif "results" in source_data:
                                     records_count += len(source_data.get("results", []))
         
+        _elapsed = int((time.time() - _t0) * 1000)
+        _prog = [
+            make_entry("info", f"Exploring ({lat:.2f}, {lon:.2f}), radius {radius or 50} km"),
+            make_entry("complete", f"{sources_count} sources, {records_count} records", duration_ms=_elapsed),
+            make_entry("separator", ""),
+            make_entry("success", "Exploration data loaded"),
+        ]
         return result, dbc.Alert(
-            f"✅ Found data from {sources_count} sources ({records_count} records)",
+            f"\u2705 Found data from {sources_count} sources ({records_count} records)",
             color="success"
-        )
+        ), _prog
         
     except Exception as e:
-        return None, dbc.Alert(f"Error fetching data: {str(e)}", color="danger")
+        return None, dbc.Alert(f"Error fetching data: {str(e)}", color="danger"), [
+            make_entry("error", f"Fetch failed: {str(e)[:60]}"),
+        ]
 
 
 @callback(
@@ -814,3 +834,36 @@ def quick_fetch_data(n_clicks, sidebar_lat, sidebar_lon):
             return None
     except Exception as e:
         return {"error": str(e)}
+
+
+# ==================== PROGRESS BOX CALLBACKS ====================
+
+@callback(
+    Output("progress-entries-explore", "children"),
+    Input("progress-explore-fetch", "data"),
+    prevent_initial_call=False,
+)
+def render_explore_progress(fetch_prog):
+    """Render the explore page activity log."""
+    entries = []
+    if fetch_prog:
+        if isinstance(fetch_prog, list):
+            entries.extend(fetch_prog)
+        else:
+            entries.append(fetch_prog)
+    else:
+        entries.append(make_entry("loading", "Waiting for data exploration request..."))
+    return render_entries(entries)
+
+
+@callback(
+    [Output("progress-body-explore", "is_open"),
+     Output("progress-icon-explore", "className")],
+    Input("progress-toggle-explore", "n_clicks"),
+    State("progress-body-explore", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_explore_progress(n, is_open):
+    """Toggle the explore progress box."""
+    new_state = not is_open
+    return new_state, "fas fa-chevron-up" if new_state else "fas fa-chevron-down"
