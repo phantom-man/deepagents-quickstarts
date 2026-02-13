@@ -1242,8 +1242,13 @@ def create_dashboard_layout():
         dbc.Card([
             dbc.CardHeader([
                 html.H5("Quick Location Check", className="mb-0 d-inline"),
-                html.Div(id="loading-indicator", className="float-end small text-muted")
-            ]),
+                dbc.Spinner(
+                    html.Span(id="loading-indicator", className="text-muted small"),
+                    size="sm",
+                    color="primary",
+                    spinner_class_name="ms-2",
+                ),
+            ], className="d-flex justify-content-between align-items-center"),
             dbc.CardBody([
                 dbc.Row([
                     dbc.Col([
@@ -1276,10 +1281,18 @@ def create_dashboard_layout():
                 html.Hr(),
                 dbc.Row([
                     dbc.Col([
-                        html.Div(id="aqi-gauge-container")
+                        dcc.Loading(
+                            html.Div(id="aqi-gauge-container"),
+                            type="circle",
+                            overlay_style={"visibility": "visible", "opacity": 0.5},
+                        )
                     ], md=4),
                     dbc.Col([
-                        html.Div(id="weather-summary-container")
+                        dcc.Loading(
+                            html.Div(id="weather-summary-container"),
+                            type="circle",
+                            overlay_style={"visibility": "visible", "opacity": 0.5},
+                        )
                     ], md=4),
                     dbc.Col([
                         dbc.Alert([
@@ -1301,7 +1314,11 @@ def create_dashboard_layout():
                         html.Small(id="map-data-count", className="float-end text-muted")
                     ]),
                     dbc.CardBody([
-                        html.Div(id="dashboard-map")
+                        dcc.Loading(
+                            html.Div(id="dashboard-map"),
+                            type="circle",
+                            overlay_style={"visibility": "visible", "filter": "blur(2px)"},
+                        )
                     ])
                 ])
             ], lg=8, className="mb-4"),
