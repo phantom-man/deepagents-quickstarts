@@ -36,6 +36,9 @@ plotly==5.17.0
 httpx==0.25.2
 aiohttp==3.9.1
 
+# Google Data Commons
+datacommons-client[Pandas]>=1.4.0
+
 # Alerting and notifications
 # smtplib is built into Python - no package needed
 twilio==8.2.2

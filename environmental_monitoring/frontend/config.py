@@ -10,6 +10,17 @@ load_dotenv()
 API_BASE_URL = os.getenv("API_BASE_URL", "https://env-monitor-api-758343025648.us-central1.run.app")
 API_TIMEOUT = int(os.getenv("API_TIMEOUT", "30"))
 
+# Google Maps Configuration
+GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+GOOGLE_MAPS_REGION = os.getenv("GOOGLE_MAPS_REGION", "us")
+
+# Google Data Commons Configuration
+DATA_COMMONS_API_KEY = os.getenv(
+    "DATA_COMMONS_API_KEY",
+    "AIzaSyCTI4Xz-UW_G2Q2RfknhcfdAnTHq5X5XuI",  # public trial key
+)
+DC_TIMEOUT = float(os.getenv("DC_TIMEOUT", "15"))
+
 # Cache Configuration
 CACHE_DIR = os.getenv("CACHE_DIR", ".cache")
 CACHE_TTL_SHORT = 300  # 5 minutes for real-time data

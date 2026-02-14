@@ -43,6 +43,50 @@ These protocols translate vague directives into specific, verifiable actions.
 
 ---
 
+### Protocol 2B: User Directive Compliance (CRITICAL - Added 2026-02-12)
+
+**THIS IS A HARD DIRECTIVE. NO EXCEPTIONS.**
+
+**Core Rule:** EVERY user-reported issue and EVERY user directive MUST be addressed. Ignoring, deprioritizing, or deferring a user request without explicit acknowledgment is FORBIDDEN.
+
+**Trigger:** Every new user message that reports a bug, requests a feature, or gives a directive.
+
+**MANDATORY BEHAVIORS:**
+
+1. **Never Ignore Reported Issues:**
+   - If the user says "X is not working" or "X shows no data", that IS the task. Do not skip it.
+   - If there are multiple issues mentioned, create a todo item for EACH one.
+   - Mark each as completed only after the fix is implemented and verified.
+
+2. **Assume Default Context When Not Specified:**
+   - When the user reports an issue without specifying location/parameters, assume the **DEFAULT values** from the application config (e.g., SF 37.7749, -122.4194 for the Environmental Dashboard).
+   - Do NOT ask "what location were you looking at?" — test with defaults first.
+
+3. **Ask for Clarification Instead of Guessing:**
+   - If a directive is ambiguous or could be interpreted multiple ways, **STOP and ASK**.
+   - Say: "I want to make sure I understand correctly. Do you mean [interpretation A] or [interpretation B]?"
+   - Do NOT assume and implement the wrong interpretation across 200 lines of code.
+
+4. **Acknowledge Every Directive:**
+   - When the user gives a directive (e.g., "from now on, do X"), explicitly acknowledge it.
+   - If the directive conflicts with an existing protocol, state the conflict and ask which takes priority.
+   - Add persistent directives to copilot-instructions.md so they survive across sessions.
+
+5. **Track All Requests in Todo List:**
+   - Every distinct request in a user message gets its own todo item.
+   - Do not combine unrelated requests into a single todo.
+   - Complete them in priority order (bugs > features > cleanup).
+
+**Anti-patterns:**
+- "I'll address that later" (without creating a todo item)
+- Implementing 3 out of 4 requests and silently dropping the 4th
+- Assuming the user "probably didn't mean that" without asking
+- Testing at a different location/config than the user was using
+
+**Escalation:** If I cannot fulfill a request, I MUST say so explicitly and explain WHY, not silently skip it.
+
+---
+
 ### Protocol 3: Code Quality Gate (Enforces "run validation after code creation")
 
 **Trigger:** After creating or modifying ANY Python file
@@ -439,6 +483,22 @@ This section tracks decisions and learnings that evolve over time. Copilot reads
 | 2026-02-08 | Correlation ID Middleware | Middleware adds UUID correlation ID to each request; propagates via `request.state.correlation_id` | Returned in `X-Correlation-ID` response header; included in all structured log entries |
 | 2026-02-08 | Health Check Endpoints Pattern | `/ok` (liveness), `/ready` (readiness with DB check), `/health` (detailed with all dependencies) | Cloud Run uses `/ok` for startup/liveness probes; `/ready` returns 503 if DB unavailable |
 | 2026-02-08 | Protected Admin Endpoint Pattern | `/system/reset` requires `require_admin` dependency AND checks `settings.is_production` to block in prod | Double protection: auth + environment check prevents accidental production data wipe |
+| 2026-02-11 | Dash Version Pinning (CRITICAL) | Pin `dash>=2.14.0,<4.0.0` in requirements.txt; Dash 4.0.0 introduces `KeyError: 'output'` breaking change | Dash 3.4.0 is latest stable; 3.4.1 does not exist; Dash 4.0 rewrites callback internals and breaks all existing apps |
+| 2026-02-11 | Test Effectiveness Mandate | Tests MUST verify data content (assert len>0, assert values match), NOT just HTTP 200 status codes | Prior tests returned 200 for empty graphs, broken parsers, missing API keys — all useless; 59 new tests parse actual data fixtures |
+| 2026-02-11 | API Response Format Documentation (CRITICAL) | Each external API (Open-Meteo, OpenAQ, NDBC, USGS, NASA FIRMS, SoilGrids) returns unique JSON structures; parsers MUST handle ALL variants | Air quality: 3 formats (flat/hourly/OpenAQ); Marine: 4 formats (stations/observations/data/generic); Wildfires: 3 formats (incidents/GeoJSON/FIRMS); Soil: 4 formats (SoilGrids layers/USDA mapunits/tabular/flat) |
+| 2026-02-11 | NoneType Guard Pattern for Nested Dicts | Always use `x = d.get("key") or {}` not `d.get("key", {})` for nested dict access | `d.get("key", {})` returns None if key exists with None value; `or {}` ensures dict even when value is explicitly None |
+| 2026-02-11 | isinstance Guard for Mixed Lists | When iterating API response lists, always check `isinstance(item, dict)` before calling `.get()` | API responses can contain mixed types (dicts and strings in same list); `.get()` on string raises AttributeError |
+| 2026-02-11 | Backend Data Source Gaps | wildfires and radiation categories have empty `sample_endpoint` in hub.py (zero data sources); soil/SoilGrids needs lat/lon but hub ignores query params; marine NOAA buoy returns plain text not JSON | These are backend limitations that cause "No data available" on frontend — NOT frontend bugs |
+| 2026-02-11 | Environmental Dashboard Revision 00026 | Deployed with all graph parser fixes, reports page expansion, edge case guards, and Google Maps API key | URL: https://env-monitor-dashboard-758343025648.us-central1.run.app (revision env-monitor-dashboard-00026-2tl) |
+| 2026-02-12 | User Directive Compliance Protocol | Added Protocol 2B as HARD DIRECTIVE: never ignore user-reported issues, assume default context, ask for clarification, acknowledge every directive, track all requests | User-reported soil/biodiversity graph issues were initially overlooked; protocol ensures every user request is tracked and addressed |
+| 2026-02-12 | Soil Graph Null Fallback | SoilGrids returns null at SF; graph builder now tries mean→Q0.95→Q0.05 and queries all 6 depth ranges | Urban/water areas return null for mean; multiple depths + quantile fallback increases data coverage |
+| 2026-02-12 | Biodiversity Treemap→Bar Chart | Replaced Plotly treemap with horizontal bar chart grouped by genus | Treemap had silent rendering failures; bar chart is more reliable and informative |
+| 2026-02-12 | State-Level Map Data Loading | New `/hub/state-map` endpoint + `state_bounds.py` + map callback rewrite to load entire state data | User directive: map should show all data sources for entire state, not just point radius; ensures data always visible |
+| 2026-02-13 | WMO Weather Code Int Crash | Added `_WMO_CODES` dict (28 entries) mapping integer codes to human-readable strings in Quick Check callback | Open-Meteo returns `weather_code` as int (WMO 4677 standard); frontend called `.replace()` on it causing `'int' object has no attribute 'replace'` crash |
+| 2026-02-13 | AQI Added to /hub/quick | `/hub/quick` now fetches Open-Meteo AQ (us_aqi, pm2_5, pm10) in parallel with weather+earthquakes via `asyncio.gather` | AQI gauge always showed 0 because endpoint returned a string hint instead of real data; now returns dict with status classification |
+| 2026-02-13 | API Stress Test (100 Hypotheticals) | 77 PASS, 49 WARN (46 rate limits + 3 validation), 1 expected FAIL (/ready no DB). Zero real bugs. | Burst test (5 concurrent workers) confirmed rate limiter works; sequential test (7s delay) confirmed all endpoints handle edge cases (polar coords, ocean, inverted bounds) |
+| 2026-02-13 | Double-/v1 URL Fix | Fixed 4 endpoints in `hub.py` and `data_aggregator.py` that produced `//v1/v1/` URLs | `location_sources` dict had `/v1/` prefix AND the base URL already included `/v1`; removed duplicate prefix from gbif, open_meteo_marine, open_meteo, open_meteo_uv |
+| 2026-02-13 | Unused Import Cleanup | Removed `no_update`, `get_health`, `get_category_data`, `TIME_RANGES` imports and `latest_params` variable from dashboard.py | `get_errors` audit found 107 issues; substantive ones were unused imports/variables; rest were Pyright type-checker noise |
 
 #### Reference Files (Read-Only)
 The `memory-bank/` folder contains historical markdown files for context:

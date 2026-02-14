@@ -6,6 +6,7 @@ Handles all communication with the backend API.
 import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -275,9 +276,9 @@ def get_location_data(lat: float, lon: float, **kwargs) -> Dict:
     return sync_get("/api/v1/hub/location", params)
 
 
-def get_category_data(category: str, lat: float = 37.7749, lon: float = -122.4194) -> Dict:
+def get_category_data(category: str, lat: float = 37.7749, lon: float = -122.4194, days: int = 7) -> Dict:
     """Sync wrapper for get_category_data using direct HTTP client."""
-    return sync_get(f"/api/v1/hub/category/{category}", {"lat": lat, "lon": lon})
+    return sync_get(f"/api/v1/hub/category/{category}", {"lat": lat, "lon": lon, "days": days})
 
 
 def analyze_location(lat: float, lon: float, days: int = 7) -> Dict:
@@ -303,3 +304,51 @@ def get_health() -> Dict:
 def proxy_request(source_id: str, endpoint: str) -> Dict:
     """Sync wrapper for proxy_request using direct HTTP client."""
     return sync_get(f"/api/v1/hub/proxy/{source_id}", {"endpoint": endpoint})
+
+
+def get_categories_parallel(
+    categories: List[str],
+    lat: float = 37.7749,
+    lon: float = -122.4194,
+    days: int = 7,
+) -> Dict[str, Dict]:
+    """Fetch multiple category datasets in parallel using ThreadPoolExecutor.
+
+    Returns a dict mapping category_id -> API response dict.
+    Each call is independent so they run concurrently, cutting total wall-time
+    from ~N*3s (sequential) to ~3s (parallel).
+    """
+    results: Dict[str, Dict] = {}
+
+    def _fetch(cat_id: str) -> tuple:
+        try:
+            data = get_category_data(cat_id, lat, lon, days=days)
+            return cat_id, data
+        except Exception as exc:
+            logger.error("Parallel fetch for %s failed: %s", cat_id, exc)
+            return cat_id, {"error": str(exc), "success": False}
+
+    with ThreadPoolExecutor(max_workers=min(10, len(categories))) as pool:
+        futures = {pool.submit(_fetch, cid): cid for cid in categories}
+        for future in as_completed(futures):
+            cat_id, data = future.result()
+            results[cat_id] = data
+
+    return results
+
+
+def get_state_map_data(
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+) -> Dict:
+    """Fetch state-level map data from the backend state-map endpoint.
+
+    Queries spatial sources with the full bounding box and point sources
+    at a grid of locations within the box.
+    """
+    return sync_get(
+        "/api/v1/hub/state-map",
+        {"south": south, "west": west, "north": north, "east": east},
+    )

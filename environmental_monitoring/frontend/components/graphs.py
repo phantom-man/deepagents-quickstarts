@@ -17,6 +17,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 import plotly.graph_objects as go
+from data_processing import DataProcessor
 
 
 def create_air_quality_graph(data: Dict[str, Any]) -> go.Figure:
@@ -144,14 +145,55 @@ def create_wildfire_graph(data: Dict[str, Any]) -> go.Figure:
     incidents = data.get("incidents", [])
     
     if incidents:
-        # Group by source/type
-        contained = sum(1 for i in incidents if i.get("containment", 0) == 100)
-        active = len(incidents) - contained
+        def parse_containment(value: Any) -> Optional[float]:
+            if value is None:
+                return None
+            if isinstance(value, (int, float)):
+                return float(value)
+            if isinstance(value, str):
+                cleaned = value.strip().replace("%", "")
+                if cleaned.isdigit():
+                    return float(cleaned)
+            return None
+
+        contained = 0
+        unknown = 0
+        for incident in incidents:
+            containment_value = (
+                incident.get("containment")
+                or incident.get("percent_contained")
+                or incident.get("containment_percent")
+                or incident.get("pct_contained")
+            )
+
+            parsed = parse_containment(containment_value)
+            status = str(incident.get("status", "")).lower()
+
+            if parsed is not None:
+                if parsed >= 100:
+                    contained += 1
+            elif "contained" in status or "controlled" in status:
+                contained += 1
+            else:
+                unknown += 1
+
+        active = len(incidents) - contained - unknown
+        if active < 0:
+            active = 0
         
+        labels = ["Active", "Contained"]
+        values = [active, contained]
+        colors = ["#e74c3c", "#2ecc71"]
+
+        if unknown:
+            labels.append("Unknown")
+            values.append(unknown)
+            colors.append("#95a5a6")
+
         fig.add_trace(go.Pie(
-            labels=["Active", "Contained"],
-            values=[active, contained],
-            marker_colors=["#e74c3c", "#2ecc71"],
+            labels=labels,
+            values=values,
+            marker_colors=colors,
             textinfo='label+value',
             hole=0.4
         ))
@@ -578,6 +620,48 @@ def create_soil_graph(data: Dict[str, Any]) -> go.Figure:
                 x=0.5, y=0.5, showarrow=False
             )
     else:
+        # Try SoilGrids GeoJSON format (properties/layers)
+        features = data.get("features", [])
+        if isinstance(features, list) and features:
+            feature_props = features[0].get("properties", {})
+            layers = feature_props.get("layers", [])
+
+            metrics = []
+            values = []
+            colors = []
+
+            for layer in layers:
+                name = layer.get("name")
+                depths = layer.get("depths", [])
+                if not name or not depths:
+                    continue
+
+                top = depths[0]
+                mean_val = top.get("values", {}).get("mean")
+                if mean_val is None:
+                    continue
+
+                if name in {"clay", "sand", "silt", "soc", "phh2o", "nitrogen"}:
+                    metrics.append(name)
+                    values.append(mean_val)
+                    colors.append("#7f8c8d")
+
+            if metrics:
+                fig.add_trace(go.Bar(
+                    x=metrics,
+                    y=values,
+                    marker_color=colors,
+                    text=[f"{v:.2f}" for v in values],
+                    textposition='outside'
+                ))
+                fig.update_layout(
+                    title="Soil Properties (Surface)",
+                    xaxis_title="Property",
+                    yaxis_title="Value"
+                )
+                fig.update_layout(margin=dict(l=40, r=40, t=50, b=40), height=300)
+                return fig
+
         # Fallback: try moisture format
         moisture = data.get("moisture", data.get("soil_moisture", []))
         
@@ -766,7 +850,13 @@ def create_intersection_graph(
     
     # Air Quality + Weather correlation
     if set([category1, category2]) == {"air_quality", "weather"}:
-        aqi = data1.get("us_aqi", data2.get("us_aqi", 0))
+        aqi = data1.get("us_aqi") or data2.get("us_aqi")
+        if aqi is None:
+            pm25 = data1.get("pm25") or data2.get("pm25")
+            if pm25 is not None:
+                aqi, _, _ = DataProcessor.calculate_aqi(pm25)
+        if aqi is None:
+            aqi = 0
         temp = data2.get("temperature_c", data1.get("temperature_c", 0))
         wind = data2.get("wind_speed_kmh", data1.get("wind_speed_kmh", 0))
         

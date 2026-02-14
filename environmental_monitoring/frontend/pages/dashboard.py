@@ -7,7 +7,7 @@ Reactive Design Pattern:
 - Map and graphs update reactively from the data store
 - Filter bar shows current selections visually
 """
-from dash import html, dcc, callback, Input, Output, State, ctx, no_update
+from dash import html, dcc, callback, Input, Output, State, ctx
 import dash_bootstrap_components as dbc
 from datetime import datetime
 from typing import Dict, Any, List, Optional
@@ -19,10 +19,10 @@ import plotly.graph_objects as go
 from components.progress_box import create_progress_box, make_entry, render_entries
 
 from api_client import (
-    get_hub_info, get_sources, quick_check, get_health, get_category_data,
+    get_hub_info, get_sources, quick_check,
     get_categories_parallel, get_state_map_data,
 )
-from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES, API_BASE_URL, GOOGLE_MAPS_API_KEY
+from config import DATA_CATEGORIES, MAP_CONFIG, API_BASE_URL, GOOGLE_MAPS_API_KEY
 from data_commons_client import (
     get_dc_category_data,
     get_dc_summary_for_category,
@@ -247,9 +247,6 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
             latest_cat = categories[-1] if categories else "N/A"
             period = data.get("period_days", len(daily_aqi))
             area = daily_aqi[-1].get("reporting_area", "") if daily_aqi else ""
-
-            # Build pollutant breakdown for the latest day
-            latest_params = (daily_aqi[-1].get("parameters") or {}) if daily_aqi else {}
 
             fig = make_subplots(
                 rows=1, cols=2, column_widths=[0.60, 0.40],

@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     airnow_api_key: str = ""
     iqair_api_key: str = ""
     noaa_api_token: str = ""
-    nasa_firms_api_key: str = ""
+    firms_map_key: str = ""  # NASA FIRMS fire data MAP_KEY
     nasa_earthdata_token: str = ""
+    bearer_token: str = ""  # NASA Earthdata bearer token
     copernicus_api_key: str = ""
     purpleair_api_key: str = ""
     planetary_computer_key: str = ""

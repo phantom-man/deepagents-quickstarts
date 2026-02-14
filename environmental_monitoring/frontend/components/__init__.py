@@ -4,7 +4,6 @@ from components.charts import (
     create_correlation_heatmap,
     create_aqi_gauge,
     create_map_scatter,
-    create_mapbox_scatter,
     create_histogram,
     create_box_plot,
     create_multi_axis_chart,
@@ -12,6 +11,7 @@ from components.charts import (
     create_trend_chart,
     create_summary_cards
 )
+from components.maps import create_google_map_iframe
 
 from components.layout import (
     create_header,
@@ -32,7 +32,7 @@ __all__ = [
     "create_correlation_heatmap",
     "create_aqi_gauge",
     "create_map_scatter",
-    "create_mapbox_scatter",
+    "create_google_map_iframe",
     "create_histogram",
     "create_box_plot",
     "create_multi_axis_chart",
