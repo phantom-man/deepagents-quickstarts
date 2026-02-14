@@ -20,14 +20,15 @@ from components.progress_box import create_progress_box, make_entry, render_entr
 
 from api_client import (
     get_hub_info, get_sources, quick_check, get_health, get_category_data,
-    get_categories_parallel,
+    get_categories_parallel, get_state_map_data,
 )
-from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES, API_BASE_URL
+from config import DATA_CATEGORIES, MAP_CONFIG, TIME_RANGES, API_BASE_URL, GOOGLE_MAPS_API_KEY
 from data_commons_client import (
     get_dc_category_data,
     get_dc_summary_for_category,
     CATEGORY_VARIABLES,
 )
+from state_bounds import get_state_from_coords
 
 logger = logging.getLogger(__name__)
 
@@ -850,7 +851,7 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
         if not results:
             return _empty_figure("No biodiversity data", GRAPH_HEIGHT + 120, MARGIN)
 
-        # Build genus -> species hierarchy for treemap
+        # Build genus -> species hierarchy
         genus_species: Dict[str, Dict[str, int]] = {}
         for r in results:
             if not isinstance(r, dict):
@@ -860,57 +861,59 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
             if not genus:
                 parts = str(species).split()
                 genus = parts[0] if parts else "Unknown"
+            if not species or species == "Unknown":
+                continue
             genus_species.setdefault(genus, {})
             genus_species[genus][species] = genus_species[genus].get(species, 0) + 1
 
         if not genus_species:
-            return _empty_figure("No species data", GRAPH_HEIGHT + 120, MARGIN)
+            return _empty_figure("No species data in results", GRAPH_HEIGHT + 120, MARGIN)
 
-        # Build treemap arrays: root -> genus -> species
-        ids = ["All Observations"]
-        labels = ["All"]
-        parents = [""]
-        values = [0]
-        colors_list = ["#E8F5E9"]
+        # Use horizontal bar chart (more reliable rendering than treemap)
+        # Sort genera by total observations, take top 15
+        sorted_genera = sorted(
+            genus_species.items(), key=lambda x: -sum(x[1].values())
+        )[:15]
 
+        # Build species-level bars grouped by genus
+        species_names = []
+        species_counts = []
+        species_colors = []
         genus_colors = ["#2E7D32", "#388E3C", "#43A047", "#4CAF50",
                         "#66BB6A", "#81C784", "#A5D6A7", "#1B5E20",
                         "#00695C", "#00796B", "#00897B", "#009688"]
 
-        for g_idx, (genus, sp_dict) in enumerate(
-            sorted(genus_species.items(), key=lambda x: -sum(x[1].values()))[:15]
-        ):
-            genus_total = sum(sp_dict.values())
-            genus_id = f"genus-{genus}"
-            ids.append(genus_id)
-            labels.append(genus)
-            parents.append("All Observations")
-            values.append(genus_total)
-            colors_list.append(genus_colors[g_idx % len(genus_colors)])
+        for g_idx, (genus, sp_dict) in enumerate(sorted_genera):
+            color = genus_colors[g_idx % len(genus_colors)]
+            for sp_name, count in sorted(sp_dict.items(), key=lambda x: -x[1])[:8]:
+                display = sp_name if len(sp_name) <= 30 else sp_name[:27] + "..."
+                species_names.append(display)
+                species_counts.append(count)
+                species_colors.append(color)
 
-            for sp_name, count in sorted(sp_dict.items(), key=lambda x: -x[1])[:10]:
-                sp_id = f"{genus_id}-{sp_name}"
-                ids.append(sp_id)
-                labels.append(sp_name.split()[-1] if " " in sp_name else sp_name)
-                parents.append(genus_id)
-                values.append(count)
-                colors_list.append(genus_colors[g_idx % len(genus_colors)])
+        # Reverse for horizontal bars (top = most observations)
+        species_names.reverse()
+        species_counts.reverse()
+        species_colors.reverse()
 
-        fig = go.Figure(go.Treemap(
-            ids=ids,
-            labels=labels,
-            parents=parents,
-            values=values,
-            branchvalues="total",
-            marker=dict(colors=colors_list),
-            textinfo="label+value+percent parent",
-            hovertemplate="<b>%{label}</b><br>Observations: %{value}<br>%{percentParent:.1%} of parent<extra></extra>",
-            maxdepth=3,
+        fig = go.Figure(go.Bar(
+            y=species_names,
+            x=species_counts,
+            orientation="h",
+            marker_color=species_colors,
+            text=[str(c) for c in species_counts],
+            textposition="outside",
         ))
+        total_obs = sum(species_counts)
+        n_genera = len(sorted_genera)
+        n_species = len(species_names)
         fig.update_layout(
-            title="Biodiversity — Species Observations by Genus (click to drill down)",
-            height=GRAPH_HEIGHT + 180,
-            margin=dict(l=10, r=10, t=50, b=10),
+            title=f"Biodiversity — {total_obs} observations across {n_genera} genera, {n_species} species",
+            xaxis_title="Observations",
+            yaxis_title="",
+            height=max(GRAPH_HEIGHT + 100, 60 + len(species_names) * 28),
+            margin=dict(l=200, r=50, t=50, b=50),
+            showlegend=False,
         )
         return fig
 
@@ -988,22 +991,39 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
                 top = rng.get("top_depth", "?")
                 bot = rng.get("bottom_depth", "?")
                 label = f"{top}-{bot} cm"
-                mean_val = (d.get("values") or {}).get("mean")
+                values_dict = d.get("values") or {}
+                # Try mean first, then Q0.95, then Q0.05 as fallbacks
+                mean_val = values_dict.get("mean")
+                if mean_val is None:
+                    mean_val = values_dict.get("Q0.95")
+                if mean_val is None:
+                    mean_val = values_dict.get("Q0.05")
                 if mean_val is not None:
                     d_labels.append(label)
                     try:
                         d_values.append(float(mean_val))
                     except (ValueError, TypeError):
                         d_values.append(0)
-            if d_values:
+                else:
+                    # Include the depth label with 0 value so chart still shows structure
+                    d_labels.append(label)
+                    d_values.append(0)
+            # Only add trace if there's at least one non-zero value
+            has_data = any(v != 0 for v in d_values)
+            if d_values and has_data:
                 if not depth_labels:
                     depth_labels = d_labels
                 display_name = f"{name} ({unit})" if unit else name
                 layer_traces.append((display_name, d_values, colors[idx % len(colors)]))
 
         if not layer_traces:
+            # All layers returned null — common for urban/water/coastal locations
+            layer_names = [ly.get("name", "?") for ly in layers if isinstance(ly, dict)]
             return _empty_figure(
-                "No soil data — SoilGrids may not cover this location",
+                f"SoilGrids has no measured data at this location<br>"
+                f"(urban, water, or unmapped area)<br>"
+                f"Properties queried: {', '.join(layer_names[:4])}{'...' if len(layer_names) > 4 else ''}<br>"
+                f"Try a rural or agricultural location for soil data",
                 GRAPH_HEIGHT + 80, MARGIN,
             )
 
@@ -1564,302 +1584,295 @@ def _build_merged_summary(
     prevent_initial_call=False
 )
 def update_dashboard_map(loaded_data):
-    """Update the map with loaded category data using Plotly Scattermapbox (no API key needed)."""
+    """Update the map with STATE-LEVEL data for all data sources.
+
+    Determines the user's US state from their lat/lon, then queries the
+    backend /hub/state-map endpoint with the state bounding box to get
+    data points across the entire state.  Falls back to per-category
+    point data if state detection or the state-map call fails.
+    """
     _map_t0 = time.time()
     location = loaded_data.get("location", {}) if loaded_data else {}
     lat = location.get("lat", MAP_CONFIG["default_lat"])
     lon = location.get("lon", MAP_CONFIG["default_lon"])
     categories_data = loaded_data.get("categories", {}) if loaded_data else {}
 
-    # Category color map — distinct, colorblind-friendly palette
+    # Category color map
     cat_colors = {
-        "earthquakes": "#C73E1D",   # Red
-        "wildfires": "#F18F01",     # Orange
-        "air_quality": "#2E86AB",   # Blue
-        "radiation": "#8F3F97",     # Purple
-        "marine": "#00B4D8",        # Cyan
-        "biodiversity": "#2D6A4F",  # Dark green
-        "weather": "#E9C46A",       # Gold
-        "water": "#0077B6",         # Navy blue
-        "climate": "#6C757D",       # Grey
-        "soil": "#BC6C25",          # Brown
+        "earthquakes": "#C73E1D",
+        "wildfires": "#F18F01",
+        "air_quality": "#2E86AB",
+        "radiation": "#8F3F97",
+        "marine": "#00B4D8",
+        "biodiversity": "#2D6A4F",
+        "weather": "#E9C46A",
+        "water": "#0077B6",
+        "climate": "#6C757D",
+        "soil": "#BC6C25",
     }
 
-    # Collect data points by category for separate traces
     traces_by_cat: Dict[str, List[Dict]] = {}
     total_points = 0
+    state_info = None
+    _progress_details: List[str] = []
 
-    for cat_id, data in categories_data.items():
+    # ---- Step 1: Determine state and fetch state-level map data ----
+    state_info = get_state_from_coords(lat, lon, google_api_key=GOOGLE_MAPS_API_KEY)
+
+    state_data = None
+    if state_info:
+        s, w, n, e = state_info["bounds"]
+        state_label = state_info.get("state_name", state_info["state_code"])
+        _progress_details.append(f"State detected: {state_label}")
+        try:
+            state_data = get_state_map_data(s, w, n, e)
+            _progress_details.append(
+                f"State-map API returned {len(state_data.get('sources', {}))} source groups"
+            )
+        except Exception as exc:
+            logger.warning("State-map fetch failed: %s", exc)
+            _progress_details.append(f"State-map fetch failed: {str(exc)[:60]}")
+    else:
+        _progress_details.append("No US state detected — using per-category data")
+
+    # ---- Step 2: Parse state-level data into map points ----
+    if state_data and state_data.get("sources"):
+        sources = state_data["sources"]
+
+        # --- Earthquakes (GeoJSON features) ---
+        eq_src = sources.get("earthquakes", {})
+        eq_data = eq_src.get("data", eq_src) if isinstance(eq_src, dict) else {}
+        if not isinstance(eq_data, dict):
+            eq_data = {}
+        eq_points = []
+        for f in (eq_data.get("features") or [])[:60]:
+            if not isinstance(f, dict):
+                continue
+            coords = (f.get("geometry") or {}).get("coordinates", [])
+            props = f.get("properties") or {}
+            if len(coords) >= 2:
+                eq_points.append({
+                    "lat": coords[1], "lon": coords[0],
+                    "text": f"M{props.get('mag', '?')} - {props.get('place', 'Unknown')}",
+                    "size": max(6, (props.get("mag", 2) or 2) * 4),
+                })
+        if eq_points:
+            traces_by_cat["earthquakes"] = eq_points
+            total_points += len(eq_points)
+
+        # --- Water stations (USGS timeSeries) ---
+        water_src = sources.get("water", {})
+        water_data = water_src.get("data", water_src) if isinstance(water_src, dict) else {}
+        if not isinstance(water_data, dict):
+            water_data = {}  # USGS may return HTML error page
+        water_points = []
+        for s_item in (water_data.get("value", {}).get("timeSeries") or [])[:30]:
+            if not isinstance(s_item, dict):
+                continue
+            geo = (s_item.get("sourceInfo") or {}).get("geoLocation", {})
+            slat = geo.get("latitude") or (geo.get("geogLocation") or {}).get("latitude")
+            slon = geo.get("longitude") or (geo.get("geogLocation") or {}).get("longitude")
+            if slat and slon:
+                site_name = (s_item.get("sourceInfo") or {}).get("siteName", "Station")
+                water_points.append({
+                    "lat": float(slat), "lon": float(slon),
+                    "text": f"Water: {str(site_name)[:30]}",
+                    "size": 8,
+                })
+        if water_points:
+            traces_by_cat["water"] = water_points
+            total_points += len(water_points)
+
+        # --- Biodiversity (GBIF results) ---
+        bio_src = sources.get("biodiversity", {})
+        bio_data = bio_src.get("data", bio_src) if isinstance(bio_src, dict) else {}
+        if not isinstance(bio_data, dict):
+            bio_data = {}
+        bio_points = []
+        for r in (bio_data.get("results") or [])[:60]:
+            if not isinstance(r, dict):
+                continue
+            dlat = r.get("decimalLatitude")
+            dlon = r.get("decimalLongitude")
+            if dlat and dlon:
+                bio_points.append({
+                    "lat": float(dlat), "lon": float(dlon),
+                    "text": r.get("species", r.get("scientificName", "Unknown")),
+                    "size": 7,
+                })
+        if bio_points:
+            traces_by_cat["biodiversity"] = bio_points
+            total_points += len(bio_points)
+
+        # --- Wildfires ---
+        fire_src = sources.get("wildfires", {})
+        fire_data = fire_src.get("data", fire_src) if isinstance(fire_src, dict) else {}
+        if not isinstance(fire_data, dict):
+            fire_data = {}
+        fire_points = []
+        # FIRMS CSV data comes back as fire points
+        for fp in (fire_data.get("fires") or fire_data.get("data") or [])[:40]:
+            if not isinstance(fp, dict):
+                continue
+            if fp.get("latitude") and fp.get("longitude"):
+                try:
+                    frp = float(fp.get("frp", fp.get("brightness", 0)) or 0)
+                except (ValueError, TypeError):
+                    frp = 0
+                fire_points.append({
+                    "lat": float(fp["latitude"]), "lon": float(fp["longitude"]),
+                    "text": f"Fire: FRP {frp:.1f} MW ({fp.get('acq_date', 'N/A')})",
+                    "size": max(7, min(14, frp / 10)),
+                })
+        # GeoJSON features fallback
+        if not fire_points:
+            for f in (fire_data.get("features") or [])[:40]:
+                if not isinstance(f, dict):
+                    continue
+                coords = (f.get("geometry") or {}).get("coordinates", [])
+                props = f.get("properties", {})
+                if isinstance(coords, list) and len(coords) >= 2 and not isinstance(coords[0], list):
+                    fire_points.append({
+                        "lat": float(coords[1]), "lon": float(coords[0]),
+                        "text": str(props.get("IncidentName", "Fire"))[:40],
+                        "size": 10,
+                    })
+        if fire_points:
+            traces_by_cat["wildfires"] = fire_points
+            total_points += len(fire_points)
+
+        # --- Weather grid points ---
+        weather_pts = sources.get("weather", {}).get("points", [])
+        w_points = []
+        for wp in weather_pts:
+            if not isinstance(wp, dict):
+                continue
+            temp = wp.get("temperature", "?")
+            wind = wp.get("windspeed", "?")
+            w_points.append({
+                "lat": wp["lat"], "lon": wp["lon"],
+                "text": f"Weather: {temp}\u00b0C, Wind {wind} km/h",
+                "size": 11,
+            })
+        if w_points:
+            traces_by_cat["weather"] = w_points
+            total_points += len(w_points)
+
+        # --- Air quality grid points ---
+        aq_pts = sources.get("air_quality", {}).get("points", [])
+        aq_points = []
+        for ap in aq_pts:
+            if not isinstance(ap, dict):
+                continue
+            aqi = ap.get("us_aqi", "?")
+            pm25 = ap.get("pm2_5", "?")
+            aq_points.append({
+                "lat": ap["lat"], "lon": ap["lon"],
+                "text": f"AQI: {aqi}, PM2.5: {pm25}",
+                "size": 9,
+            })
+        if aq_points:
+            traces_by_cat["air_quality"] = aq_points
+            total_points += len(aq_points)
+
+        # --- Radiation grid points ---
+        rad_pts = sources.get("radiation", {}).get("points", [])
+        rad_points = []
+        for rp in rad_pts:
+            if not isinstance(rp, dict):
+                continue
+            uv = rp.get("uv_index_max", "?")
+            rad_points.append({
+                "lat": rp["lat"], "lon": rp["lon"],
+                "text": f"UV Index Max: {uv}",
+                "size": 9,
+            })
+        if rad_points:
+            traces_by_cat["radiation"] = rad_points
+            total_points += len(rad_points)
+
+        # --- Marine (single center point from state-map) ---
+        marine_src = sources.get("marine", {})
+        marine_data = marine_src.get("data", marine_src) if isinstance(marine_src, dict) else {}
+        if not isinstance(marine_data, dict):
+            marine_data = {}
+        marine_current = marine_data.get("current", {})
+        if marine_current:
+            wave_h = marine_current.get("wave_height", "?")
+            sst = marine_current.get("sea_surface_temperature", "?")
+            center_lat = (state_info["bounds"][0] + state_info["bounds"][2]) / 2
+            center_lon = (state_info["bounds"][1] + state_info["bounds"][3]) / 2
+            traces_by_cat["marine"] = [{
+                "lat": center_lat, "lon": center_lon,
+                "text": f"Marine: Wave {wave_h}m, SST {sst}\u00b0C",
+                "size": 11,
+            }]
+            total_points += 1
+
+    # ---- Step 3: Fill gaps from per-category data (fallback) ----
+    # For categories not covered by state-map, fall back to loaded-category-data
+    _FALLBACK_CATS = ["soil", "climate"]
+    for cat_id in _FALLBACK_CATS:
+        if cat_id in traces_by_cat:
+            continue  # Already have state-level data
+        data = categories_data.get(cat_id, {})
         if not isinstance(data, dict) or "error" in data:
             continue
-
         combined = data.get("combined", {})
-        points = []
 
-        if cat_id == "earthquakes":
-            for f in combined.get("features", [])[:30]:
-                coords = f.get("geometry", {}).get("coordinates", [])
-                props = f.get("properties", {})
-                if len(coords) >= 2:
-                    points.append({
-                        "lat": coords[1], "lon": coords[0],
-                        "text": f"M{props.get('mag', '?')} - {props.get('place', 'Unknown')}",
-                        "size": max(6, (props.get("mag", 2) or 2) * 4),
-                    })
-
-        elif cat_id == "wildfires":
-            # Try incidents format
-            for inc in combined.get("incidents", [])[:30]:
-                if isinstance(inc, dict) and inc.get("latitude") and inc.get("longitude"):
-                    try:
-                        acres = float(str(inc.get('acres_burned', inc.get('acres', 0)) or 0).replace(",", ""))
-                    except (ValueError, TypeError):
-                        acres = 0
-                    points.append({
-                        "lat": float(inc["latitude"]), "lon": float(inc["longitude"]),
-                        "text": f"{inc.get('title', 'Fire')} - {acres:,.0f} acres",
-                        "size": 10,
-                    })
-            # Try GeoJSON features format
-            if not points:
-                for f in combined.get("features", [])[:30]:
-                    if not isinstance(f, dict):
-                        continue
-                    geom = f.get("geometry", {})
-                    coords = geom.get("coordinates", [])
-                    props = f.get("properties", f.get("attributes", {}))
-                    if isinstance(coords, list) and len(coords) >= 2 and isinstance(props, dict):
-                        # Polygon centroid or point
-                        if isinstance(coords[0], list):
-                            # Skip complex polygons for now
-                            continue
-                        points.append({
-                            "lat": float(coords[1]), "lon": float(coords[0]),
-                            "text": props.get("IncidentName", props.get("poly_IncidentName", "Fire")),
-                            "size": 10,
-                        })
-            # Try NASA FIRMS fire points format
-            if not points:
-                fire_list = combined.get("fires", combined.get("data", []))
-                if isinstance(fire_list, list):
-                    for fp in fire_list[:30]:
-                        if isinstance(fp, dict) and fp.get("latitude") and fp.get("longitude"):
-                            try:
-                                frp = float(fp.get("frp", fp.get("brightness", 0)) or 0)
-                            except (ValueError, TypeError):
-                                frp = 0
-                            points.append({
-                                "lat": float(fp["latitude"]),
-                                "lon": float(fp["longitude"]),
-                                "text": f"Fire: FRP {frp:.1f} MW ({fp.get('acq_date', 'N/A')})",
-                                "size": max(7, min(14, frp / 10)),
-                            })
-            # Fallback: pin at search location if category has data
-            if not points and combined:
-                fire_count = len(combined.get("fires", []))
-                if fire_count > 0:
-                    points.append({
-                        "lat": lat, "lon": lon,
-                        "text": f"Wildfire data: {fire_count} fire points (coords unavailable)",
-                        "size": 10,
-                    })
-
-        elif cat_id == "air_quality":
-            # Try OpenAQ locations format (results[] with coordinates)
-            for loc in combined.get("results", [])[:20]:
-                if isinstance(loc, dict):
-                    loc_lat = loc.get("latitude") or (loc.get("coordinates", {}) or {}).get("latitude")
-                    loc_lon = loc.get("longitude") or (loc.get("coordinates", {}) or {}).get("longitude")
-                    if loc_lat and loc_lon:
-                        # Get a representative value from parameters
-                        params = loc.get("parameters", [])
-                        param_text = ""
-                        if isinstance(params, list) and params:
-                            p = params[0]
-                            param_text = f"{p.get('parameter', 'AQ')}: {p.get('lastValue', 'N/A')}"
-                        elif loc.get("parameter"):
-                            param_text = f"{loc['parameter']}: {loc.get('value', 'N/A')}"
-                        points.append({
-                            "lat": float(loc_lat), "lon": float(loc_lon),
-                            "text": param_text or f"AQ station: {loc.get('name', loc.get('location', 'Station'))}",
-                            "size": 8,
-                        })
-            # Legacy measurements format
-            if not points:
-                for m in combined.get("measurements", [])[:20]:
-                    if isinstance(m, dict) and m.get("latitude") and m.get("longitude"):
-                        points.append({
-                            "lat": m["latitude"], "lon": m["longitude"],
-                            "text": f"{m.get('parameter', 'AQ')}: {m.get('value', 'N/A')} {m.get('unit', '')}",
-                            "size": 8,
-                        })
-            # Fallback: pin at search location if we have data but no coords
-            if not points and combined:
-                points.append({
+        if cat_id == "soil":
+            has_data = bool(
+                combined.get("properties", {}).get("layers")
+                or combined.get("mapunits")
+            )
+            if has_data:
+                layers = combined.get("properties", {}).get("layers", [])
+                names = [ly.get("name", "?") for ly in layers[:3] if isinstance(ly, dict)]
+                traces_by_cat["soil"] = [{
                     "lat": lat, "lon": lon,
-                    "text": "Air quality data (station coords unavailable)",
+                    "text": f"Soil: {', '.join(names)}" if names else "Soil data",
                     "size": 10,
-                })
-
-        elif cat_id == "radiation":
-            for m in combined.get("measurements", [])[:30]:
-                if m.get("latitude") and m.get("longitude"):
-                    points.append({
-                        "lat": m["latitude"], "lon": m["longitude"],
-                        "text": f"Radiation: {m.get('value', '?')} {m.get('unit', 'cpm')}",
-                        "size": 8,
-                    })
-
-        elif cat_id == "marine":
-            # Try stations format
-            for s in combined.get("stations", [])[:20]:
-                if isinstance(s, dict):
-                    slat = s.get("latitude", s.get("lat"))
-                    slon = s.get("longitude", s.get("lon"))
-                    if slat and slon:
-                        points.append({
-                            "lat": float(slat), "lon": float(slon),
-                            "text": f"{s.get('name', 'Marine Station')} - Level: {s.get('water_level', 'N/A')}",
-                            "size": 8,
-                        })
-            # Try observations format
-            if not points:
-                for obs in combined.get("observations", [])[:20]:
-                    if isinstance(obs, dict):
-                        slat = obs.get("latitude", obs.get("lat"))
-                        slon = obs.get("longitude", obs.get("lon"))
-                        if slat and slon:
-                            points.append({
-                                "lat": float(slat), "lon": float(slon),
-                                "text": f"Buoy {obs.get('station', obs.get('stationId', 'Unknown'))}",
-                                "size": 8,
-                            })
-            # Fallback: pin at search location
-            if not points and combined:
-                points.append({
-                    "lat": lat, "lon": lon,
-                    "text": "Marine data (station coords unavailable)",
-                    "size": 10,
-                })
-
-        elif cat_id == "biodiversity":
-            for r in combined.get("results", [])[:30]:
-                dlat = r.get("decimalLatitude")
-                dlon = r.get("decimalLongitude")
-                if dlat and dlon:
-                    points.append({
-                        "lat": dlat, "lon": dlon,
-                        "text": r.get("species", r.get("scientificName", "Unknown")),
-                        "size": 7,
-                    })
-
-        elif cat_id == "weather":
-            current = combined.get("current_weather", {})
-            if current:
-                temp = current.get("temperature", "?")
-                wind = current.get("windspeed", "?")
-                points.append({
-                    "lat": lat, "lon": lon,
-                    "text": f"Weather: {temp}\u00b0C, Wind {wind} km/h",
-                    "size": 12,
-                })
-
-        elif cat_id == "water":
-            for s in combined.get("value", {}).get("timeSeries", [])[:15]:
-                geo = s.get("sourceInfo", {}).get("geoLocation", {})
-                slat = geo.get("latitude") or geo.get("geogLocation", {}).get("latitude")
-                slon = geo.get("longitude") or geo.get("geogLocation", {}).get("longitude")
-                if slat and slon:
-                    site_name = s.get("sourceInfo", {}).get("siteName", "Station")
-                    points.append({
-                        "lat": float(slat), "lon": float(slon),
-                        "text": f"Water: {site_name[:30]}",
-                        "size": 8,
-                    })
-            if not points:
-                # Fallback: show pin at search location
-                points.append({
-                    "lat": lat, "lon": lon,
-                    "text": "Water data (no station coords)",
-                    "size": 10,
-                })
+                }]
+                total_points += 1
 
         elif cat_id == "climate":
             daily = combined.get("daily", {})
             if daily and daily.get("temperature_2m_max"):
-                t_max_vals = daily["temperature_2m_max"][:7]
-                avg_t = sum(float(v) for v in t_max_vals) / len(t_max_vals) if t_max_vals else 0
-                points.append({
+                vals = daily["temperature_2m_max"][:7]
+                avg = sum(float(v) for v in vals) / len(vals) if vals else 0
+                traces_by_cat["climate"] = [{
                     "lat": lat, "lon": lon,
-                    "text": f"Climate: avg max {avg_t:.1f}\u00b0C",
+                    "text": f"Climate: avg max {avg:.1f}\u00b0C",
                     "size": 11,
-                })
+                }]
+                total_points += 1
 
-        elif cat_id == "soil":
-            # SoilGrids or USDA data — show pin at search location
-            has_data = bool(
-                combined.get("properties", {}).get("layers")
-                or combined.get("mapunits")
-                or combined.get("mapunit")
-                or combined.get("Table")
-                or combined.get("table")
-            )
-            # Also check for any non-meta keys
-            if not has_data:
-                has_data = any(
-                    k not in ("_data_commons", "type", "geometry")
-                    and v is not None
-                    for k, v in combined.items()
-                )
-            if has_data:
-                layer_info = ""
-                layers = combined.get("properties", {}).get("layers", [])
-                if layers:
-                    names = [ly.get("name", "?") for ly in layers[:3]]
-                    layer_info = f": {', '.join(names)}"
-                points.append({
-                    "lat": lat, "lon": lon,
-                    "text": f"Soil data{layer_info}",
-                    "size": 10,
-                })
-
-        if points:
-            traces_by_cat[cat_id] = points
-            total_points += len(points)
-
-        # --- Data Commons data points (rendered as a secondary trace) ---
+    # ---- Also add Data Commons pins from loaded data ----
+    for cat_id, data in categories_data.items():
+        if not isinstance(data, dict):
+            continue
         dc_info = data.get("dc", {})
         if dc_info and dc_info.get("variables"):
             dc_place = dc_info.get("place_dcid", "")
             dc_type = dc_info.get("place_type", "")
-            # We don't have per-variable coordinates from DC (it's aggregate
-            # for a resolved place), but we show a summary pin at the user's
-            # search location so they know DC data was loaded.
-            var_summary_lines = []
+            var_lines = []
             for label, vinfo in dc_info["variables"].items():
                 val = vinfo.get("value")
                 unit = vinfo.get("unit", "")
                 date = vinfo.get("date", "")
-                var_summary_lines.append(f"{label}: {val} {unit} ({date})")
-            hover_text = (
+                var_lines.append(f"{label}: {val} {unit} ({date})")
+            hover = (
                 f"<b>Data Commons ({dc_type})</b><br>"
                 f"Place: {dc_place}<br>"
-                + "<br>".join(var_summary_lines[:6])
+                + "<br>".join(var_lines[:6])
             )
             dc_key = f"dc_{cat_id}"
-            traces_by_cat[dc_key] = [{
-                "lat": lat,
-                "lon": lon,
-                "text": hover_text,
-                "size": 14,
-            }]
+            traces_by_cat[dc_key] = [{"lat": lat, "lon": lon, "text": hover, "size": 14}]
             total_points += 1
 
-    # Build Plotly figure with OpenStreetMap tiles (no API key required)
+    # ---- Step 4: Build Plotly figure ----
     fig = go.Figure()
 
-    # Per-category offsets to prevent point stacking at same location
-    # Small angular offset (~300m at equator) per category index
     _OFFSETS = [
         (0.0, 0.0), (0.003, 0.002), (-0.003, 0.002),
         (0.002, -0.003), (-0.002, -0.003), (0.004, 0.0),
@@ -1870,15 +1883,20 @@ def update_dashboard_map(loaded_data):
 
     for cat_idx, cat_id in enumerate(_cat_order):
         points = traces_by_cat[cat_id]
-        dlat, dlon = _OFFSETS[cat_idx % len(_OFFSETS)]
+        # Only offset categories that are pinned at the exact same coords
+        # State-level data already has diverse coords, so only offset DC
+        is_dc = cat_id.startswith("dc_")
+        if is_dc or cat_id in ("soil", "climate"):
+            dlat, dlon = _OFFSETS[cat_idx % len(_OFFSETS)]
+        else:
+            dlat, dlon = 0.0, 0.0
+
         lats = [p["lat"] + dlat for p in points]
         lons = [p["lon"] + dlon for p in points]
         texts = [p["text"] for p in points]
         sizes = [p["size"] for p in points]
 
-        is_dc = cat_id.startswith("dc_")
         if is_dc:
-            # Gold diamond for Data Commons overlay pins
             base_cat = cat_id[3:]
             color = "#FFD700"
             cat_label = f"DC: {base_cat.replace('_', ' ').title()}"
@@ -1889,16 +1907,11 @@ def update_dashboard_map(loaded_data):
             symbol = "circle"
 
         fig.add_trace(go.Scattermapbox(
-            lat=lats,
-            lon=lons,
-            mode="markers",
+            lat=lats, lon=lons, mode="markers",
             marker=dict(size=sizes, color=color, opacity=0.85, symbol=symbol),
-            text=texts,
-            hoverinfo="text",
-            name=cat_label,
+            text=texts, hoverinfo="text", name=cat_label,
         ))
 
-    # If no data points, add an invisible center marker so the map still renders
     if not traces_by_cat:
         fig.add_trace(go.Scattermapbox(
             lat=[lat], lon=[lon], mode="markers",
@@ -1906,11 +1919,30 @@ def update_dashboard_map(loaded_data):
             hoverinfo="skip", showlegend=False,
         ))
 
+    # Determine zoom level based on state bounds
+    if state_info:
+        s, w, n, e = state_info["bounds"]
+        center_lat = (s + n) / 2
+        center_lon = (w + e) / 2
+        # Rough zoom: larger states get lower zoom
+        span = max(n - s, e - w)
+        if span > 10:
+            zoom = 4
+        elif span > 5:
+            zoom = 5
+        elif span > 2:
+            zoom = 6
+        else:
+            zoom = 7
+    else:
+        center_lat, center_lon = lat, lon
+        zoom = 4 if total_points > 5 else 8
+
     fig.update_layout(
         mapbox=dict(
             style="open-street-map",
-            center=dict(lat=lat, lon=lon),
-            zoom=4 if total_points > 5 else 8,
+            center=dict(lat=center_lat, lon=center_lon),
+            zoom=zoom,
         ),
         margin=dict(l=0, r=0, t=0, b=0),
         height=450,
@@ -1929,14 +1961,18 @@ def update_dashboard_map(loaded_data):
         style={"borderRadius": "8px", "overflow": "hidden"},
     )
 
-    count_text = f"{total_points} data points" if total_points > 0 else "No data loaded"
+    state_label = ""
+    if state_info:
+        state_label = f" ({state_info.get('state_name', state_info['state_code'])})"
+    count_text = (
+        f"{total_points} data points{state_label}"
+        if total_points > 0
+        else f"No data loaded{state_label}"
+    )
     _map_ms = int((time.time() - _map_t0) * 1000)
 
-    # Per-category detail lines for the progress entry
-    _map_details = []
-    for cat_id in categories_data:
-        if cat_id.startswith("dc_"):
-            continue
+    _map_details = _progress_details[:]
+    for cat_id in cat_colors:
         pts = traces_by_cat.get(cat_id, [])
         _map_details.append(f"{cat_id}: {len(pts)} points on map")
 
@@ -2208,7 +2244,12 @@ def update_quick_check(
         status_text, status_color = status_map.get(overall_status, ("Unknown", "secondary"))
         status_badge = dbc.Alert(status_text, color=status_color, className="mb-0 py-2")
         
-        air_quality = result.get("air_quality", {})
+        # Quick-check API nests weather & AQ under "summary"
+        summary = result.get("summary", result)  # fallback to top-level
+
+        air_quality = result.get("air_quality") or summary.get("air_quality", {})
+        if isinstance(air_quality, str):
+            air_quality = {}  # API may return a string hint
         aqi_value = air_quality.get("us_aqi", 0) if air_quality else 0
         aqi_status = air_quality.get("status", "Unknown") if air_quality else "Unknown"
         aqi_label = aqi_status.replace("_", " ").title()
@@ -2217,10 +2258,12 @@ def update_quick_check(
             config={"displayModeBar": False}
         )
         
-        weather = result.get("weather", {})
+        weather = result.get("weather") or summary.get("weather", {})
+        if not isinstance(weather, dict):
+            weather = {}
         temp = weather.get("temperature_c", "N/A")
-        wind = weather.get("wind_speed_kmh", "N/A")
-        weather_status = weather.get("status", "unknown")
+        wind = weather.get("windspeed_kmh", weather.get("wind_speed_kmh", "N/A"))
+        weather_status = weather.get("status", weather.get("weathercode", "unknown"))
         
         # Determine if weather data is actually present
         has_weather = (temp not in ("N/A", None, 0, "") and wind not in ("N/A", None, ""))
