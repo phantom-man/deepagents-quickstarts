@@ -1383,6 +1383,7 @@ def create_dashboard_layout():
         create_progress_box("dash", [
             "progress-dash-qc",
             "progress-dash-cats",
+            "progress-dash-graphs",
             "progress-dash-map",
             "progress-dash-stats",
         ]),
@@ -1512,16 +1513,25 @@ def load_all_category_data(
     progress.append(make_entry("info", f"Fetching data for ({lat:.2f}, {lon:.2f}), {len(categories)} categories"))
     for _cid in categories:
         _cr = loaded_data["categories"].get(_cid, {})
+        _raw_sources = _cr.get("raw", [])
+        _n_src = len(_raw_sources) if isinstance(_raw_sources, list) else 0
+        _src_names = []
+        if isinstance(_raw_sources, list):
+            for _rs in _raw_sources:
+                if isinstance(_rs, dict):
+                    _src_names.append(_rs.get("source", _rs.get("source_id", "?")))
+        _src_label = f" [{', '.join(_src_names)}]" if _src_names else ""
+
         if "error" in _cr:
             progress.append(make_entry("error", f"{_cid}: {str(_cr['error'])[:60]}"))
         elif _is_category_empty(_cr):
-            progress.append(make_entry("error", f"{_cid}: 0 records - no data at this location"))
+            progress.append(make_entry("warning", f"{_cid}: 0 records from {_n_src} source(s){_src_label}"))
         else:
             _combined = _cr.get("combined", {})
             _rc = _count_records(_cid, _combined)
             _detail = _summarize_for_log(_cid, _cr.get("summary", {}), _rc)
-            _status = "complete" if _rc > 0 else "error"
-            progress.append(make_entry(_status, f"{_cid}: {_detail}"))
+            _status = "complete" if _rc > 0 else "warning"
+            progress.append(make_entry(_status, f"{_cid}: {_detail} ({_n_src} src{_src_label})"))
     progress.append(make_entry("complete", f"All {len(categories)} categories processed", duration_ms=_elapsed))
 
     return loaded_data, progress
@@ -1628,6 +1638,31 @@ def update_dashboard_map(loaded_data):
                             "text": props.get("IncidentName", props.get("poly_IncidentName", "Fire")),
                             "size": 10,
                         })
+            # Try NASA FIRMS fire points format
+            if not points:
+                fire_list = combined.get("fires", combined.get("data", []))
+                if isinstance(fire_list, list):
+                    for fp in fire_list[:30]:
+                        if isinstance(fp, dict) and fp.get("latitude") and fp.get("longitude"):
+                            try:
+                                frp = float(fp.get("frp", fp.get("brightness", 0)) or 0)
+                            except (ValueError, TypeError):
+                                frp = 0
+                            points.append({
+                                "lat": float(fp["latitude"]),
+                                "lon": float(fp["longitude"]),
+                                "text": f"Fire: FRP {frp:.1f} MW ({fp.get('acq_date', 'N/A')})",
+                                "size": max(7, min(14, frp / 10)),
+                            })
+            # Fallback: pin at search location if category has data
+            if not points and combined:
+                fire_count = len(combined.get("fires", []))
+                if fire_count > 0:
+                    points.append({
+                        "lat": lat, "lon": lon,
+                        "text": f"Wildfire data: {fire_count} fire points (coords unavailable)",
+                        "size": 10,
+                    })
 
         elif cat_id == "air_quality":
             # Try OpenAQ locations format (results[] with coordinates)
@@ -1823,9 +1858,21 @@ def update_dashboard_map(loaded_data):
     # Build Plotly figure with OpenStreetMap tiles (no API key required)
     fig = go.Figure()
 
-    for cat_id, points in traces_by_cat.items():
-        lats = [p["lat"] for p in points]
-        lons = [p["lon"] for p in points]
+    # Per-category offsets to prevent point stacking at same location
+    # Small angular offset (~300m at equator) per category index
+    _OFFSETS = [
+        (0.0, 0.0), (0.003, 0.002), (-0.003, 0.002),
+        (0.002, -0.003), (-0.002, -0.003), (0.004, 0.0),
+        (-0.004, 0.0), (0.0, 0.004), (0.003, -0.003),
+        (-0.003, -0.003), (0.005, 0.003), (-0.005, 0.003),
+    ]
+    _cat_order = list(traces_by_cat.keys())
+
+    for cat_idx, cat_id in enumerate(_cat_order):
+        points = traces_by_cat[cat_id]
+        dlat, dlon = _OFFSETS[cat_idx % len(_OFFSETS)]
+        lats = [p["lat"] + dlat for p in points]
+        lons = [p["lon"] + dlon for p in points]
         texts = [p["text"] for p in points]
         sizes = [p["size"] for p in points]
 
@@ -1905,47 +1952,59 @@ def update_dashboard_map(loaded_data):
 # ==================== CATEGORY GRAPHS CALLBACK ====================
 
 @callback(
-    Output("category-graphs-container", "children"),
+    [Output("category-graphs-container", "children"),
+     Output("progress-dash-graphs", "data")],
     Input("loaded-category-data", "data"),
     prevent_initial_call=False
 )
 def update_category_graphs(loaded_data):
     """Generate individualized graphs for each selected category."""
+    _g_t0 = time.time()
+    _graph_progress: List[Dict[str, Any]] = []
     if not loaded_data:
+        _graph_progress.append(make_entry("info", "Graphs: awaiting data"))
         return html.P(
             "Select categories in the sidebar to view data visualizations.", 
             className="text-muted text-center py-4"
-        )
+        ), _graph_progress
     
     categories_data = loaded_data.get("categories", {})
     
     if not categories_data:
+        _graph_progress.append(make_entry("warning", "Graphs: no categories selected"))
         return html.P(
             "No categories selected. Check the sidebar to enable data sources.", 
             className="text-muted text-center py-4"
-        )
+        ), _graph_progress
     
+    _graph_progress.append(make_entry("info", f"Rendering graphs for {len(categories_data)} categories"))
     graph_cards = []
     location = loaded_data.get("location", {})
     base_lat = location.get("lat", 37.7749)
     base_lon = location.get("lon", -122.4194)
+    _rendered = 0
+    _skipped = 0
+    _errored = 0
     
     for cat_id, data in categories_data.items():
         cat_info = next((c for c in DATA_CATEGORIES if c["id"] == cat_id), None)
         if not cat_info:
             continue
 
+        _cat_label = f"{cat_info['icon']} {cat_info['name']}"
         api_url = f"{API_BASE_URL}/api/v1/hub/category/{cat_id}?lat={base_lat}&lon={base_lon}"
 
         if data is None or (isinstance(data, dict) and "error" in data):
             error_msg = data.get("error", "Unknown error") if isinstance(data, dict) else "No data"
+            _errored += 1
+            _graph_progress.append(make_entry("error", f"{_cat_label}: {str(error_msg)[:60]}"))
             graph_cards.append(
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader(f"{cat_info['icon']} {cat_info['name']}"),
                         dbc.CardBody([
                             dbc.Alert(f"Error loading data: {str(error_msg)[:80]}", color="warning"),
-                            html.A("View raw API data →", href=api_url,
+                            html.A("View raw API data ->", href=api_url,
                                    target="_blank", className="btn btn-outline-secondary btn-sm")
                         ])
                     ], style={"opacity": "0.5"})
@@ -1955,6 +2014,8 @@ def update_category_graphs(loaded_data):
 
         # Check if category has actual content
         if _is_category_empty(data):
+            _skipped += 1
+            _graph_progress.append(make_entry("warning", f"{_cat_label}: no data at location"))
             graph_cards.append(
                 dbc.Col([
                     dbc.Card([
@@ -1979,7 +2040,13 @@ def update_category_graphs(loaded_data):
             continue
 
         try:
+            _gt0 = time.time()
             fig = get_graph_for_category(cat_id, payload, dc_data=dc_payload, time_range=active_time_range)
+            _gt_ms = int((time.time() - _gt0) * 1000)
+            _rendered += 1
+            _graph_progress.append(make_entry(
+                "complete", f"{_cat_label}: graph rendered", duration_ms=_gt_ms,
+            ))
             
             graph_cards.append(
                 dbc.Col([
@@ -1992,33 +2059,42 @@ def update_category_graphs(loaded_data):
                         ]),
                         dbc.CardBody([
                             dcc.Graph(figure=fig, config={"displayModeBar": False}),
-                            html.A("View raw API data →", href=api_url,
+                            html.A("View raw API data ->", href=api_url,
                                    target="_blank", className="small text-muted")
                         ])
                     ], className="h-100")
                 ], lg=6, className="mb-3")
             )
         except Exception as e:
+            _errored += 1
+            _graph_progress.append(make_entry("error", f"{_cat_label}: {str(e)[:60]}"))
             graph_cards.append(
                 dbc.Col([
                     dbc.Card([
                         dbc.CardHeader(f"{cat_info['icon']} {cat_info['name']}"),
                         dbc.CardBody([
                             dbc.Alert(f"Error: {str(e)[:80]}", color="warning"),
-                            html.A("View raw API data →", href=api_url,
+                            html.A("View raw API data ->", href=api_url,
                                    target="_blank", className="btn btn-outline-secondary btn-sm")
                         ])
                     ])
                 ], lg=6, className="mb-3")
             )
     
+    _g_total_ms = int((time.time() - _g_t0) * 1000)
+    _graph_progress.append(make_entry(
+        "complete" if _rendered > 0 else "warning",
+        f"Graphs: {_rendered} rendered, {_skipped} empty, {_errored} errors",
+        duration_ms=_g_total_ms,
+    ))
+
     if not graph_cards:
         return html.P(
             "No data available for selected categories.", 
             className="text-muted text-center py-4"
-        )
+        ), _graph_progress
     
-    return dbc.Row(graph_cards)
+    return dbc.Row(graph_cards), _graph_progress
 
 
 # ==================== INTERSECTION GRAPH CALLBACK ====================
@@ -2422,6 +2498,7 @@ def _is_category_empty(cat_data: Dict[str, Any]) -> bool:
         "features", "incidents", "measurements", "results",
         "stations", "observations", "current_weather", "hourly",
         "daily", "value", "properties", "mapunits", "Table",
+        "fires", "count", "data", "records",
     ]
     for key in data_keys:
         val = combined.get(key)
@@ -2475,11 +2552,12 @@ def update_category_availability(loaded_data):
     Output("progress-entries-dash", "children"),
     [Input("progress-dash-qc", "data"),
      Input("progress-dash-cats", "data"),
+     Input("progress-dash-graphs", "data"),
      Input("progress-dash-map", "data"),
      Input("progress-dash-stats", "data")],
     prevent_initial_call=False,
 )
-def render_dash_progress(qc, cats, map_prog, stats):
+def render_dash_progress(qc, cats, graphs, map_prog, stats):
     """Combine all task progress stores into a single rendered activity log."""
     entries: List[Dict[str, Any]] = []
 
@@ -2489,7 +2567,7 @@ def render_dash_progress(qc, cats, map_prog, stats):
     else:
         entries.append(make_entry("loading", "Loading quick check (AQI + Weather)..."))
 
-    # ── Category data ──
+    # ── Category data fetch ──
     if cats:
         if isinstance(cats, list):
             entries.extend(cats)
@@ -2497,6 +2575,15 @@ def render_dash_progress(qc, cats, map_prog, stats):
             entries.append(cats)
     else:
         entries.append(make_entry("loading", "Loading 10 data categories..."))
+
+    # ── Graph rendering ──
+    if graphs:
+        if isinstance(graphs, list):
+            entries.extend(graphs)
+        else:
+            entries.append(graphs)
+    else:
+        entries.append(make_entry("loading", "Rendering category graphs..."))
 
     # ── Map ──
     if map_prog:
@@ -2511,10 +2598,10 @@ def render_dash_progress(qc, cats, map_prog, stats):
         entries.append(make_entry("loading", "Computing dashboard statistics..."))
 
     # ── Completion banner ──
-    all_done = all(x is not None for x in [qc, cats, map_prog, stats])
+    all_done = all(x is not None for x in [qc, cats, graphs, map_prog, stats])
     if all_done:
         entries.append(make_entry("separator", ""))
-        entries.append(make_entry("success", "All tasks complete \u2014 Dashboard fully loaded"))
+        entries.append(make_entry("success", "All tasks complete -- Dashboard fully loaded"))
 
     return render_entries(entries)
 

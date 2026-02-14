@@ -145,22 +145,48 @@ def handle_explore_time_dropdown(selected_value):
 
 @callback(
     Output("source-selector", "options"),
-    Input("source-category-filter", "value"),
+    [Input("source-category-filter", "value"),
+     Input("explore-data-store", "data")],
     prevent_initial_call=False
 )
-def update_source_options(category):
-    """Update available data sources based on category filter."""
+def update_source_options(category, loaded_data):
+    """Update available data sources based on category filter and loaded data."""
+    options = []
+    seen_ids = set()
+
+    # First: add sources from loaded data so they appear in the list
+    if loaded_data and isinstance(loaded_data, dict):
+        for cat_id, sources_list in loaded_data.get("data", {}).items():
+            if category and cat_id != category:
+                continue
+            if isinstance(sources_list, list):
+                for source in sources_list:
+                    if isinstance(source, dict) and source.get("success"):
+                        src_id = source.get("source_id", source.get("source", ""))
+                        src_name = source.get("source", src_id)
+                        if src_id and src_id not in seen_ids:
+                            seen_ids.add(src_id)
+                            options.append({
+                                "label": f"{src_name} ({cat_id}) [loaded]",
+                                "value": src_id
+                            })
+
+    # Then: add available sources from the API registry
     try:
         sources = get_sources(category)
         source_list = sources.get("sources", [])
-        
-        return [
-            {"label": f"{s.get('name', 'Unknown')} ({s.get('category', 'N/A')})", 
-             "value": s.get("id", "")}
-            for s in source_list
-        ]
+        for s in source_list:
+            src_id = s.get("id", "")
+            if src_id and src_id not in seen_ids:
+                seen_ids.add(src_id)
+                options.append({
+                    "label": f"{s.get('name', 'Unknown')} ({s.get('category', 'N/A')})",
+                    "value": src_id
+                })
     except Exception:
-        return []
+        pass
+
+    return options
 
 
 @callback(
@@ -238,28 +264,73 @@ def fetch_exploration_data(n_clicks, categories, lat, lon, radius, sources, time
         # Count successful sources
         sources_count = 0
         records_count = 0
+        _cat_progress = []
         
         if "data" in result:
             for category, sources_list in result.get("data", {}).items():
+                _cat_sources = 0
+                _cat_records = 0
                 if isinstance(sources_list, list):
                     for source in sources_list:
                         if source.get("success"):
+                            _cat_sources += 1
                             sources_count += 1
                             # Count records in data
                             source_data = source.get("data", {})
                             if isinstance(source_data, dict):
-                                if "features" in source_data:
-                                    records_count += len(source_data.get("features", []))
-                                elif "results" in source_data:
-                                    records_count += len(source_data.get("results", []))
+                                for dkey in ("features", "results", "fires", "observations",
+                                             "stations", "records", "measurements"):
+                                    dl = source_data.get(dkey, [])
+                                    if isinstance(dl, list):
+                                        _cat_records += len(dl)
+                                        records_count += len(dl)
+                                # Check for soil layers
+                                layers = source_data.get("properties", {}).get("layers", [])
+                                if layers:
+                                    _cat_records += len(layers)
+                                    records_count += len(layers)
+                                # Check for timeseries/hourly/daily
+                                for ts_key in ("hourly", "daily", "current", "current_weather"):
+                                    ts = source_data.get(ts_key)
+                                    if isinstance(ts, dict) and ts:
+                                        n_vars = len([k for k in ts if k != "time"])
+                                        _cat_records += n_vars
+                                        records_count += n_vars
+                                # USGS water
+                                ts_list = source_data.get("value", {}).get("timeSeries", [])
+                                if isinstance(ts_list, list) and ts_list:
+                                    _cat_records += len(ts_list)
+                                    records_count += len(ts_list)
+                        else:
+                            _err = source.get("error", "failed")
+                            _cat_progress.append(make_entry(
+                                "error",
+                                f"{category}/{source.get('source', '?')}: {str(_err)[:50]}",
+                            ))
+
+                if _cat_sources > 0:
+                    _cat_progress.append(make_entry(
+                        "complete",
+                        f"{category}: {_cat_sources} source(s), {_cat_records} records",
+                    ))
+                elif _cat_sources == 0 and isinstance(sources_list, list) and sources_list:
+                    _cat_progress.append(make_entry(
+                        "warning", f"{category}: all sources failed",
+                    ))
         
         _elapsed = int((time.time() - _t0) * 1000)
         _prog = [
             make_entry("info", f"Exploring ({lat:.2f}, {lon:.2f}), radius {radius or 50} km"),
-            make_entry("complete", f"{sources_count} sources, {records_count} records", duration_ms=_elapsed),
-            make_entry("separator", ""),
-            make_entry("success", "Exploration data loaded"),
         ]
+        _prog.extend(_cat_progress)
+        _prog.append(make_entry(
+            "complete",
+            f"Total: {sources_count} sources, {records_count} records",
+            duration_ms=_elapsed,
+        ))
+        _prog.append(make_entry("separator", ""))
+        _prog.append(make_entry("success", "Exploration data loaded"))
+
         return result, dbc.Alert(
             f"\u2705 Found data from {sources_count} sources ({records_count} records)",
             color="success"
@@ -284,6 +355,9 @@ def update_explore_map(data, lat, lon):
         return html.P("No data to display. Use the search above to explore data.", 
                       className="text-muted text-center py-5")
     
+    center_lat = lat or MAP_CONFIG['default_lat']
+    center_lon = lon or MAP_CONFIG['default_lon']
+
     # Extract location data for mapping
     map_data = []
     
@@ -296,7 +370,9 @@ def update_explore_map(data, lat, lon):
                     
                 source_name = source.get("source", category)
                 source_data = source.get("data", {})
-                
+                if not isinstance(source_data, dict):
+                    continue
+
                 # Handle GeoJSON features (e.g., earthquakes)
                 if "features" in source_data:
                     for feature in source_data.get("features", [])[:50]:
@@ -306,6 +382,7 @@ def update_explore_map(data, lat, lon):
                             coords = geom["coordinates"]
                             map_data.append({
                                 "source": source_name,
+                                "category": category,
                                 "latitude": coords[1],
                                 "longitude": coords[0],
                                 "value": props.get("mag", props.get("title", "N/A"))
@@ -317,28 +394,148 @@ def update_explore_map(data, lat, lon):
                     if isinstance(cw, dict):
                         map_data.append({
                             "source": source_name,
-                            "latitude": source_data.get("latitude", lat),
-                            "longitude": source_data.get("longitude", lon),
-                            "value": f"{cw.get('temperature', 'N/A')}°C"
+                            "category": category,
+                            "latitude": source_data.get("latitude", center_lat),
+                            "longitude": source_data.get("longitude", center_lon),
+                            "value": f"{cw.get('temperature', 'N/A')}\u00b0C"
                         })
                 
-                # Handle results array
+                # Handle results array (biodiversity GBIF, OpenAQ, etc.)
                 elif "results" in source_data:
                     for item in source_data.get("results", [])[:50]:
                         if isinstance(item, dict):
-                            item_lat = item.get("latitude", item.get("lat"))
-                            item_lon = item.get("longitude", item.get("lon"))
+                            item_lat = item.get("decimalLatitude", item.get("latitude", item.get("lat")))
+                            item_lon = item.get("decimalLongitude", item.get("longitude", item.get("lon")))
                             if item_lat and item_lon:
+                                val = item.get("species", item.get("scientificName",
+                                      item.get("value", item.get("name", "N/A"))))
                                 map_data.append({
                                     "source": source_name,
-                                    "latitude": item_lat,
-                                    "longitude": item_lon,
-                                    "value": item.get("value", item.get("name", "N/A"))
+                                    "category": category,
+                                    "latitude": float(item_lat),
+                                    "longitude": float(item_lon),
+                                    "value": val
                                 })
-    
+
+                # Handle NASA FIRMS fire points
+                elif "fires" in source_data:
+                    for fp in source_data.get("fires", [])[:50]:
+                        if isinstance(fp, dict) and fp.get("latitude") and fp.get("longitude"):
+                            try:
+                                frp = float(fp.get("frp", fp.get("brightness", 0)) or 0)
+                            except (ValueError, TypeError):
+                                frp = 0
+                            map_data.append({
+                                "source": source_name,
+                                "category": category,
+                                "latitude": float(fp["latitude"]),
+                                "longitude": float(fp["longitude"]),
+                                "value": f"FRP {frp:.1f} MW"
+                            })
+
+                # Handle observations array (AirNow, marine)
+                elif "observations" in source_data:
+                    for obs in source_data.get("observations", [])[:30]:
+                        if isinstance(obs, dict):
+                            obs_lat = obs.get("Latitude", obs.get("latitude", obs.get("lat")))
+                            obs_lon = obs.get("Longitude", obs.get("longitude", obs.get("lon")))
+                            if obs_lat and obs_lon:
+                                param = obs.get("ParameterName", obs.get("parameter", ""))
+                                val = obs.get("AQI", obs.get("value", "N/A"))
+                                map_data.append({
+                                    "source": source_name,
+                                    "category": category,
+                                    "latitude": float(obs_lat),
+                                    "longitude": float(obs_lon),
+                                    "value": f"{param}: {val}" if param else str(val)
+                                })
+
+                # Handle USGS water timeSeries
+                elif "value" in source_data and isinstance(source_data.get("value"), dict):
+                    for ts in source_data["value"].get("timeSeries", [])[:15]:
+                        if isinstance(ts, dict):
+                            geo = ts.get("sourceInfo", {}).get("geoLocation", {})
+                            slat = geo.get("latitude") or geo.get("geogLocation", {}).get("latitude")
+                            slon = geo.get("longitude") or geo.get("geogLocation", {}).get("longitude")
+                            if slat and slon:
+                                site_name = ts.get("sourceInfo", {}).get("siteName", "Station")
+                                map_data.append({
+                                    "source": source_name,
+                                    "category": category,
+                                    "latitude": float(slat),
+                                    "longitude": float(slon),
+                                    "value": site_name[:30]
+                                })
+
+                # Handle soil data (SoilGrids) - pin at search location
+                elif "properties" in source_data and "layers" in source_data.get("properties", {}):
+                    layers = source_data["properties"]["layers"]
+                    names = [ly.get("name", "?") for ly in layers[:3] if isinstance(ly, dict)]
+                    map_data.append({
+                        "source": source_name,
+                        "category": category,
+                        "latitude": center_lat,
+                        "longitude": center_lon,
+                        "value": f"Soil: {', '.join(names)}"
+                    })
+
+                # Handle hourly/daily data - pin at search location
+                elif "hourly" in source_data or "daily" in source_data:
+                    hourly = source_data.get("hourly", {})
+                    daily = source_data.get("daily", {})
+                    data_lat = source_data.get("latitude", center_lat)
+                    data_lon = source_data.get("longitude", center_lon)
+                    label_parts = []
+                    if hourly:
+                        n_vars = len([k for k in hourly if k != "time"])
+                        label_parts.append(f"{n_vars} hourly vars")
+                    if daily:
+                        n_vars = len([k for k in daily if k != "time"])
+                        label_parts.append(f"{n_vars} daily vars")
+                    map_data.append({
+                        "source": source_name,
+                        "category": category,
+                        "latitude": float(data_lat),
+                        "longitude": float(data_lon),
+                        "value": ", ".join(label_parts) if label_parts else "Time series data"
+                    })
+
+                # Handle current (Open-Meteo marine, radiation)
+                elif "current" in source_data and isinstance(source_data.get("current"), dict):
+                    cur = source_data["current"]
+                    data_lat = source_data.get("latitude", center_lat)
+                    data_lon = source_data.get("longitude", center_lon)
+                    vals = [f"{k}: {v}" for k, v in cur.items() if k != "time" and v is not None]
+                    map_data.append({
+                        "source": source_name,
+                        "category": category,
+                        "latitude": float(data_lat),
+                        "longitude": float(data_lon),
+                        "value": "; ".join(vals[:3]) if vals else "Current data"
+                    })
+
+                # Handle stations (marine, radiation)
+                elif "stations" in source_data:
+                    for stn in source_data.get("stations", [])[:20]:
+                        if isinstance(stn, dict):
+                            slat = stn.get("latitude", stn.get("lat"))
+                            slon = stn.get("longitude", stn.get("lon"))
+                            if slat and slon:
+                                map_data.append({
+                                    "source": source_name,
+                                    "category": category,
+                                    "latitude": float(slat),
+                                    "longitude": float(slon),
+                                    "value": stn.get("name", stn.get("stationId", "Station"))
+                                })
+
     if not map_data:
         # Just show the search location
-        map_data = [{"source": "Search Location", "latitude": lat or MAP_CONFIG['default_lat'], "longitude": lon or MAP_CONFIG['default_lon'], "value": "Center"}]
+        map_data = [{
+            "source": "Search Location", "category": "search",
+            "latitude": center_lat, "longitude": center_lon,
+            "value": "Center"
+        }]
     
     # Build Plotly Scattermapbox (no API key needed, uses OpenStreetMap tiles)
     # Group points by source for separate colored traces
@@ -346,7 +543,7 @@ def update_explore_map(data, lat, lon):
         "earthquakes": "#C73E1D", "wildfires": "#F18F01", "air_quality": "#2E86AB",
         "radiation": "#8F3F97", "marine": "#00B4D8", "biodiversity": "#2D6A4F",
         "weather": "#E9C46A", "water": "#0077B6", "climate": "#6C757D",
-        "soil": "#BC6C25", "Search Location": "#333333",
+        "soil": "#BC6C25", "search": "#333333", "Search Location": "#333333",
     }
 
     by_source: dict = {}
@@ -354,12 +551,25 @@ def update_explore_map(data, lat, lon):
         src = pt.get("source", "Unknown")
         by_source.setdefault(src, []).append(pt)
 
+    # Per-source offsets to prevent stacking
+    _OFFSETS = [
+        (0.0, 0.0), (0.003, 0.002), (-0.003, 0.002),
+        (0.002, -0.003), (-0.002, -0.003), (0.004, 0.0),
+        (-0.004, 0.0), (0.0, 0.004), (0.003, -0.003),
+        (-0.003, -0.003), (0.005, 0.003), (-0.005, 0.003),
+    ]
+    _source_names = list(by_source.keys())
+
     fig = go.Figure()
-    for source_name, points in by_source.items():
-        lats = [p["latitude"] for p in points]
-        lons = [p["longitude"] for p in points]
+    for src_idx, source_name in enumerate(_source_names):
+        points = by_source[source_name]
+        dlat, dlon = _OFFSETS[src_idx % len(_OFFSETS)]
+        lats = [p["latitude"] + dlat for p in points]
+        lons = [p["longitude"] + dlon for p in points]
         texts = [f"{source_name}: {p.get('value', '')}" for p in points]
-        color = cat_colors.get(source_name, "#6C757D")
+        # Use category color if available
+        cat_for_color = points[0].get("category", source_name) if points else source_name
+        color = cat_colors.get(cat_for_color, cat_colors.get(source_name, "#6C757D"))
         fig.add_trace(go.Scattermapbox(
             lat=lats, lon=lons, mode="markers",
             marker=dict(size=10, color=color, opacity=0.85),
@@ -367,8 +577,6 @@ def update_explore_map(data, lat, lon):
             name=source_name.replace("_", " ").title(),
         ))
 
-    center_lat = lat or MAP_CONFIG["default_lat"]
-    center_lon = lon or MAP_CONFIG["default_lon"]
     fig.update_layout(
         mapbox=dict(
             style="open-street-map",

@@ -743,35 +743,75 @@ async def quick_environmental_check(
         "open_meteo",
         f"/forecast?latitude={lat}&longitude={lon}&current_weather=true"
     )
-    
+
+    # Get Open-Meteo air quality (always free, no key needed)
+    aq = await data_aggregator.proxy_request(
+        "open_meteo_aq",
+        f"/air-quality?latitude={lat}&longitude={lon}&current=us_aqi,pm2_5,pm10"
+    )
+
     # Get recent earthquakes
     earthquakes = await data_aggregator.proxy_request(
         "usgs_earthquake",
         f"/query?format=geojson&latitude={lat}&longitude={lon}&maxradiuskm=100&limit=5"
     )
-    
-    # Summarize
-    weather_current = {}
+
+    # Summarize weather
+    weather_result = {"status": "unknown"}
     if weather.get("success") and weather.get("data"):
         cw = weather["data"].get("current_weather", {})
-        weather_current = {
+        weather_result = {
             "temperature_c": cw.get("temperature"),
-            "windspeed_kmh": cw.get("windspeed"),
+            "wind_speed_kmh": cw.get("windspeed"),
             "winddirection": cw.get("winddirection"),
-            "weathercode": cw.get("weathercode")
+            "weathercode": cw.get("weathercode"),
+            "status": "normal" if cw.get("temperature") is not None else "unknown",
         }
-    
+
+    # Summarize air quality
+    aq_result = {"status": "unknown", "us_aqi": 0}
+    if aq.get("success") and aq.get("data"):
+        aq_current = aq["data"].get("current", {})
+        us_aqi = aq_current.get("us_aqi")
+        pm25 = aq_current.get("pm2_5")
+        if us_aqi is not None:
+            if us_aqi <= 50:
+                aq_status = "good"
+            elif us_aqi <= 100:
+                aq_status = "moderate"
+            elif us_aqi <= 150:
+                aq_status = "unhealthy_sensitive"
+            elif us_aqi <= 200:
+                aq_status = "unhealthy"
+            else:
+                aq_status = "hazardous"
+            aq_result = {
+                "us_aqi": us_aqi,
+                "pm2_5": pm25,
+                "status": aq_status,
+            }
+
     eq_count = 0
     if earthquakes.get("success") and earthquakes.get("data"):
         eq_count = len(earthquakes["data"].get("features", []))
-    
+
+    # Determine overall status
+    if eq_count > 0:
+        overall = "alert"
+    elif aq_result.get("us_aqi", 0) > 100:
+        overall = "caution"
+    elif weather_result.get("temperature_c") is not None and aq_result.get("us_aqi", 0) > 0:
+        overall = "normal"
+    elif weather_result.get("temperature_c") is not None or aq_result.get("us_aqi", 0) > 0:
+        overall = "partial_data"
+    else:
+        overall = "unknown"
+
     return {
         "location": {"latitude": lat, "longitude": lon},
         "timestamp": datetime.utcnow().isoformat(),
-        "summary": {
-            "weather": weather_current,
-            "recent_earthquakes_nearby": eq_count,
-            "air_quality": "Check /hub/location for full air quality data"
-        },
-        "quick_status": "✅ No immediate hazards detected" if eq_count == 0 else f"⚠️ {eq_count} recent earthquakes in area"
+        "overall_status": overall,
+        "air_quality": aq_result,
+        "weather": weather_result,
+        "recent_earthquakes_nearby": eq_count,
     }
