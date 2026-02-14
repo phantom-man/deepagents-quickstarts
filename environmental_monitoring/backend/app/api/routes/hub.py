@@ -244,21 +244,28 @@ async def quick_environmental_check(
     Great for dashboards and quick lookups.
     """
     # Get Open-Meteo weather (always free, no key needed)
-    weather = await data_aggregator.proxy_request(
+    # Run weather, earthquakes, and AQ in parallel (all free, no key needed)
+    weather_task = data_aggregator.proxy_request(
         "open_meteo",
         f"/forecast?latitude={lat}&longitude={lon}&current_weather=true"
     )
-    
-    # Get recent earthquakes
-    earthquakes = await data_aggregator.proxy_request(
+    eq_task = data_aggregator.proxy_request(
         "usgs_earthquake",
         f"/query?format=geojson&latitude={lat}&longitude={lon}"
         f"&maxradiuskm=100&limit=5"
     )
-    
-    # Summarize — normalize to canonical field names
+    aq_task = data_aggregator.proxy_request(
+        "open_meteo_aq",
+        f"/air-quality?latitude={lat}&longitude={lon}&current=us_aqi,pm2_5,pm10"
+    )
+
+    weather, earthquakes, aq = await asyncio.gather(
+        weather_task, eq_task, aq_task, return_exceptions=True
+    )
+
+    # Normalize weather
     weather_current = {}
-    if weather.get("success") and weather.get("data"):
+    if not isinstance(weather, Exception) and weather.get("success") and weather.get("data"):
         cw = weather["data"].get("current_weather", {})
         weather_current = {
             "temperature_c": cw.get("temperature"),
@@ -266,10 +273,34 @@ async def quick_environmental_check(
             "wind_direction_deg": cw.get("winddirection"),
             "weather_code": cw.get("weathercode")
         }
-    
+
+    # Normalize earthquakes
     eq_count = 0
-    if earthquakes.get("success") and earthquakes.get("data"):
+    if not isinstance(earthquakes, Exception) and earthquakes.get("success") and earthquakes.get("data"):
         eq_count = len(earthquakes["data"].get("features", []))
+
+    # Normalize air quality
+    aq_summary = {}
+    if not isinstance(aq, Exception) and aq.get("success") and aq.get("data"):
+        current = aq["data"].get("current", {})
+        if current:
+            us_aqi = current.get("us_aqi")
+            pm25 = current.get("pm2_5")
+            pm10 = current.get("pm10")
+            aq_summary = {
+                "us_aqi": us_aqi,
+                "pm2_5": pm25,
+                "pm10": pm10,
+                "status": (
+                    "good" if us_aqi and us_aqi <= 50
+                    else "moderate" if us_aqi and us_aqi <= 100
+                    else "unhealthy_sensitive" if us_aqi and us_aqi <= 150
+                    else "unhealthy" if us_aqi and us_aqi <= 200
+                    else "very_unhealthy" if us_aqi and us_aqi <= 300
+                    else "hazardous" if us_aqi
+                    else "unknown"
+                ),
+            }
     
     return {
         "location": {"latitude": lat, "longitude": lon},
@@ -277,12 +308,12 @@ async def quick_environmental_check(
         "summary": {
             "weather": weather_current,
             "recent_earthquakes_nearby": eq_count,
-            "air_quality": "Check /hub/location for full air quality data"
+            "air_quality": aq_summary
         },
         "quick_status": (
-            "✅ No immediate hazards detected"
+            "No immediate hazards detected"
             if eq_count == 0
-            else f"⚠️ {eq_count} recent earthquakes in area"
+            else f"{eq_count} recent earthquakes in area"
         )
     }
 
