@@ -1747,8 +1747,8 @@ def update_dashboard_map(loaded_data):
         for wp in weather_pts:
             if not isinstance(wp, dict):
                 continue
-            temp = wp.get("temperature", "?")
-            wind = wp.get("windspeed", "?")
+            temp = wp.get("temperature_c", "?")
+            wind = wp.get("wind_speed_kmh", "?")
             w_points.append({
                 "lat": wp["lat"], "lon": wp["lon"],
                 "text": f"Weather: {temp}\u00b0C, Wind {wind} km/h",
@@ -2262,8 +2262,8 @@ def update_quick_check(
         if not isinstance(weather, dict):
             weather = {}
         temp = weather.get("temperature_c", "N/A")
-        wind = weather.get("windspeed_kmh", weather.get("wind_speed_kmh", "N/A"))
-        weather_status = weather.get("status", weather.get("weathercode", "unknown"))
+        wind = weather.get("wind_speed_kmh", "N/A")
+        weather_status = weather.get("weather_code", "unknown")
         
         # Determine if weather data is actually present
         has_weather = (temp not in ("N/A", None, 0, "") and wind not in ("N/A", None, ""))
@@ -2494,8 +2494,8 @@ def _summarize_for_log(cat_id: str, summary: Dict[str, Any],
             parts.append(f"PM2.5 {pm}")
         return (", ".join(parts) if parts else "Data loaded") + rc_tag
     if cat_id == "weather":
-        temp = summary.get("temperature_c", summary.get("temperature"))
-        wind = summary.get("wind_speed_kmh", summary.get("windspeed"))
+        temp = summary.get("temperature_c")
+        wind = summary.get("wind_speed_kmh")
         parts = []
         if temp is not None:
             parts.append(f"{temp}\u00b0C")

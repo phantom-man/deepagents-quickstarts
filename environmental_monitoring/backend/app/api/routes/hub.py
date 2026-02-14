@@ -4,6 +4,7 @@ Data Aggregation Hub Routes - One-Stop Shop for Environmental Data.
 This module provides the central aggregation endpoints that combine data
 from 15+ external APIs into unified responses.
 """
+import asyncio
 from datetime import datetime
 from typing import Optional
 
@@ -155,14 +156,29 @@ async def aggregate_for_location(
 @router.get("/category/{category}", dependencies=[Depends(heavy_rate_limiter)])
 async def aggregate_by_category(
     category: str,
+    lat: Optional[float] = Query(None, ge=-90, le=90, description="Latitude for location-aware sources"),
+    lon: Optional[float] = Query(None, ge=-180, le=180, description="Longitude for location-aware sources"),
+    days: Optional[int] = Query(None, ge=1, le=365, description="Number of days to aggregate (e.g. 7, 30, 90)"),
 ):
     """
     Get data from all sources in a specific category.
     
     Categories: air_quality, water, weather, climate, marine, radiation,
     wildfires, earthquakes, biodiversity, soil
+    
+    Pass lat/lon for sources that require location (e.g. SoilGrids, Climate).
+    Pass days to control the time-aggregation window (default varies by source).
     """
-    result = await data_aggregator.aggregate_by_category(category)
+    params = {}
+    if lat is not None:
+        params["lat"] = lat
+        params["latitude"] = lat
+    if lon is not None:
+        params["lon"] = lon
+        params["longitude"] = lon
+    if days is not None:
+        params["days"] = days
+    result = await data_aggregator.aggregate_by_category(category, params if params else None)
     if not result.get("success", True):
         raise HTTPException(status_code=400, detail=result.get("error"))
     return result
@@ -240,15 +256,15 @@ async def quick_environmental_check(
         f"&maxradiuskm=100&limit=5"
     )
     
-    # Summarize
+    # Summarize — normalize to canonical field names
     weather_current = {}
     if weather.get("success") and weather.get("data"):
         cw = weather["data"].get("current_weather", {})
         weather_current = {
             "temperature_c": cw.get("temperature"),
-            "windspeed_kmh": cw.get("windspeed"),
-            "winddirection": cw.get("winddirection"),
-            "weathercode": cw.get("weathercode")
+            "wind_speed_kmh": cw.get("windspeed"),
+            "wind_direction_deg": cw.get("winddirection"),
+            "weather_code": cw.get("weathercode")
         }
     
     eq_count = 0
@@ -269,3 +285,180 @@ async def quick_environmental_check(
             else f"⚠️ {eq_count} recent earthquakes in area"
         )
     }
+
+
+# ============================================================================
+# STATE-LEVEL MAP DATA - Spatial data for entire state bounding box
+# ============================================================================
+
+@router.get("/state-map", dependencies=[Depends(heavy_rate_limiter)])
+async def get_state_map_data(
+    south: float = Query(..., ge=-90, le=90, description="Southern latitude bound"),
+    west: float = Query(..., ge=-180, le=180, description="Western longitude bound"),
+    north: float = Query(..., ge=-90, le=90, description="Northern latitude bound"),
+    east: float = Query(..., ge=-180, le=180, description="Eastern longitude bound"),
+):
+    """
+    Get map-plottable data points for an entire state/region bounding box.
+
+    Queries spatial sources (earthquakes, water, wildfires, biodiversity, air quality)
+    using the bounding box, and point sources (weather, soil, climate, marine, radiation)
+    at a grid of sample locations within the box.
+
+    Returns data optimized for map rendering with lat/lon coordinates for each point.
+    """
+    bbox_str = f"{west:.2f},{south:.2f},{east:.2f},{north:.2f}"
+    center_lat = (south + north) / 2
+    center_lon = (west + east) / 2
+
+    # Calculate rough diagonal in km for reference
+    import math
+    lat_diff = north - south
+    lon_diff = east - west
+
+    results = {
+        "bbox": {"south": south, "west": west, "north": north, "east": east},
+        "timestamp": datetime.utcnow().isoformat(),
+        "sources": {}
+    }
+
+    # ---- Spatial sources (support bbox or large radius) ----
+    spatial_tasks = {}
+
+    # Earthquakes - USGS supports bbox
+    spatial_tasks["earthquakes"] = data_aggregator.proxy_request(
+        "usgs_earthquake",
+        f"/query?format=geojson&minlatitude={south}&maxlatitude={north}"
+        f"&minlongitude={west}&maxlongitude={east}&limit=50"
+    )
+
+    # Water stations - USGS supports bbox
+    spatial_tasks["water"] = data_aggregator.proxy_request(
+        "usgs_water",
+        f"/iv/?format=json&bBox={bbox_str}"
+        f"&parameterCd=00060,00065,00010&period=PT2H&siteStatus=active&siteType=ST"
+    )
+
+    # Biodiversity - GBIF supports bbox via decimalLatitude/decimalLongitude ranges
+    spatial_tasks["biodiversity"] = data_aggregator.proxy_request(
+        "gbif",
+        f"/v1/occurrence/search?decimalLatitude={south},{north}"
+        f"&decimalLongitude={west},{east}&limit=80&hasCoordinate=true"
+    )
+
+    # Wildfires - NASA FIRMS supports bbox
+    spatial_tasks["wildfires"] = data_aggregator.proxy_request(
+        "nasa_firms",
+        f"/area/csv/{{MAP_KEY}}/VIIRS_SNPP_NRT/{bbox_str}/1"
+    )
+
+    # Marine - Open-Meteo marine at center
+    spatial_tasks["marine"] = data_aggregator.proxy_request(
+        "open_meteo_marine",
+        f"/v1/marine?latitude={center_lat}&longitude={center_lon}"
+        f"&current=wave_height,wave_direction,wave_period,sea_surface_temperature"
+        f"&hourly=wave_height&forecast_days=1"
+    )
+
+    # ---- Grid-based sources (sample multiple points) ----
+    # Generate a 3x3 grid across the state
+    grid_points = []
+    lat_step = lat_diff / 4
+    lon_step = lon_diff / 4
+    for i in range(1, 4):
+        for j in range(1, 4):
+            grid_points.append((
+                round(south + i * lat_step, 4),
+                round(west + j * lon_step, 4)
+            ))
+
+    # Weather at grid points
+    weather_tasks = []
+    for glat, glon in grid_points:
+        weather_tasks.append(data_aggregator.proxy_request(
+            "open_meteo",
+            f"/v1/forecast?latitude={glat}&longitude={glon}&current_weather=true"
+        ))
+
+    # Air quality at grid points (Open-Meteo AQ is free, no key needed)
+    aq_tasks = []
+    for glat, glon in grid_points:
+        aq_tasks.append(data_aggregator.proxy_request(
+            "open_meteo_aq",
+            f"/air-quality?latitude={glat}&longitude={glon}"
+            f"&current=us_aqi,pm2_5,pm10"
+        ))
+
+    # Radiation at grid points
+    radiation_tasks = []
+    for glat, glon in grid_points:
+        radiation_tasks.append(data_aggregator.proxy_request(
+            "open_meteo_uv",
+            f"/v1/forecast?latitude={glat}&longitude={glon}"
+            f"&hourly=uv_index,direct_radiation&forecast_days=1"
+        ))
+
+    # Execute all spatial tasks in parallel
+    spatial_keys = list(spatial_tasks.keys())
+    spatial_results = await asyncio.gather(
+        *spatial_tasks.values(), return_exceptions=True
+    )
+    for key, resp in zip(spatial_keys, spatial_results):
+        if isinstance(resp, Exception):
+            results["sources"][key] = {"error": str(resp)}
+        else:
+            results["sources"][key] = resp
+
+    # Execute grid tasks in parallel
+    weather_results = await asyncio.gather(*weather_tasks, return_exceptions=True)
+    aq_results = await asyncio.gather(*aq_tasks, return_exceptions=True)
+    radiation_results = await asyncio.gather(*radiation_tasks, return_exceptions=True)
+
+    # Package grid results with their coordinates (canonical field names)
+    weather_points = []
+    for (glat, glon), resp in zip(grid_points, weather_results):
+        if isinstance(resp, Exception) or not resp.get("success"):
+            continue
+        cw = (resp.get("data") or {}).get("current_weather", {})
+        if cw:
+            weather_points.append({
+                "lat": glat, "lon": glon,
+                "temperature_c": cw.get("temperature"),
+                "wind_speed_kmh": cw.get("windspeed"),
+                "weather_code": cw.get("weathercode"),
+            })
+    results["sources"]["weather"] = {"points": weather_points}
+
+    aq_points = []
+    for (glat, glon), resp in zip(grid_points, aq_results):
+        if isinstance(resp, Exception) or not resp.get("success"):
+            continue
+        current = (resp.get("data") or {}).get("current", {})
+        if current:
+            aq_points.append({
+                "lat": glat, "lon": glon,
+                "us_aqi": current.get("us_aqi"),
+                "pm2_5": current.get("pm2_5"),
+                "pm10": current.get("pm10"),
+            })
+    results["sources"]["air_quality"] = {"points": aq_points}
+
+    radiation_points = []
+    for (glat, glon), resp in zip(grid_points, radiation_results):
+        if isinstance(resp, Exception) or not resp.get("success"):
+            continue
+        hourly = (resp.get("data") or {}).get("hourly", {})
+        uv_vals = hourly.get("uv_index", [])
+        if uv_vals:
+            # Take the maximum UV index for display
+            clean = [v for v in uv_vals if v is not None]
+            max_uv = max(clean) if clean else None
+            if max_uv is not None:
+                radiation_points.append({
+                    "lat": glat, "lon": glon,
+                    "uv_index_max": max_uv,
+                })
+    results["sources"]["radiation"] = {"points": radiation_points}
+
+    results["grid_points"] = len(grid_points)
+    return results
