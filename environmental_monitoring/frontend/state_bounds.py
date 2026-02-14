@@ -1,18 +1,33 @@
 """
-US State bounding boxes and reverse-geocode-to-state utility.
+Global administrative division resolver.
 
-Used by the dashboard map to load state-level data for all data sources.
-Bounding boxes are (south_lat, west_lon, north_lat, east_lon).
+Resolves any lat/lon to its top-level administrative division (state, province,
+region, prefecture, etc.) with bounding box. Works worldwide.
+
+Strategy:
+  1. US locations: Fast lookup from hardcoded US_STATE_BOUNDS (no API call).
+  2. All other countries: Nominatim reverse geocode at zoom=5 returns the
+     admin-level-1 division name + bounding box for any country worldwide.
+  3. In-memory cache prevents repeated lookups for the same division.
+
+This is the translation layer that lets US-specific state-level data loading
+work for any country: Canadian provinces, French regions, Japanese prefectures,
+Australian states, Brazilian estados, etc.
 """
 import logging
+import math
+import re
 from typing import Dict, List, Optional, Tuple
 
 import httpx
 
 logger = logging.getLogger(__name__)
 
-# US state bounding boxes: {state_code: (south_lat, west_lon, north_lat, east_lon)}
-# Source: US Census Bureau TIGER shapefiles, rounded to 1 decimal
+# ---------------------------------------------------------------------------
+# US state bounding boxes (south_lat, west_lon, north_lat, east_lon)
+# Fast fallback that avoids any API call for US locations.
+# Source: US Census Bureau TIGER shapefiles, rounded to 1 decimal.
+# ---------------------------------------------------------------------------
 US_STATE_BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
     "AL": (30.2, -88.5, 35.0, -84.9),
     "AK": (51.2, -179.1, 71.4, 179.8),
@@ -67,61 +82,295 @@ US_STATE_BOUNDS: Dict[str, Tuple[float, float, float, float]] = {
     "DC": (38.8, -77.1, 39.0, -76.9),
 }
 
+# Reverse map: full US state name -> code
+_US_STATE_NAMES: Dict[str, str] = {
+    "Alabama": "AL", "Alaska": "AK", "Arizona": "AZ", "Arkansas": "AR",
+    "California": "CA", "Colorado": "CO", "Connecticut": "CT", "Delaware": "DE",
+    "Florida": "FL", "Georgia": "GA", "Hawaii": "HI", "Idaho": "ID",
+    "Illinois": "IL", "Indiana": "IN", "Iowa": "IA", "Kansas": "KS",
+    "Kentucky": "KY", "Louisiana": "LA", "Maine": "ME", "Maryland": "MD",
+    "Massachusetts": "MA", "Michigan": "MI", "Minnesota": "MN",
+    "Mississippi": "MS", "Missouri": "MO", "Montana": "MT", "Nebraska": "NE",
+    "Nevada": "NV", "New Hampshire": "NH", "New Jersey": "NJ",
+    "New Mexico": "NM", "New York": "NY", "North Carolina": "NC",
+    "North Dakota": "ND", "Ohio": "OH", "Oklahoma": "OK", "Oregon": "OR",
+    "Pennsylvania": "PA", "Rhode Island": "RI", "South Carolina": "SC",
+    "South Dakota": "SD", "Tennessee": "TN", "Texas": "TX", "Utah": "UT",
+    "Vermont": "VT", "Virginia": "VA", "Washington": "WA",
+    "West Virginia": "WV", "Wisconsin": "WI", "Wyoming": "WY",
+    "District of Columbia": "DC",
+}
 
-def get_state_from_coords(
+# Code -> full name reverse lookup
+_US_CODE_TO_NAME: Dict[str, str] = {v: k for k, v in _US_STATE_NAMES.items()}
+
+
+# ---------------------------------------------------------------------------
+# In-memory cache keyed by rounded coordinates (~11 km resolution)
+# ---------------------------------------------------------------------------
+_division_cache: Dict[str, Dict] = {}
+
+
+def _cache_key(lat: float, lon: float) -> str:
+    """Create cache key by rounding coords to 1 decimal."""
+    return f"{round(lat, 1)},{round(lon, 1)}"
+
+
+def _nominatim_reverse(lat: float, lon: float) -> Optional[Dict]:
+    """Query Nominatim at zoom=5 (state/province level).
+
+    Returns parsed JSON or None on failure.
+    Nominatim policy: max 1 req/s, identify with User-Agent.
+    """
+    try:
+        with httpx.Client(timeout=10) as client:
+            resp = client.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={
+                    "lat": lat,
+                    "lon": lon,
+                    "format": "jsonv2",
+                    "zoom": 5,
+                    "addressdetails": 1,
+                },
+                headers={"User-Agent": "DeepAgentsAtlas/1.0 (env-monitor)"},
+            )
+            resp.raise_for_status()
+            return resp.json()
+    except Exception as exc:
+        logger.warning(
+            "Nominatim reverse geocode failed for %.4f,%.4f: %s",
+            lat, lon, exc,
+        )
+        return None
+
+
+def get_admin_division(
     lat: float,
     lon: float,
     google_api_key: str = "",
 ) -> Optional[Dict]:
-    """Reverse geocode lat/lon to determine the US state.
+    """Resolve any lat/lon to its top-level administrative division.
 
-    Uses Google Geocoding API if key is available, otherwise falls back
-    to bounding-box lookup.
+    Works worldwide. Returns::
 
-    Returns dict with keys: state_code, state_name, bounds (south, west, north, east)
-    or None if not in a US state.
+        {
+            "division_name": "Ontario" | "Wyoming" | "Ile-de-France",
+            "division_code": "ON" | "WY" | "IDF",
+            "country_code": "ca" | "us" | "fr",
+            "country_name": "Canada" | "United States" | "France",
+            "bounds": (south_lat, west_lon, north_lat, east_lon),
+            "source": "us_fallback" | "nominatim" | "google",
+            # Backward compat:
+            "state_code": same as division_code,
+            "state_name": same as division_name,
+        }
+
+    Returns None if location is in open ocean or unmapped.
+
+    Strategy:
+      1. Check in-memory cache.
+      2. US: Google Geocoding (if key) -> bbox containment fallback.
+      3. Non-US or US miss: Nominatim at zoom=5 (universal).
     """
-    # Try Google reverse geocoding first for accuracy
-    if google_api_key:
-        try:
-            url = "https://maps.googleapis.com/maps/api/geocode/json"
-            params = {
-                "latlng": f"{lat},{lon}",
-                "key": google_api_key,
-                "result_type": "administrative_area_level_1",
-            }
-            with httpx.Client(timeout=8) as client:
-                resp = client.get(url, params=params)
-                resp.raise_for_status()
-                data = resp.json()
-                if data.get("status") == "OK" and data.get("results"):
-                    result = data["results"][0]
-                    for comp in result.get("address_components", []):
-                        types = comp.get("types", [])
-                        if "administrative_area_level_1" in types:
-                            state_code = comp.get("short_name", "")
-                            state_name = comp.get("long_name", "")
-                            if state_code in US_STATE_BOUNDS:
-                                bounds = US_STATE_BOUNDS[state_code]
-                                return {
-                                    "state_code": state_code,
-                                    "state_name": state_name,
-                                    "bounds": bounds,
-                                }
-        except Exception as exc:
-            logger.warning("Reverse geocode failed: %s", exc)
+    ck = _cache_key(lat, lon)
+    if ck in _division_cache:
+        return _division_cache[ck]
 
-    # Fallback: simple bounding-box containment check
+    result = None
+
+    # --- Try Google reverse geocoding first (fastest, most accurate) ---
+    if google_api_key:
+        result = _try_google_geocode(lat, lon, google_api_key)
+
+    # --- US bounding-box containment fallback (no API call) ---
+    if not result:
+        result = _try_us_bbox_fallback(lat, lon)
+
+    # --- Nominatim: works for ALL countries worldwide ---
+    if not result:
+        result = _try_nominatim(lat, lon)
+
+    if result:
+        _division_cache[ck] = result
+    return result
+
+
+# Backward-compatible alias
+get_state_from_coords = get_admin_division
+
+
+def _try_google_geocode(lat: float, lon: float, api_key: str) -> Optional[Dict]:
+    """Google Geocoding API for admin division detection."""
+    try:
+        params = {
+            "latlng": f"{lat},{lon}",
+            "key": api_key,
+            "result_type": "administrative_area_level_1",
+        }
+        with httpx.Client(timeout=8) as client:
+            resp = client.get(
+                "https://maps.googleapis.com/maps/api/geocode/json",
+                params=params,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("status") != "OK" or not data.get("results"):
+                return None
+
+            result = data["results"][0]
+            country_code = ""
+            country_name = ""
+            division_name = ""
+            division_code = ""
+
+            for comp in result.get("address_components", []):
+                types = comp.get("types", [])
+                if "country" in types:
+                    country_code = comp.get("short_name", "").lower()
+                    country_name = comp.get("long_name", "")
+                if "administrative_area_level_1" in types:
+                    division_code = comp.get("short_name", "")
+                    division_name = comp.get("long_name", "")
+
+            if not division_name:
+                return None
+
+            # US: use hardcoded precise bounds
+            if country_code == "us" and division_code in US_STATE_BOUNDS:
+                bounds = US_STATE_BOUNDS[division_code]
+            else:
+                # Use Google's viewport geometry
+                geo = result.get("geometry", {})
+                vp = geo.get("viewport", geo.get("bounds", {}))
+                if vp:
+                    ne = vp.get("northeast", {})
+                    sw = vp.get("southwest", {})
+                    bounds = (
+                        sw.get("lat", lat - 1),
+                        sw.get("lng", lon - 1),
+                        ne.get("lat", lat + 1),
+                        ne.get("lng", lon + 1),
+                    )
+                else:
+                    bounds = (lat - 2, lon - 2, lat + 2, lon + 2)
+
+            return _build_result(
+                division_name, division_code,
+                country_code, country_name, bounds, "google",
+            )
+    except Exception as exc:
+        logger.warning("Google reverse geocode failed: %s", exc)
+        return None
+
+
+def _try_us_bbox_fallback(lat: float, lon: float) -> Optional[Dict]:
+    """Fast US state detection using bounding-box containment."""
     for code, (s, w, n, e) in US_STATE_BOUNDS.items():
         if s <= lat <= n and w <= lon <= e:
-            return {
-                "state_code": code,
-                "state_name": code,  # No full name available in fallback
-                "bounds": (s, w, n, e),
-            }
-
+            full_name = _US_CODE_TO_NAME.get(code, code)
+            return _build_result(
+                full_name, code, "us", "United States", (s, w, n, e), "us_fallback",
+            )
     return None
 
+
+def _try_nominatim(lat: float, lon: float) -> Optional[Dict]:
+    """Nominatim reverse geocode -- universal, works for ANY country.
+
+    Queries at zoom=5 which returns state/province/region level.
+    Response ``boundingbox`` gives the admin division's spatial extent.
+    """
+    data = _nominatim_reverse(lat, lon)
+    if not data:
+        return None
+
+    addr = data.get("address", {})
+    # Nominatim uses different keys depending on country
+    division_name = (
+        addr.get("state")
+        or addr.get("province")
+        or addr.get("region")
+        or addr.get("state_district")
+        or addr.get("county")
+        or ""
+    )
+    if not division_name:
+        return None
+
+    country_code = addr.get("country_code", "")
+    country_name = addr.get("country", "")
+
+    # Parse bounding box: Nominatim returns [south, north, west, east] as strings
+    raw_bbox = data.get("boundingbox", [])
+    if len(raw_bbox) >= 4:
+        try:
+            south = float(raw_bbox[0])
+            north = float(raw_bbox[1])
+            west = float(raw_bbox[2])
+            east = float(raw_bbox[3])
+            bounds: Tuple[float, float, float, float] = (south, west, north, east)
+        except (ValueError, TypeError):
+            bounds = (lat - 2, lon - 2, lat + 2, lon + 2)
+    else:
+        bounds = (lat - 2, lon - 2, lat + 2, lon + 2)
+
+    division_code = _make_division_code(division_name)
+
+    return _build_result(
+        division_name, division_code,
+        country_code, country_name, bounds, "nominatim",
+    )
+
+
+def _build_result(
+    division_name: str,
+    division_code: str,
+    country_code: str,
+    country_name: str,
+    bounds: Tuple[float, float, float, float],
+    source: str,
+) -> Dict:
+    """Build a standardized result dict with backward-compat fields."""
+    s_lat, w_lon, n_lat, e_lon = bounds
+    return {
+        "division_name": division_name,
+        "division_code": division_code,
+        "country_code": country_code,
+        "country_name": country_name,
+        "bounds": bounds,
+        "bbox_string": f"{w_lon:.2f},{s_lat:.2f},{e_lon:.2f},{n_lat:.2f}",
+        "source": source,
+        # Backward compatibility with old get_state_from_coords
+        "state_code": division_code,
+        "state_name": division_name,
+        "code": division_code,
+    }
+
+
+def _make_division_code(name: str) -> str:
+    """Generate a short code from an admin division name.
+
+    Examples:
+        'Ontario' -> 'ONT'
+        'Ile-de-France' -> 'IDF'
+        'New South Wales' -> 'NSW'
+    """
+    # CJK: take first 3 chars
+    if any("\u4e00" <= c <= "\u9fff" or "\u3040" <= c <= "\u30ff" for c in name):
+        clean = re.sub(r"[^\w]", "", name)
+        return clean[:3].upper() if clean else name[:3].upper()
+    # Latin: take first letter of each word
+    words = re.split(r"[\s\-']+", name)
+    if len(words) == 1:
+        return name[:3].upper()
+    code = "".join(w[0] for w in words if w).upper()
+    return code[:4]
+
+
+# ---------------------------------------------------------------------------
+# Grid generation utilities
+# ---------------------------------------------------------------------------
 
 def generate_grid_points(
     bounds: Tuple[float, float, float, float],
@@ -129,18 +378,15 @@ def generate_grid_points(
 ) -> List[Tuple[float, float]]:
     """Generate a grid of sample points within a bounding box.
 
-    For state-level map coverage we want data from multiple locations
-    across the state. Returns a list of (lat, lon) tuples arranged
-    in a roughly uniform grid.
-
     Args:
         bounds: (south_lat, west_lon, north_lat, east_lon)
-        n_points: approximate number of grid points (will be nearest square)
+        n_points: approximate number of grid points (nearest perfect square)
+
+    Returns:
+        List of (lat, lon) tuples in a roughly uniform grid.
     """
-    import math
     s_lat, w_lon, n_lat, e_lon = bounds
 
-    # Calculate grid dimensions
     side = max(2, int(math.sqrt(n_points)))
     lat_step = (n_lat - s_lat) / (side + 1)
     lon_step = (e_lon - w_lon) / (side + 1)
@@ -155,10 +401,17 @@ def generate_grid_points(
     return points
 
 
-def get_state_bbox_string(bounds: Tuple[float, float, float, float]) -> str:
-    """Format bounding box as comma-separated string for API queries.
+def get_state_bbox_string(bounds) -> str:
+    """Format bounding box as 'west_lon,south_lat,east_lon,north_lat'.
 
-    Returns: 'west_lon,south_lat,east_lon,north_lat'
+    Accepts either a (s_lat, w_lon, n_lat, e_lon) tuple or a US state code
+    string (e.g. 'CA').
     """
+    if isinstance(bounds, str):
+        # Treat as US state code
+        state_bounds = US_STATE_BOUNDS.get(bounds.upper())
+        if not state_bounds:
+            return ""
+        bounds = state_bounds
     s_lat, w_lon, n_lat, e_lon = bounds
     return f"{w_lon:.2f},{s_lat:.2f},{e_lon:.2f},{n_lat:.2f}"

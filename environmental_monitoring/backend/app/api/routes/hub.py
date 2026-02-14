@@ -185,6 +185,156 @@ async def aggregate_by_category(
 
 
 # ============================================================================
+# REGIONAL / STATE-LEVEL CATEGORY DATA
+# ============================================================================
+
+@router.get(
+    "/category/{category}/regional",
+    dependencies=[Depends(heavy_rate_limiter)],
+)
+async def get_category_regional(
+    category: str,
+    south: float = Query(..., ge=-90, le=90),
+    west: float = Query(..., ge=-180, le=180),
+    north: float = Query(..., ge=-90, le=90),
+    east: float = Query(..., ge=-180, le=180),
+    days: int = Query(1, ge=1, le=30),
+):
+    """
+    Get category data for an entire admin-division bounding box.
+
+    Supported categories:
+    - **wildfires**: NASA FIRMS fire detections within the bbox (spatial).
+    - **soil**: SoilGrids sampled at a 3x3 grid inside the bbox.
+    - **earthquakes**: USGS earthquakes within the bbox.
+    - **biodiversity**: GBIF occurrences within the bbox.
+
+    Other categories fall back to a centre-point query.
+    """
+    bbox_str = f"{west:.2f},{south:.2f},{east:.2f},{north:.2f}"
+    centre_lat = (south + north) / 2
+    centre_lon = (west + east) / 2
+
+    # ---------- wildfires (FIRMS supports bbox natively) ----------
+    if category == "wildfires":
+        tasks = {
+            "nasa_firms": data_aggregator.proxy_request(
+                "nasa_firms",
+                f"/area/csv/{{MAP_KEY}}/VIIRS_SNPP_NRT/{bbox_str}/{days}",
+            ),
+            "nasa_firms_noaa20": data_aggregator.proxy_request(
+                "nasa_firms",
+                f"/area/csv/{{MAP_KEY}}/VIIRS_NOAA20_NRT/{bbox_str}/{days}",
+            ),
+        }
+        keys = list(tasks.keys())
+        results = await asyncio.gather(*tasks.values(), return_exceptions=True)
+        sources = []
+        for key, resp in zip(keys, results):
+            if isinstance(resp, Exception):
+                sources.append({"source_id": key, "error": str(resp)})
+            else:
+                sources.append(resp)
+        return {
+            "category": category,
+            "regional": True,
+            "bbox": {"south": south, "west": west, "north": north, "east": east},
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": sources,
+        }
+
+    # ---------- soil (SoilGrids is point-only; sample a 3x3 grid) ----------
+    if category == "soil":
+        lat_step = (north - south) / 4
+        lon_step = (east - west) / 4
+        grid_points = []
+        for i in range(1, 4):
+            for j in range(1, 4):
+                grid_points.append((
+                    round(south + i * lat_step, 4),
+                    round(west + j * lon_step, 4),
+                ))
+
+        soil_tasks = []
+        for glat, glon in grid_points:
+            soil_tasks.append(
+                data_aggregator.proxy_request(
+                    "soilgrids",
+                    f"/properties/query?lat={glat}&lon={glon}"
+                    "&property=clay&property=sand&property=silt"
+                    "&property=phh2o&property=soc&property=nitrogen"
+                    "&depth=0-5cm&depth=5-15cm&depth=15-30cm"
+                    "&depth=30-60cm&depth=60-100cm&depth=100-200cm"
+                    "&value=mean&value=Q0.05&value=Q0.95",
+                )
+            )
+
+        soil_results = await asyncio.gather(*soil_tasks, return_exceptions=True)
+        points = []
+        for (glat, glon), resp in zip(grid_points, soil_results):
+            if isinstance(resp, Exception):
+                continue
+            entry = {
+                "lat": glat,
+                "lon": glon,
+                "source": "SoilGrids",
+            }
+            raw_data = resp.get("data", resp) if isinstance(resp, dict) else resp
+            if isinstance(raw_data, dict):
+                entry["properties"] = raw_data.get("properties", raw_data)
+            points.append(entry)
+
+        return {
+            "category": category,
+            "regional": True,
+            "bbox": {"south": south, "west": west, "north": north, "east": east},
+            "timestamp": datetime.utcnow().isoformat(),
+            "grid_points": len(grid_points),
+            "data_points": len(points),
+            "data": points,
+        }
+
+    # ---------- earthquakes (USGS supports bbox) ----------
+    if category == "earthquakes":
+        resp = await data_aggregator.proxy_request(
+            "usgs_earthquake",
+            f"/query?format=geojson&minlatitude={south}&maxlatitude={north}"
+            f"&minlongitude={west}&maxlongitude={east}&limit=100",
+        )
+        return {
+            "category": category,
+            "regional": True,
+            "bbox": {"south": south, "west": west, "north": north, "east": east},
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": [resp] if not isinstance(resp, Exception) else [{"error": str(resp)}],
+        }
+
+    # ---------- biodiversity (GBIF supports bbox) ----------
+    if category == "biodiversity":
+        resp = await data_aggregator.proxy_request(
+            "gbif",
+            f"/occurrence/search?decimalLatitude={south},{north}"
+            f"&decimalLongitude={west},{east}&limit=200&hasCoordinate=true",
+        )
+        return {
+            "category": category,
+            "regional": True,
+            "bbox": {"south": south, "west": west, "north": north, "east": east},
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": [resp] if not isinstance(resp, Exception) else [{"error": str(resp)}],
+        }
+
+    # ---------- fallback: centre-point query ----------
+    params = {"lat": centre_lat, "longitude": centre_lon, "days": days}
+    result = await data_aggregator.aggregate_by_category(category, params)
+    if not isinstance(result, dict):
+        result = {"data": []}
+    result["regional"] = True
+    result["bbox"] = {"south": south, "west": west, "north": north, "east": east}
+    return result
+
+
+# ============================================================================
 # CONNECT THE DOTS - Turn Data into Actionable Insights
 # ============================================================================
 
@@ -302,9 +452,28 @@ async def quick_environmental_check(
                 ),
             }
     
+    # Derive overall_status from AQI + earthquake data
+    has_weather = bool(weather_current.get("temperature_c"))
+    has_aqi = bool(aq_summary.get("us_aqi"))
+    aqi_status = aq_summary.get("status", "unknown")
+
+    if eq_count > 0:
+        overall_status = "alert"
+    elif aqi_status in ("unhealthy", "very_unhealthy", "hazardous"):
+        overall_status = "alert"
+    elif aqi_status == "unhealthy_sensitive":
+        overall_status = "caution"
+    elif has_aqi and has_weather:
+        overall_status = "normal"
+    elif has_aqi or has_weather:
+        overall_status = "partial_data"
+    else:
+        overall_status = "unknown"
+
     return {
         "location": {"latitude": lat, "longitude": lon},
         "timestamp": datetime.utcnow().isoformat(),
+        "overall_status": overall_status,
         "summary": {
             "weather": weather_current,
             "recent_earthquakes_nearby": eq_count,

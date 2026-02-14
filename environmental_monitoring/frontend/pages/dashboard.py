@@ -21,6 +21,7 @@ from components.progress_box import create_progress_box, make_entry, render_entr
 from api_client import (
     get_hub_info, get_sources, quick_check,
     get_categories_parallel, get_state_map_data,
+    get_category_regional,
 )
 from config import DATA_CATEGORIES, MAP_CONFIG, API_BASE_URL, GOOGLE_MAPS_API_KEY
 from data_commons_client import (
@@ -28,7 +29,7 @@ from data_commons_client import (
     get_dc_summary_for_category,
     CATEGORY_VARIABLES,
 )
-from state_bounds import get_state_from_coords
+from state_bounds import get_state_from_coords, get_state_bbox_string
 
 logger = logging.getLogger(__name__)
 
@@ -837,7 +838,11 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
         containment_title = "Containment %" if has_known_containment else "Containment % (N/A = FIRMS source)"
         fig.update_xaxes(title_text=containment_title, range=[0, 110], row=1, col=2)
         fig.update_layout(
-            title="Active Wildfires — Size & Containment",
+            title=(
+                "Active Wildfires — Region-Wide Size & Containment"
+                if data.get("_regional")
+                else "Active Wildfires — Size & Containment"
+            ),
             height=GRAPH_HEIGHT, margin=dict(l=160, r=30, t=50, b=50),
             showlegend=False,
         )
@@ -1016,8 +1021,9 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
         if not layer_traces:
             # All layers returned null — common for urban/water/coastal locations
             layer_names = [ly.get("name", "?") for ly in layers if isinstance(ly, dict)]
+            area_note = "region" if data.get("_regional") else "location"
             return _empty_figure(
-                f"SoilGrids has no measured data at this location<br>"
+                f"SoilGrids has no measured data for this {area_note}<br>"
                 f"(urban, water, or unmapped area)<br>"
                 f"Properties queried: {', '.join(layer_names[:4])}{'...' if len(layer_names) > 4 else ''}<br>"
                 f"Try a rural or agricultural location for soil data",
@@ -1036,7 +1042,11 @@ def get_graph_for_category(cat_id: str, data: Dict[str, Any], dc_data: Optional[
                 textposition="outside",
             ))
         fig.update_layout(
-            title="Soil Properties by Depth Layer",
+            title=(
+                f"Soil Properties by Depth Layer (avg of {data.get('_sample_count', 1)} samples)"
+                if data.get("_regional")
+                else "Soil Properties by Depth Layer"
+            ),
             xaxis_title="Value",
             yaxis_title="Depth Range",
             yaxis=dict(autorange="reversed"),  # deeper = lower on chart
@@ -1132,6 +1142,122 @@ def create_intersection_graph(summary_data: Dict, cat1: str, cat2: str) -> dict:
     fig.update_yaxes(title_text=cat2_label, secondary_y=True)
 
     return fig
+
+
+def _merge_regional_soil(data_list: list) -> Dict[str, Any]:
+    """Merge multi-point SoilGrids data into averaged depth-profile layers.
+
+    Each item in *data_list* has the shape
+    ``{"lat": ..., "lon": ..., "properties": {"layers": [...]}}``
+    produced by the ``/category/soil/regional`` endpoint.
+
+    Returns a dict matching the single-point SoilGrids format
+    (``{"properties": {"layers": [...]}}``), but with values averaged
+    across all valid grid points so the existing graph builder works.
+    """
+    # Collect all layers lists that actually have data
+    all_layers: list = []
+    for point in data_list:
+        if not isinstance(point, dict):
+            continue
+        props = point.get("properties") or {}
+        if isinstance(props, dict):
+            layers = props.get("layers", [])
+            if isinstance(layers, list) and layers:
+                all_layers.append(layers)
+
+    if not all_layers:
+        return {}
+
+    # Use the first point's structure as template, average values across
+    template = all_layers[0]
+    merged_layers: list = []
+
+    for layer_idx, template_layer in enumerate(template):
+        if not isinstance(template_layer, dict):
+            continue
+        layer_copy = {
+            "name": template_layer.get("name", "Unknown"),
+            "unit_measure": template_layer.get("unit_measure", {}),
+            "depths": [],
+        }
+
+        for depth_idx, template_depth in enumerate(template_layer.get("depths", [])):
+            if not isinstance(template_depth, dict):
+                continue
+            rng = template_depth.get("range", {})
+            # Collect values across all grid points for this depth
+            means: list = []
+            q05s: list = []
+            q95s: list = []
+            for point_layers in all_layers:
+                if layer_idx >= len(point_layers):
+                    continue
+                depths = point_layers[layer_idx].get("depths", [])
+                if depth_idx >= len(depths):
+                    continue
+                vals = depths[depth_idx].get("values") or {}
+                if vals.get("mean") is not None:
+                    try:
+                        means.append(float(vals["mean"]))
+                    except (ValueError, TypeError):
+                        pass
+                if vals.get("Q0.05") is not None:
+                    try:
+                        q05s.append(float(vals["Q0.05"]))
+                    except (ValueError, TypeError):
+                        pass
+                if vals.get("Q0.95") is not None:
+                    try:
+                        q95s.append(float(vals["Q0.95"]))
+                    except (ValueError, TypeError):
+                        pass
+
+            avg_vals = {}
+            if means:
+                avg_vals["mean"] = sum(means) / len(means)
+            if q05s:
+                avg_vals["Q0.05"] = sum(q05s) / len(q05s)
+            if q95s:
+                avg_vals["Q0.95"] = sum(q95s) / len(q95s)
+
+            layer_copy["depths"].append({
+                "range": rng,
+                "values": avg_vals if avg_vals else None,
+            })
+
+        merged_layers.append(layer_copy)
+
+    return {
+        "properties": {"layers": merged_layers},
+        "_regional": True,
+        "_sample_count": len(all_layers),
+    }
+
+
+def _merge_regional_wildfires(data_list: list) -> Dict[str, Any]:
+    """Merge regional wildfire responses into a single combined dict.
+
+    Each item in *data_list* is a raw response from NASA FIRMS (CSV-style)
+    or contains ``fires``, ``data``, ``features``, or ``incidents`` keys.
+    We concatenate all fire detections / incidents into one list.
+    """
+    combined: Dict[str, Any] = {}
+    for source in data_list:
+        if not isinstance(source, dict):
+            continue
+        source_data = source.get("data", source)
+        if not isinstance(source_data, dict):
+            continue
+        for key, value in source_data.items():
+            if key not in combined:
+                combined[key] = value
+            elif isinstance(value, list) and isinstance(combined[key], list):
+                combined[key].extend(value)
+            elif isinstance(value, dict) and isinstance(combined[key], dict):
+                combined[key].update(value)
+    combined["_regional"] = True
+    return combined
 
 
 def merge_category_sources(data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1494,12 +1620,76 @@ def load_all_category_data(
     }
     effective_days = _TIME_RANGE_TO_DAYS.get(effective_time, 7)
 
-    # ---- Parallel API fetch for ALL categories at once ----
-    api_results = get_categories_parallel(categories, lat, lon, days=effective_days)
+    # ---- Resolve admin division for state-level queries ----
+    # Soil and wildfires benefit from region-wide data, not a single point.
+    _REGIONAL_CATS = {"soil", "wildfires"}
+    regional_cats = _REGIONAL_CATS & set(categories)
+    point_cats = [c for c in categories if c not in regional_cats]
+
+    admin_bounds = None
+    if regional_cats:
+        try:
+            div_info = get_state_from_coords(
+                lat, lon, google_api_key=GOOGLE_MAPS_API_KEY
+            )
+            if div_info:
+                bbox_str = div_info.get("bbox_string") or get_state_bbox_string(
+                    div_info.get("code", "")
+                )
+                if bbox_str:
+                    parts = [float(x) for x in bbox_str.split(",")]
+                    if len(parts) == 4:
+                        admin_bounds = {
+                            "south": parts[1], "west": parts[0],
+                            "north": parts[3], "east": parts[2],
+                        }
+        except Exception as div_err:
+            logger.warning("Admin division lookup failed: %s", div_err)
+
+    # ---- Parallel API fetch for point-based categories ----
+    api_results = get_categories_parallel(
+        point_cats if point_cats else categories,
+        lat, lon, days=effective_days,
+    )
+
+    # ---- Regional fetch for soil/wildfires (fall back to point if no bounds) ----
+    if admin_bounds and regional_cats:
+        from concurrent.futures import ThreadPoolExecutor, as_completed as _ac
+
+        def _regional_fetch(cat_id: str):
+            try:
+                return cat_id, get_category_regional(
+                    cat_id,
+                    admin_bounds["south"], admin_bounds["west"],
+                    admin_bounds["north"], admin_bounds["east"],
+                    days=min(effective_days, 7),
+                )
+            except Exception as exc:
+                logger.warning("Regional fetch for %s failed: %s", cat_id, exc)
+                return cat_id, None
+
+        with ThreadPoolExecutor(max_workers=len(regional_cats)) as pool:
+            futs = {pool.submit(_regional_fetch, c): c for c in regional_cats}
+            for fut in _ac(futs):
+                cat_id, resp = fut.result()
+                if resp and isinstance(resp, dict):
+                    api_results[cat_id] = resp
+                else:
+                    # Fallback to point-based for this category
+                    api_results[cat_id] = get_categories_parallel(
+                        [cat_id], lat, lon, days=effective_days,
+                    ).get(cat_id, {"error": "No response"})
+    elif regional_cats:
+        # No bounds resolved — use normal point queries
+        fallback = get_categories_parallel(
+            list(regional_cats), lat, lon, days=effective_days,
+        )
+        api_results.update(fallback)
 
     for cat_id in categories:
         try:
             cat_data = api_results.get(cat_id, {"error": "No response"})
+            is_regional = isinstance(cat_data, dict) and cat_data.get("regional")
 
             # Data Commons (only for long time ranges -- DC data is annual)
             dc_data = {}
@@ -1510,7 +1700,16 @@ def load_all_category_data(
                     logger.warning("DC fetch for %s failed: %s", cat_id, dc_err)
 
             data_list = cat_data.get("data") or cat_data.get("sources") or []
-            combined_data = merge_category_sources(data_list)
+
+            # For regional soil/wildfire, build combined data that preserves
+            # multi-point structure so the graph builder can render it.
+            if is_regional and cat_id == "soil":
+                # Aggregate soil grid points: average each property across points
+                combined_data = _merge_regional_soil(data_list)
+            elif is_regional and cat_id == "wildfires":
+                combined_data = _merge_regional_wildfires(data_list)
+            else:
+                combined_data = merge_category_sources(data_list)
 
             if dc_data:
                 combined_data["_data_commons"] = dc_data

@@ -352,3 +352,22 @@ def get_state_map_data(
         "/api/v1/hub/state-map",
         {"south": south, "west": west, "north": north, "east": east},
     )
+
+
+def get_category_regional(
+    category: str,
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+    days: int = 1,
+) -> Dict:
+    """Fetch category data for an entire admin-division bounding box.
+
+    Uses the /hub/category/{category}/regional endpoint which supports
+    spatial queries for wildfires, soil, earthquakes, and biodiversity.
+    """
+    return sync_get(
+        f"/api/v1/hub/category/{category}/regional",
+        {"south": south, "west": west, "north": north, "east": east, "days": days},
+    )
