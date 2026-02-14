@@ -477,6 +477,13 @@ def create_analyze_layout() -> html.Div:
         ], className="mb-4"),
         
         # Results Section
+        
+        # Cross-Domain Analysis header (only visible when linked datasets active)
+        html.Div(
+            id="cross-domain-banner-analyze",
+            style={"display": "none"},  # hidden by default; toggled by callback
+        ),
+
         dbc.Card([
             dbc.CardHeader([
                 html.H5("📋 Analysis Results", className="mb-0"),
@@ -488,26 +495,54 @@ def create_analyze_layout() -> html.Div:
                 ])
             ], className="d-flex justify-content-between align-items-center"),
             dbc.CardBody([
-                # Statistics Summary
+                # ── Statistics Summary ──
+                html.Div([
+                    html.H6([
+                        html.I(className="fas fa-chart-bar me-2", style={"color": "#58a6ff"}),
+                        "Statistics Summary"
+                    ], className="fw-bold mb-2",
+                       style={"borderBottom": "1px solid #dee2e6", "paddingBottom": "6px"}),
+                ], className="mb-2"),
                 dcc.Loading(
                     type="default",
                     children=html.Div(id="analysis-stats-container", className="mb-4"),
                 ),
                 
-                # Main Chart
+                # ── Main Chart ──
+                html.Div([
+                    html.H6([
+                        html.I(className="fas fa-chart-line me-2", style={"color": "#3fb950"}),
+                        "Primary Visualization"
+                    ], className="fw-bold mb-2",
+                       style={"borderBottom": "1px solid #dee2e6", "paddingBottom": "6px"}),
+                ], className="mb-2"),
                 dcc.Loading(
                     type="circle",
                     overlay_style={"visibility": "visible", "filter": "blur(2px)"},
                     children=html.Div(id="analysis-chart-container", className="mb-4"),
                 ),
                 
-                # Secondary Charts
+                # ── Secondary Charts ──
+                html.Div([
+                    html.H6([
+                        html.I(className="fas fa-th-large me-2", style={"color": "#d29922"}),
+                        "Secondary Visualizations"
+                    ], className="fw-bold mb-2",
+                       style={"borderBottom": "1px solid #dee2e6", "paddingBottom": "6px"}),
+                ], className="mb-2"),
                 dcc.Loading(
                     type="default",
                     children=dbc.Row(id="analysis-secondary-charts"),
                 ),
                 
-                # Insights
+                # ── Insights ──
+                html.Div([
+                    html.H6([
+                        html.I(className="fas fa-lightbulb me-2", style={"color": "#f0883e"}),
+                        "Analysis Insights"
+                    ], className="fw-bold mb-2 mt-3",
+                       style={"borderBottom": "1px solid #dee2e6", "paddingBottom": "6px"}),
+                ], className="mb-2"),
                 html.Div(id="analysis-insights-container")
             ])
         ]),
@@ -1010,6 +1045,54 @@ def link_datasets(n_clicks, primary, secondary, join_key, tolerance, tolerance_u
     )
 
     return linked_data, True, msg, "success"
+
+
+# ==================== CROSS-DOMAIN BANNER CALLBACK ====================
+
+@callback(
+    [Output("cross-domain-banner-analyze", "children"),
+     Output("cross-domain-banner-analyze", "style")],
+    Input("linked-datasets-store", "data"),
+    prevent_initial_call=False,
+)
+def update_cross_domain_banner(linked_datasets):
+    """Show black bar with white centered text when cross-domain is active."""
+    if not linked_datasets or not isinstance(linked_datasets, dict):
+        return [], {"display": "none"}
+
+    primary_name = linked_datasets.get("primary_name", "Primary")
+    secondary_name = linked_datasets.get("secondary_name", "Secondary")
+    join_key = linked_datasets.get("join_key", "timestamp")
+
+    banner = html.Div(
+        [
+            html.Div(
+                [
+                    html.I(className="fas fa-link me-2"),
+                    html.Strong("CROSS-DOMAIN ANALYSIS"),
+                    html.Span(
+                        f"  \u2014  {primary_name} \u00d7 {secondary_name}  (join: {join_key})",
+                        style={"fontWeight": "400", "fontSize": "0.85rem", "opacity": "0.85"},
+                    ),
+                ],
+                style={
+                    "color": "#ffffff",
+                    "fontSize": "1rem",
+                    "letterSpacing": "1.5px",
+                },
+            )
+        ],
+        style={
+            "backgroundColor": "#0d1117",
+            "color": "#ffffff",
+            "textAlign": "center",
+            "padding": "12px 20px",
+            "borderRadius": "6px",
+            "marginBottom": "16px",
+            "border": "1px solid #30363d",
+        },
+    )
+    return banner, {"display": "block"}
 
 
 # ==================== PROGRESS BOX CALLBACKS ====================

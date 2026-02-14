@@ -1515,10 +1515,13 @@ def load_all_category_data(
         if "error" in _cr:
             progress.append(make_entry("error", f"{_cid}: {str(_cr['error'])[:60]}"))
         elif _is_category_empty(_cr):
-            progress.append(make_entry("warning", f"{_cid}: No data at this location"))
+            progress.append(make_entry("error", f"{_cid}: 0 records - no data at this location"))
         else:
-            _detail = _summarize_for_log(_cid, _cr.get("summary", {}))
-            progress.append(make_entry("complete", f"{_cid}: {_detail}"))
+            _combined = _cr.get("combined", {})
+            _rc = _count_records(_cid, _combined)
+            _detail = _summarize_for_log(_cid, _cr.get("summary", {}), _rc)
+            _status = "complete" if _rc > 0 else "error"
+            progress.append(make_entry(_status, f"{_cid}: {_detail}"))
     progress.append(make_entry("complete", f"All {len(categories)} categories processed", duration_ms=_elapsed))
 
     return loaded_data, progress
@@ -1881,10 +1884,20 @@ def update_dashboard_map(loaded_data):
 
     count_text = f"{total_points} data points" if total_points > 0 else "No data loaded"
     _map_ms = int((time.time() - _map_t0) * 1000)
+
+    # Per-category detail lines for the progress entry
+    _map_details = []
+    for cat_id in categories_data:
+        if cat_id.startswith("dc_"):
+            continue
+        pts = traces_by_cat.get(cat_id, [])
+        _map_details.append(f"{cat_id}: {len(pts)} points on map")
+
     _map_prog = make_entry(
-        "complete" if total_points > 0 else "warning",
-        f"Map rendered: {count_text} across {len(traces_by_cat)} categories",
+        "complete" if total_points > 0 else "error",
+        f"Map rendered: {count_text} across {len([k for k in traces_by_cat if not k.startswith('dc_')])} categories",
         duration_ms=_map_ms,
+        details=_map_details,
     )
     return map_component, count_text, _map_prog
 
@@ -2133,21 +2146,39 @@ def update_quick_check(
         wind = weather.get("wind_speed_kmh", "N/A")
         weather_status = weather.get("status", "unknown")
         
+        # Determine if weather data is actually present
+        has_weather = (temp not in ("N/A", None, 0, "") and wind not in ("N/A", None, ""))
+
         weather_summary = html.Div([
             html.H6("Weather"),
-            html.P([html.Strong("Temperature: "), f"{temp}\u00b0C" if temp != "N/A" else "N/A"]),
-            html.P([html.Strong("Wind: "), f"{wind} km/h" if wind != "N/A" else "N/A"]),
-            html.P([html.Strong("Conditions: "), weather_status.replace("_", " ").title()])
+            html.P([html.Strong("Temperature: "), f"{temp}\u00b0C" if has_weather else "No data"]),
+            html.P([html.Strong("Wind: "), f"{wind} km/h" if has_weather else "No data"]),
+            html.P([html.Strong("Conditions: "), weather_status.replace("_", " ").title() if has_weather else "Unavailable"])
+        ]) if has_weather else html.Div([
+            html.H6("Weather"),
+            dbc.Alert("No weather data available for this location", color="secondary", className="py-1 mb-0")
         ])
         
         loading_text = f"Last updated: {datetime.now().strftime('%H:%M:%S')}"
         
+        # Validation: red X if both AQI=0 and weather missing
+        has_aqi = aqi_value is not None and aqi_value > 0
         _qc_ms = int((time.time() - _qc0) * 1000)
-        _qc_prog = make_entry(
-            "complete",
-            f"Quick check: AQI {aqi_value} ({aqi_label}), {temp}\u00b0C",
-            duration_ms=_qc_ms,
-        )
+
+        if has_aqi and has_weather:
+            _qc_status = "complete"
+            _qc_msg = f"Quick check: AQI {aqi_value} ({aqi_label}), {temp}\u00b0C"
+        elif has_aqi:
+            _qc_status = "warning"
+            _qc_msg = f"Quick check: AQI {aqi_value} ({aqi_label}), weather N/A"
+        elif has_weather:
+            _qc_status = "warning"
+            _qc_msg = f"Quick check: AQI unavailable, {temp}\u00b0C"
+        else:
+            _qc_status = "error"
+            _qc_msg = "Quick check: No AQI or weather data at this location"
+
+        _qc_prog = make_entry(_qc_status, _qc_msg, duration_ms=_qc_ms)
         
         return status_badge, aqi_gauge, weather_summary, loading_text, _qc_prog
         
@@ -2245,34 +2276,136 @@ def update_data_sources_status(n_clicks):
 
 # ==================== HELPER: CHECK EMPTY CATEGORY ====================
 
-def _summarize_for_log(cat_id: str, summary: Dict[str, Any]) -> str:
-    """One-line human-readable summary of a category for the activity log."""
+def _count_records(cat_id: str, combined: Dict[str, Any]) -> int:
+    """Count actual data records from raw combined data for a category.
+
+    Returns the number of primary data records (features, incidents,
+    measurements, results, etc.) so we can compare source vs widget.
+    """
+    if not combined or not isinstance(combined, dict):
+        return 0
+
     if cat_id == "air_quality":
-        aqi = summary.get("aqi", summary.get("us_aqi", "?"))
-        pm = summary.get("pm25", summary.get("pm2_5", ""))
-        return f"AQI {aqi}" + (f", PM2.5 {pm}" if pm else "")
+        # OpenAQ results, legacy measurements, or hourly array
+        n = len(combined.get("results", []))
+        if not n:
+            n = len(combined.get("measurements", []))
+        if not n:
+            hourly = combined.get("hourly", {})
+            if isinstance(hourly, dict):
+                for k in ("us_aqi", "european_aqi", "pm2_5", "pm10"):
+                    vals = hourly.get(k, [])
+                    if vals:
+                        n = len([v for v in vals if v is not None])
+                        break
+        # Fallback: direct AQI value counts as 1
+        if not n:
+            for k in ("us_aqi", "european_aqi", "aqi", "aqi_value"):
+                if combined.get(k) is not None:
+                    n = 1
+                    break
+        return n
+
     if cat_id == "weather":
-        temp = summary.get("temperature", summary.get("temperature_c", "?"))
-        return f"{temp}\u00b0C"
+        hourly = combined.get("hourly", {})
+        if isinstance(hourly, dict) and hourly.get("time"):
+            return len(hourly["time"])
+        if combined.get("current_weather"):
+            return 1
+        return 0
+
     if cat_id == "earthquakes":
-        return f"{summary.get('count', summary.get('total', '?'))} events"
+        return len(combined.get("features", []))
+
     if cat_id == "wildfires":
-        return f"{summary.get('count', summary.get('total', '?'))} incidents"
+        n = len(combined.get("incidents", []))
+        if not n:
+            n = len(combined.get("features", []))
+        return n
+
     if cat_id == "water":
-        return f"{summary.get('station_count', summary.get('count', '?'))} stations"
+        ts = combined.get("value", {}).get("timeSeries", [])
+        return len(ts) if isinstance(ts, list) else 0
+
     if cat_id == "marine":
-        return f"{summary.get('station_count', summary.get('count', '?'))} observations"
+        n = len(combined.get("stations", []))
+        if not n:
+            n = len(combined.get("observations", []))
+        if not n:
+            n = len(combined.get("predictions", {}).get("predictions", []))
+        return n
+
     if cat_id == "radiation":
-        return f"{summary.get('value', summary.get('avg_value', '?'))} cpm"
+        return len(combined.get("measurements", []))
+
     if cat_id == "climate":
-        return f"Avg {summary.get('avg_temp', summary.get('temperature', '?'))}\u00b0C"
+        daily = combined.get("daily", {})
+        if isinstance(daily, dict) and daily.get("time"):
+            return len(daily["time"])
+        return 0
+
     if cat_id == "soil":
-        return f"{summary.get('layer_count', summary.get('layers', '?'))} layers"
+        layers = combined.get("properties", {}).get("layers", [])
+        if layers:
+            return len(layers)
+        if combined.get("mapunits") or combined.get("mapunit"):
+            return 1
+        if combined.get("Table") or combined.get("table"):
+            return 1
+        return 0
+
     if cat_id == "biodiversity":
-        return f"{summary.get('species_count', summary.get('count', '?'))} species"
+        return len(combined.get("results", []))
+
+    return 0
+
+
+def _summarize_for_log(cat_id: str, summary: Dict[str, Any],
+                       record_count: int = 0) -> str:
+    """One-line human-readable summary with record count for the activity log."""
+    rc_tag = f" [{record_count} rec]" if record_count > 0 else " [0 rec]"
+
+    if cat_id == "air_quality":
+        aqi = summary.get("us_aqi", summary.get("aqi", summary.get("aqi_value")))
+        pm = summary.get("pm25", summary.get("pm2_5"))
+        parts = []
+        if aqi is not None:
+            parts.append(f"AQI {aqi}")
+        if pm is not None:
+            parts.append(f"PM2.5 {pm}")
+        return (", ".join(parts) if parts else "Data loaded") + rc_tag
+    if cat_id == "weather":
+        temp = summary.get("temperature_c", summary.get("temperature"))
+        wind = summary.get("wind_speed_kmh", summary.get("windspeed"))
+        parts = []
+        if temp is not None:
+            parts.append(f"{temp}\u00b0C")
+        if wind is not None:
+            parts.append(f"wind {wind}km/h")
+        return (", ".join(parts) if parts else "Data loaded") + rc_tag
+    if cat_id == "earthquakes":
+        return f"{record_count} events" + rc_tag
+    if cat_id == "wildfires":
+        return f"{record_count} incidents" + rc_tag
+    if cat_id == "water":
+        return f"{record_count} stations" + rc_tag
+    if cat_id == "marine":
+        return f"{record_count} observations" + rc_tag
+    if cat_id == "radiation":
+        val = summary.get("value", summary.get("avg_value"))
+        label = f"{val} cpm" if val is not None else "Data loaded"
+        return label + rc_tag
+    if cat_id == "climate":
+        avg = summary.get("avg_temp", summary.get("temperature"))
+        label = f"Avg {avg}\u00b0C" if avg is not None else "Data loaded"
+        return label + rc_tag
+    if cat_id == "soil":
+        return f"{record_count} layers" + rc_tag
+    if cat_id == "biodiversity":
+        return f"{record_count} species" + rc_tag
     # Generic fallback
     parts = [f"{k}: {v}" for k, v in list(summary.items())[:2] if v]
-    return ", ".join(parts) if parts else "Data loaded"
+    return (", ".join(parts) if parts else "Data loaded") + rc_tag
 
 
 def _is_category_empty(cat_data: Dict[str, Any]) -> bool:

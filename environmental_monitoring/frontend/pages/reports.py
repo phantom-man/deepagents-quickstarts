@@ -433,32 +433,6 @@ def generate_report_preview(
         html.Hr(),
     ]))
 
-    # ---- Cross-Domain Banner (if datasets are linked) ----
-    if linked_datasets and isinstance(linked_datasets, dict):
-        primary_name = linked_datasets.get("primary_name", linked_datasets.get("primary", "?"))
-        secondary_name = linked_datasets.get("secondary_name", linked_datasets.get("secondary", "?"))
-        join_key = linked_datasets.get("join_key", "timestamp")
-        preview_sections.append(html.Div([
-            dbc.Alert([
-                html.Div([
-                    html.Span("Cross-Domain Analysis", style={
-                        "fontWeight": "700", "fontSize": "1rem",
-                        "border": "2px solid #F18F01", "borderRadius": "6px",
-                        "padding": "3px 12px", "color": "#F18F01",
-                        "display": "inline-block", "marginRight": "12px",
-                    }),
-                    html.Span(
-                        f"{primary_name}  +  {secondary_name}",
-                        style={"fontWeight": "600", "fontSize": "0.95rem"}
-                    ),
-                ], className="d-flex align-items-center justify-content-center"),
-                html.Small(
-                    f"Joined on: {join_key}",
-                    className="d-block text-center mt-1"
-                ),
-            ], color="warning", className="mb-3 text-center"),
-        ]))
-
     # ---- Executive Summary (real data) ----
     if "summary" in sections:
         cards = []
