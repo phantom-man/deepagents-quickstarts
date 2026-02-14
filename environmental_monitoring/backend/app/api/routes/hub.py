@@ -311,8 +311,7 @@ async def get_state_map_data(
     center_lat = (south + north) / 2
     center_lon = (west + east) / 2
 
-    # Calculate rough diagonal in km for reference
-    import math
+    # Calculate rough diagonal for reference
     lat_diff = north - south
     lon_diff = east - west
 
@@ -342,7 +341,7 @@ async def get_state_map_data(
     # Biodiversity - GBIF supports bbox via decimalLatitude/decimalLongitude ranges
     spatial_tasks["biodiversity"] = data_aggregator.proxy_request(
         "gbif",
-        f"/v1/occurrence/search?decimalLatitude={south},{north}"
+        f"/occurrence/search?decimalLatitude={south},{north}"
         f"&decimalLongitude={west},{east}&limit=80&hasCoordinate=true"
     )
 
@@ -355,7 +354,7 @@ async def get_state_map_data(
     # Marine - Open-Meteo marine at center
     spatial_tasks["marine"] = data_aggregator.proxy_request(
         "open_meteo_marine",
-        f"/v1/marine?latitude={center_lat}&longitude={center_lon}"
+        f"/marine?latitude={center_lat}&longitude={center_lon}"
         f"&current=wave_height,wave_direction,wave_period,sea_surface_temperature"
         f"&hourly=wave_height&forecast_days=1"
     )
@@ -377,7 +376,7 @@ async def get_state_map_data(
     for glat, glon in grid_points:
         weather_tasks.append(data_aggregator.proxy_request(
             "open_meteo",
-            f"/v1/forecast?latitude={glat}&longitude={glon}&current_weather=true"
+            f"/forecast?latitude={glat}&longitude={glon}&current_weather=true"
         ))
 
     # Air quality at grid points (Open-Meteo AQ is free, no key needed)
@@ -394,7 +393,7 @@ async def get_state_map_data(
     for glat, glon in grid_points:
         radiation_tasks.append(data_aggregator.proxy_request(
             "open_meteo_uv",
-            f"/v1/forecast?latitude={glat}&longitude={glon}"
+            f"/forecast?latitude={glat}&longitude={glon}"
             f"&hourly=uv_index,direct_radiation&forecast_days=1"
         ))
 

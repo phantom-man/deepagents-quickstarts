@@ -62,27 +62,39 @@ class ExternalDataSource:
 
 EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
     # === AIR QUALITY ===
+    "open_meteo_aq": ExternalDataSource(
+        name="Open-Meteo Air Quality",
+        category=DataCategory.AIR_QUALITY,
+        base_url="https://air-quality-api.open-meteo.com/v1",
+        description="Air quality index, PM2.5, PM10, ozone, NO2 from CAMS reanalysis (hourly aggregated to daily)",
+        documentation_url="https://open-meteo.com/en/docs/air-quality-api",
+        requires_api_key=False,
+        coverage="Global",
+        update_frequency="Hourly",
+        sample_endpoint="/air-quality?latitude=37.77&longitude=-122.42&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&hourly=us_aqi,pm2_5,pm10,ozone,nitrogen_dioxide&past_days=7"
+    ),
     "openaq": ExternalDataSource(
         name="OpenAQ",
         category=DataCategory.AIR_QUALITY,
         base_url="https://api.openaq.org/v2",
-        description="Global air quality data from government and research stations",
+        description="Global air quality data from government and research stations (V2 retired)",
         documentation_url="https://docs.openaq.org/",
         requires_api_key=False,
         coverage="Global (90+ countries)",
         update_frequency="Real-time",
-        sample_endpoint="/locations?limit=10&country=US"
+        sample_endpoint=""
     ),
     "airnow": ExternalDataSource(
         name="EPA AirNow",
         category=DataCategory.AIR_QUALITY,
         base_url="https://www.airnowapi.org/aq",
-        description="US EPA official air quality index and forecasts",
+        description="Daily AQI aggregate from 2,500+ US monitoring stations",
         documentation_url="https://docs.airnowapi.org/",
         requires_api_key=True,
         api_key_env_var="AIRNOW_API_KEY",
         coverage="United States",
-        update_frequency="Hourly"
+        update_frequency="Daily",
+        sample_endpoint="__DAILY_AGGREGATE__&latitude=37.77&longitude=-122.42&distance=50"
     ),
     "iqair": ExternalDataSource(
         name="IQAir",
@@ -98,15 +110,26 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
     
     # === WATER ===
     "usgs_water": ExternalDataSource(
-        name="USGS Water Services",
+        name="USGS Water Services (NWIS)",
         category=DataCategory.WATER,
         base_url="https://waterservices.usgs.gov/nwis",
-        description="US stream flow, water quality, groundwater levels",
-        documentation_url="https://waterservices.usgs.gov/",
+        description="US stream flow, gage height, water temperature from 15-minute interval monitoring stations",
+        documentation_url="https://waterservices.usgs.gov/docs/instantaneous-values/",
         requires_api_key=False,
         coverage="United States",
         update_frequency="15-minute intervals",
-        sample_endpoint="/iv/?format=json&stateCd=CA&parameterCd=00060&siteType=ST"
+        sample_endpoint="/iv/?format=json&bBox=-122.92,37.27,-121.92,38.27&parameterCd=00060,00065,00010&period=PT2H&siteStatus=active&siteType=ST"
+    ),
+    "usgs_water_dv": ExternalDataSource(
+        name="USGS Water Services Daily Values (Mirror)",
+        category=DataCategory.WATER,
+        base_url="https://waterservices.usgs.gov/nwis",
+        description="Mirror: USGS daily average stream flow, gage height (identical JSON structure to instantaneous values)",
+        documentation_url="https://waterservices.usgs.gov/docs/dv-service/",
+        requires_api_key=False,
+        coverage="United States",
+        update_frequency="Daily",
+        sample_endpoint="/dv/?format=json&bBox=-122.92,37.27,-121.92,38.27&parameterCd=00060,00065,00010&period=P7D&siteStatus=active&siteType=ST"
     ),
     "epa_waters": ExternalDataSource(
         name="EPA WATERS",
@@ -120,16 +143,27 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
     ),
     
     # === MARINE/OCEAN ===
+    "open_meteo_marine": ExternalDataSource(
+        name="Open-Meteo Marine",
+        category=DataCategory.MARINE,
+        base_url="https://marine-api.open-meteo.com/v1",
+        description="Global marine/ocean forecast — wave height, period, direction, sea surface temp",
+        documentation_url="https://open-meteo.com/en/docs/marine-weather-api",
+        requires_api_key=False,
+        coverage="Global Oceans",
+        update_frequency="Hourly",
+        sample_endpoint="/marine?latitude=37.77&longitude=-122.42&current=wave_height,wave_direction,wave_period,ocean_current_velocity&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature"
+    ),
     "noaa_buoy": ExternalDataSource(
         name="NOAA Buoy Data",
         category=DataCategory.MARINE,
         base_url="https://www.ndbc.noaa.gov",
-        description="Real-time ocean buoy observations - waves, temp, wind",
+        description="Real-time ocean buoy observations - waves, temp, wind (plain text format)",
         documentation_url="https://www.ndbc.noaa.gov/docs/",
         requires_api_key=False,
         coverage="US Coastal Waters, Pacific, Atlantic, Gulf",
         update_frequency="Hourly",
-        sample_endpoint="/data/realtime2/46026.txt"
+        sample_endpoint=""
     ),
     "copernicus_marine": ExternalDataSource(
         name="Copernicus Marine",
@@ -176,7 +210,18 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         requires_api_key=False,
         coverage="Global",
         update_frequency="Hourly",
-        sample_endpoint="/forecast?latitude=37.77&longitude=-122.42&current_weather=true"
+        sample_endpoint="/forecast?latitude=37.77&longitude=-122.42&current_weather=true&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&forecast_days=3"
+    ),
+    "open_meteo_climate": ExternalDataSource(
+        name="Open-Meteo Climate",
+        category=DataCategory.CLIMATE,
+        base_url="https://climate-api.open-meteo.com/v1",
+        description="Free climate API - historical daily aggregates from ERA5 reanalysis",
+        documentation_url="https://open-meteo.com/en/docs/climate-api",
+        requires_api_key=False,
+        coverage="Global",
+        update_frequency="Daily",
+        sample_endpoint="/climate?latitude=37.77&longitude=-122.42&start_date=2024-01-01&end_date=2024-01-30&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=EC_Earth3P_HR"
     ),
     
     # === NATURAL HAZARDS ===
@@ -195,12 +240,25 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         name="NASA FIRMS (Fire Information)",
         category=DataCategory.WILDFIRES,
         base_url="https://firms.modaps.eosdis.nasa.gov/api",
-        description="Active fire data from MODIS and VIIRS satellites",
+        description="Near real-time active fire/hotspot detections from VIIRS and MODIS satellites via LANCE",
         documentation_url="https://firms.modaps.eosdis.nasa.gov/api/",
         requires_api_key=True,
-        api_key_env_var="NASA_FIRMS_API_KEY",
+        api_key_env_var="FIRMS_MAP_KEY",
         coverage="Global",
-        update_frequency="3-hour intervals"
+        update_frequency="3-hour intervals (NRT)",
+        sample_endpoint="/area/csv/{MAP_KEY}/VIIRS_SNPP_NRT/-122.92,37.27,-121.92,38.27/1"
+    ),
+    "nasa_firms_noaa20": ExternalDataSource(
+        name="NASA FIRMS NOAA-20 (Mirror)",
+        category=DataCategory.WILDFIRES,
+        base_url="https://firms.modaps.eosdis.nasa.gov/api",
+        description="Mirror: VIIRS fire detections from NOAA-20 satellite (identical format to primary SNPP)",
+        documentation_url="https://firms.modaps.eosdis.nasa.gov/api/area/",
+        requires_api_key=True,
+        api_key_env_var="FIRMS_MAP_KEY",
+        coverage="Global",
+        update_frequency="Near real-time (3-5 hour lag)",
+        sample_endpoint="/area/csv/{MAP_KEY}/VIIRS_NOAA20_NRT/-122.92,37.27,-121.92,38.27/1"
     ),
     "nifc_wildfires": ExternalDataSource(
         name="NIFC Active Fires",
@@ -211,20 +269,43 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         requires_api_key=False,
         coverage="United States",
         update_frequency="Daily",
-        data_format="GeoJSON"
+        data_format="GeoJSON",
+        sample_endpoint=""
     ),
     
     # === RADIATION ===
+    "open_meteo_uv": ExternalDataSource(
+        name="Open-Meteo UV & Radiation",
+        category=DataCategory.RADIATION,
+        base_url="https://api.open-meteo.com/v1",
+        description="UV index, direct/diffuse radiation, shortwave radiation from weather models",
+        documentation_url="https://open-meteo.com/en/docs",
+        requires_api_key=False,
+        coverage="Global",
+        update_frequency="Hourly",
+        sample_endpoint="/forecast?latitude=37.77&longitude=-122.42&hourly=uv_index,direct_radiation,diffuse_radiation,shortwave_radiation&forecast_days=3"
+    ),
     "epa_radnet": ExternalDataSource(
         name="EPA RadNet",
         category=DataCategory.RADIATION,
         base_url="https://www.epa.gov/radnet/radnet-csv-file-downloads",
-        description="US radiation monitoring network",
+        description="US radiation monitoring network (CSV format, no live endpoint)",
         documentation_url="https://www.epa.gov/radnet",
         requires_api_key=False,
         coverage="United States",
         update_frequency="Hourly",
         data_format="CSV"
+    ),
+    "nasa_power": ExternalDataSource(
+        name="NASA POWER (Solar Radiation)",
+        category=DataCategory.RADIATION,
+        base_url="https://power.larc.nasa.gov/api/temporal/daily",
+        description="Solar irradiance, UV index, and clear-sky radiation from NASA satellites and reanalysis models",
+        documentation_url="https://power.larc.nasa.gov/",
+        requires_api_key=False,
+        coverage="Global",
+        update_frequency="Weekly (1-2 week data lag)",
+        sample_endpoint="/point?parameters=ALLSKY_SFC_SW_DWN,ALLSKY_SFC_UV_INDEX,CLRSKY_SFC_SW_DWN&community=RE&longitude=-122.42&latitude=37.77&start=20251201&end=20251231&format=json"
     ),
     
     # === BIODIVERSITY ===
@@ -237,7 +318,7 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         requires_api_key=False,
         coverage="Global",
         update_frequency="Continuous updates",
-        sample_endpoint="/occurrence/search?limit=10&country=US"
+        sample_endpoint="/occurrence/search?limit=50&country=US"
     ),
     "inaturalist": ExternalDataSource(
         name="iNaturalist",
@@ -259,7 +340,8 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         documentation_url="https://www.isric.org/explore/soilgrids",
         requires_api_key=False,
         coverage="Global",
-        update_frequency="Static (model outputs)"
+        update_frequency="Static (model outputs)",
+        sample_endpoint="/properties/query?lat=37.77&lon=-122.42&property=clay&property=sand&property=silt&property=phh2o&property=soc&property=nitrogen&depth=0-5cm&depth=5-15cm&depth=15-30cm&depth=30-60cm&depth=60-100cm&depth=100-200cm&value=mean&value=Q0.05&value=Q0.95"
     ),
     
     # === MAJOR PUBLIC DATA PORTALS ===
@@ -296,7 +378,7 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         requires_api_key=False,
         coverage="United States",
         update_frequency="Continuous",
-        sample_endpoint="/Station/search?statecode=US:06&mimeType=geojson&zip=no"
+        sample_endpoint=""
     ),
     "us_ioos": ExternalDataSource(
         name="U.S. IOOS (Integrated Ocean Observing System)",
@@ -345,6 +427,236 @@ EXTERNAL_SOURCES: Dict[str, ExternalDataSource] = {
         update_frequency="Varies by dataset",
         sample_endpoint="/collections"
     ),
+}
+
+
+# ============================================================================
+# PRIMARY / MIRROR FAILOVER ARCHITECTURE
+# Each category has ONE primary source and ONE mirror fallback.
+# Mirror fires only if primary fails. Output is normalized to primary format.
+# Categories not listed here use existing multi-source behavior.
+# ============================================================================
+
+CATEGORY_FAILOVER: Dict[str, List[str]] = {
+    "water": ["usgs_water", "usgs_water_dv"],
+    "wildfires": ["nasa_firms", "nasa_firms_noaa20"],
+    "air_quality": ["airnow", "open_meteo_aq"],
+    "radiation": ["open_meteo_uv", "nasa_power"],
+}
+
+
+def _aqi_category(aqi: float) -> Dict[str, Any]:
+    """Map AQI value to EPA category."""
+    if aqi <= 50:
+        return {"Number": 1, "Name": "Good"}
+    if aqi <= 100:
+        return {"Number": 2, "Name": "Moderate"}
+    if aqi <= 150:
+        return {"Number": 3, "Name": "Unhealthy for Sensitive Groups"}
+    if aqi <= 200:
+        return {"Number": 4, "Name": "Unhealthy"}
+    if aqi <= 300:
+        return {"Number": 5, "Name": "Very Unhealthy"}
+    return {"Number": 6, "Name": "Hazardous"}
+
+
+def _normalize_openmeteo_aq_to_airnow(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize Open-Meteo AQ hourly data to daily_aqi aggregate format.
+
+    Open-Meteo returns hourly us_aqi, pm2_5, pm10, ozone, etc. for past_days.
+    We aggregate to daily averages matching the AirNow daily format.
+    """
+    hourly = data.get("hourly") or {}
+    times = hourly.get("time", [])
+    aqi_vals = hourly.get("us_aqi", [])
+    pm25_vals = hourly.get("pm2_5", [])
+    pm10_vals = hourly.get("pm10", [])
+    o3_vals = hourly.get("ozone", [])
+    no2_vals = hourly.get("nitrogen_dioxide", [])
+
+    if not times or not aqi_vals:
+        # Fallback: try current{} for single-day
+        current = data.get("current") or {}
+        aqi = current.get("us_aqi")
+        if aqi is None:
+            return data
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+        return {
+            "daily_aqi": [{
+                "date": today,
+                "overall_aqi": int(aqi),
+                "category": _aqi_category(aqi),
+                "parameters": {
+                    "PM2.5": int(current.get("pm2_5") or 0),
+                    "PM10": int(current.get("pm10") or 0),
+                    "OZONE": int(current.get("ozone") or 0),
+                },
+                "reporting_area": "Open-Meteo Estimate",
+            }],
+            "period_days": 1,
+            "source_type": "open_meteo_normalized",
+        }
+
+    # Group hourly values by date
+    from collections import defaultdict
+    daily_buckets: Dict[str, Dict[str, list]] = defaultdict(
+        lambda: {"aqi": [], "pm25": [], "pm10": [], "o3": [], "no2": []}
+    )
+    for i, t in enumerate(times):
+        date_str = t[:10]  # "2026-02-10T14:00" -> "2026-02-10"
+        if i < len(aqi_vals) and aqi_vals[i] is not None:
+            daily_buckets[date_str]["aqi"].append(aqi_vals[i])
+        if i < len(pm25_vals) and pm25_vals[i] is not None:
+            daily_buckets[date_str]["pm25"].append(pm25_vals[i])
+        if i < len(pm10_vals) and pm10_vals[i] is not None:
+            daily_buckets[date_str]["pm10"].append(pm10_vals[i])
+        if i < len(o3_vals) and o3_vals[i] is not None:
+            daily_buckets[date_str]["o3"].append(o3_vals[i])
+        if i < len(no2_vals) and no2_vals[i] is not None:
+            daily_buckets[date_str]["no2"].append(no2_vals[i])
+
+    daily_aqi = []
+    for date_str in sorted(daily_buckets.keys()):
+        bucket = daily_buckets[date_str]
+        if not bucket["aqi"]:
+            continue
+        avg_aqi = sum(bucket["aqi"]) / len(bucket["aqi"])
+        daily_aqi.append({
+            "date": date_str,
+            "overall_aqi": round(avg_aqi),
+            "category": _aqi_category(avg_aqi),
+            "parameters": {
+                "PM2.5": round(sum(bucket["pm25"]) / len(bucket["pm25"])) if bucket["pm25"] else None,
+                "PM10": round(sum(bucket["pm10"]) / len(bucket["pm10"])) if bucket["pm10"] else None,
+                "OZONE": round(sum(bucket["o3"]) / len(bucket["o3"])) if bucket["o3"] else None,
+                "NO2": round(sum(bucket["no2"]) / len(bucket["no2"])) if bucket["no2"] else None,
+            },
+            "reporting_area": "Open-Meteo Estimate",
+        })
+
+    # Filter out future dates — Open-Meteo includes forecast days
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    daily_aqi = [d for d in daily_aqi if d["date"] <= today_str]
+
+    return {
+        "daily_aqi": daily_aqi,
+        "period_days": len(daily_aqi),
+        "source_type": "open_meteo_normalized",
+    }
+
+
+async def _aggregate_airnow_daily(
+    client: httpx.AsyncClient,
+    latitude: float,
+    longitude: float,
+    api_key: str,
+    days: int = 7,
+) -> Dict[str, Any]:
+    """Call AirNow historical endpoint for each of the last N days and aggregate.
+
+    AirNow historical returns per-day: [{DateObserved, ParameterName, AQI, Category}]
+    We combine into: {daily_aqi: [{date, overall_aqi, category, parameters: {...}}]}
+    """
+    daily_aqi = []
+    today = datetime.utcnow()
+
+    async def _fetch_day(days_ago: int):
+        target = today - timedelta(days=days_ago)
+        date_str = target.strftime("%Y-%m-%d")
+        url = (
+            f"https://www.airnowapi.org/aq/observation/latLong/historical/"
+            f"?format=application/json"
+            f"&latitude={latitude}&longitude={longitude}"
+            f"&date={date_str}T00-0000&distance=50"
+            f"&API_KEY={api_key}"
+        )
+        try:
+            resp = await client.get(url, timeout=15.0)
+            resp.raise_for_status()
+            return date_str, resp.json()
+        except Exception as exc:
+            logger.warning("AirNow historical %s failed: %s: %s", date_str, type(exc).__name__, exc)
+            return date_str, []
+
+    # Fetch all days in parallel
+    results = await asyncio.gather(*[_fetch_day(d) for d in range(1, days + 1)])
+
+    for date_str, obs_list in sorted(results, key=lambda x: x[0]):
+        if not isinstance(obs_list, list) or not obs_list:
+            continue
+        params = {}
+        max_aqi = 0
+        reporting_area = ""
+        for obs in obs_list:
+            if not isinstance(obs, dict):
+                continue
+            pname = obs.get("ParameterName", "unknown")
+            aqi = obs.get("AQI")
+            if aqi is not None:
+                params[pname] = int(aqi)
+                max_aqi = max(max_aqi, int(aqi))
+            if not reporting_area:
+                reporting_area = obs.get("ReportingArea", "")
+
+        if params:
+            daily_aqi.append({
+                "date": date_str,
+                "overall_aqi": max_aqi,
+                "category": _aqi_category(max_aqi),
+                "parameters": params,
+                "reporting_area": reporting_area,
+            })
+
+    return {
+        "daily_aqi": daily_aqi,
+        "period_days": len(daily_aqi),
+        "source_type": "airnow_historical",
+    }
+
+
+def _normalize_nasa_power_to_uv(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize NASA POWER daily data to Open-Meteo UV hourly-like format.
+
+    NASA POWER returns: {"properties": {"parameter": {"ALLSKY_SFC_UV_INDEX": {"20251201": val}}}}
+    Open-Meteo UV returns: {"hourly": {"time": [...], "uv_index": [...], ...}}
+    """
+    params = (data.get("properties") or {}).get("parameter") or {}
+    uv_daily = params.get("ALLSKY_SFC_UV_INDEX", {})
+    sw_daily = params.get("ALLSKY_SFC_SW_DWN", {})
+    clr_daily = params.get("CLRSKY_SFC_SW_DWN", {})
+
+    times = sorted(uv_daily.keys())
+    valid = [
+        (t, uv_daily.get(t, -999), sw_daily.get(t, -999), clr_daily.get(t, -999))
+        for t in times
+    ]
+    valid = [(t, u, s, c) for t, u, s, c in valid if u != -999]
+
+    if not valid:
+        return data  # Return as-is if no valid data
+
+    # Convert YYYYMMDD to ISO format at solar noon
+    times_fmt = [f"{t[:4]}-{t[4:6]}-{t[6:8]}T12:00" for t, _, _, _ in valid]
+    # NASA POWER: kWh/m2/day -> approximate W/m2 by dividing by ~5 peak sun hours * 1000
+    sw_factor = 1000.0 / 5.0  # rough daily total -> peak instantaneous
+
+    return {
+        "hourly": {
+            "time": times_fmt,
+            "uv_index": [round(u, 1) for _, u, _, _ in valid],
+            "shortwave_radiation": [round(s * sw_factor, 0) for _, _, s, _ in valid],
+            "direct_radiation": [round(c * sw_factor, 0) for _, _, _, c in valid],
+            "diffuse_radiation": [round((s - c) * sw_factor, 0) for _, _, s, c in valid],
+        },
+        "_normalized_from": "nasa_power",
+        "_note": "Daily averages presented at solar noon; radiation approximated from daily totals",
+    }
+
+
+# Map of (category, source_id) -> normalizer function
+_NORMALIZERS: Dict[tuple, Any] = {
+    ("air_quality", "open_meteo_aq"): _normalize_openmeteo_aq_to_airnow,
+    ("radiation", "nasa_power"): _normalize_nasa_power_to_uv,
 }
 
 
@@ -447,21 +759,68 @@ class DataAggregator:
                         "hint": f"Set {source.api_key_env_var} environment variable"
                     }
                 # Different APIs use different auth methods
-                if "noaa" in source.base_url and "ncdc" in source.base_url:
+                if "firms" in source_id:
+                    # FIRMS: MAP_KEY embedded in URL path
+                    url = url.replace("{MAP_KEY}", api_key)
+                elif source_id == "nasa_earthdata":
+                    headers["Authorization"] = f"Bearer {api_key}"
+                elif "noaa" in source.base_url and "ncdc" in source.base_url:
                     headers["token"] = api_key
+                elif source_id == "airnow":
+                    params = params or {}
+                    params["API_KEY"] = api_key
                 else:
                     params = params or {}
                     params["api_key"] = api_key
             
             response = await client.get(url, params=params, headers=headers)
             
+            # Parse response based on content type
+            content_type = response.headers.get("content-type", "")
+            if "json" in content_type:
+                data = response.json()
+            elif "csv" in content_type or (
+                response.text
+                and len(response.text) > 20
+                and response.text.strip().split("\n")[0].count(",") >= 3
+                and not response.text.strip().startswith(("<", "{", "["))
+            ):
+                # Parse CSV responses (e.g., FIRMS fire data) into list of dicts
+                import csv
+                import io
+                try:
+                    reader = csv.DictReader(io.StringIO(response.text))
+                    data = list(reader)
+                except Exception:
+                    data = response.text
+            else:
+                data = response.text
+            
+            # Truncate large USGS water responses to prevent oversized payloads
+            if isinstance(data, dict) and "value" in data:
+                ts = (data.get("value") or {}).get("timeSeries", [])
+                if isinstance(ts, list) and len(ts) > 20:
+                    total = len(ts)
+                    data["value"]["timeSeries"] = ts[:20]
+                    data["_truncated"] = True
+                    data["_total_stations"] = total
+
+            # Wrap list data in a dict so merge_category_sources can handle it
+            if isinstance(data, list):
+                if "firms" in source_id:
+                    data = {"fires": data, "count": len(data)}
+                elif "airnow" in source_id:
+                    data = {"observations": data, "count": len(data)}
+                else:
+                    data = {"records": data, "count": len(data)}
+
             result = {
                 "success": True,
                 "source": source.name,
                 "source_id": source_id,
                 "endpoint": endpoint,
                 "timestamp": datetime.utcnow().isoformat(),
-                "data": response.json() if "json" in response.headers.get("content-type", "") else response.text
+                "data": data
             }
             
             # Cache for 5 minutes
@@ -498,16 +857,41 @@ class DataAggregator:
             "data": {}
         }
         
+        # Calculate bounding box for sources that need it
+        bbox_half = 0.5  # ±0.5 degrees ≈ ±55km
+        bbox = f"{longitude-bbox_half:.2f},{latitude-bbox_half:.2f},{longitude+bbox_half:.2f},{latitude+bbox_half:.2f}"
+        
         # Define which sources to query for location-based data
         location_sources = {
             "air_quality": [
-                ("openaq", f"/locations?coordinates={latitude},{longitude}&radius={int(radius_km * 1000)}"),
+                ("airnow", f"/observation/latLong/current/?format=application/json&latitude={latitude}&longitude={longitude}&distance=50"),
             ],
             "weather": [
-                ("open_meteo", f"/forecast?latitude={latitude}&longitude={longitude}&current_weather=true"),
+                ("open_meteo", f"/forecast?latitude={latitude}&longitude={longitude}&current_weather=true&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation&forecast_days=3"),
+            ],
+            "water": [
+                ("usgs_water", f"/iv/?format=json&bBox={bbox}&parameterCd=00060,00065,00010&period=PT2H&siteStatus=active&siteType=ST"),
             ],
             "earthquakes": [
                 ("usgs_earthquake", f"/query?format=geojson&latitude={latitude}&longitude={longitude}&maxradiuskm={radius_km}&limit=10"),
+            ],
+            "climate": [
+                ("open_meteo_climate", f"/climate?latitude={latitude}&longitude={longitude}&start_date=2024-01-01&end_date=2024-01-30&daily=temperature_2m_max,temperature_2m_min,precipitation_sum&models=EC_Earth3P_HR"),
+            ],
+            "soil": [
+                ("soilgrids", f"/properties/query?lat={latitude}&lon={longitude}&property=clay&property=sand&property=silt&property=phh2o&property=soc&property=nitrogen&depth=0-5cm&depth=5-15cm&depth=15-30cm&depth=30-60cm&depth=60-100cm&depth=100-200cm&value=mean&value=Q0.05&value=Q0.95"),
+            ],
+            "marine": [
+                ("open_meteo_marine", f"/marine?latitude={latitude}&longitude={longitude}&current=wave_height,wave_direction,wave_period,sea_surface_temperature&hourly=wave_height,wave_period,wave_direction,sea_surface_temperature&forecast_days=3"),
+            ],
+            "radiation": [
+                ("open_meteo_uv", f"/forecast?latitude={latitude}&longitude={longitude}&hourly=uv_index,direct_radiation,diffuse_radiation,shortwave_radiation&forecast_days=3"),
+            ],
+            "wildfires": [
+                ("nasa_firms", f"/area/csv/{{MAP_KEY}}/VIIRS_SNPP_NRT/{bbox}/1"),
+            ],
+            "biodiversity": [
+                ("gbif", f"/occurrence/search?decimalLatitude={latitude}&decimalLongitude={longitude}&radius={int(radius_km)}&limit=50"),
             ],
         }
         
@@ -538,13 +922,134 @@ class DataAggregator:
         
         return results
     
+    def _inject_location(self, endpoint: str, params: Optional[Dict[str, Any]]) -> str:
+        """Replace default coordinates in endpoint URL with actual lat/lon."""
+        if not params:
+            return endpoint
+        lat = params.get("lat") or params.get("latitude")
+        lon = params.get("lon") or params.get("longitude")
+        if lat is None or lon is None:
+            return endpoint
+        endpoint = endpoint.replace("latitude=37.77", f"latitude={lat}")
+        endpoint = endpoint.replace("longitude=-122.42", f"longitude={lon}")
+        endpoint = endpoint.replace("lat=37.77", f"lat={lat}")
+        endpoint = endpoint.replace("lon=-122.42", f"lon={lon}")
+        default_bbox = "-122.92,37.27,-121.92,38.27"
+        new_bbox = (
+            f"{float(lon)-0.5:.2f},{float(lat)-0.5:.2f},"
+            f"{float(lon)+0.5:.2f},{float(lat)+0.5:.2f}"
+        )
+        endpoint = endpoint.replace(default_bbox, new_bbox)
+        return endpoint
+
+    async def _failover_query(
+        self,
+        category: str,
+        source_ids: List[str],
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Try sources in priority order. Return first success, normalized to primary format."""
+        errors = []
+        requested_days = int((params or {}).get("days", 7))
+        for source_id in source_ids:
+            source = self.sources.get(source_id)
+            if not source or not source.sample_endpoint:
+                continue
+
+            # --- Special: AirNow daily aggregate (multi-call) ---
+            if source_id == "airnow" and "__DAILY_AGGREGATE__" in source.sample_endpoint:
+                lat = float((params or {}).get("lat", (params or {}).get("latitude", 37.77)))
+                lon = float((params or {}).get("lon", (params or {}).get("longitude", -122.42)))
+                import os
+                api_key = os.environ.get("AIRNOW_API_KEY", "")
+                if not api_key:
+                    errors.append({"source": source.name, "source_id": source_id, "error": "AIRNOW_API_KEY not set"})
+                    continue
+                try:
+                    client = await self._get_client()
+                    data = await _aggregate_airnow_daily(client, lat, lon, api_key, days=requested_days)
+                    if data.get("daily_aqi"):
+                        result = {
+                            "success": True,
+                            "source": source.name,
+                            "source_id": source_id,
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "data": data,
+                        }
+                        return {
+                            "category": category,
+                            "timestamp": datetime.utcnow().isoformat(),
+                            "sources_queried": 1,
+                            "primary_source": source_ids[0],
+                            "active_source": source_id,
+                            "failover_used": False,
+                            "data": [result],
+                        }
+                    else:
+                        errors.append({"source": source.name, "source_id": source_id, "error": "No daily data returned"})
+                        continue
+                except Exception as exc:
+                    errors.append({"source": source.name, "source_id": source_id, "error": str(exc)})
+                    continue
+
+            endpoint = self._inject_location(source.sample_endpoint, params)
+
+            # Rewrite past_days= in endpoint to match requested days
+            if "past_days=" in endpoint:
+                import re
+                endpoint = re.sub(r'past_days=\d+', f'past_days={requested_days}', endpoint)
+
+            try:
+                result = await self.proxy_request(source_id, endpoint, None)
+            except Exception as exc:
+                errors.append({"source": source.name, "source_id": source_id, "error": str(exc)})
+                continue
+
+            if result.get("success"):
+                # Normalize secondary source output to match primary format
+                normalizer = _NORMALIZERS.get((category, source_id))
+                if normalizer and isinstance(result.get("data"), dict):
+                    result["data"] = normalizer(result["data"])
+                    result["_normalized_from"] = source_id
+
+                is_mirror = source_id != source_ids[0]
+                return {
+                    "category": category,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "sources_queried": 1,
+                    "primary_source": source_ids[0],
+                    "active_source": source_id,
+                    "failover_used": is_mirror,
+                    "data": [result],
+                }
+            else:
+                errors.append({
+                    "source": source.name,
+                    "source_id": source_id,
+                    "error": result.get("error", "Unknown error"),
+                })
+
+        return {
+            "category": category,
+            "timestamp": datetime.utcnow().isoformat(),
+            "sources_queried": len(errors),
+            "success": False,
+            "error": "All sources failed",
+            "data": errors,
+        }
+
     async def aggregate_by_category(
         self,
         category: str,
         params: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
-        Aggregate data from all sources in a category.
+        Get data for a category using primary/mirror failover when configured.
+
+        For categories in CATEGORY_FAILOVER: tries primary source first, then
+        mirror if primary fails. Returns exactly ONE result in consistent format.
+
+        For other categories: queries all available sources in parallel (legacy).
         """
         try:
             cat_enum = DataCategory(category)
@@ -554,31 +1059,39 @@ class DataAggregator:
                 "error": f"Invalid category: {category}",
                 "valid_categories": [c.value for c in DataCategory]
             }
-        
+
+        # ---- Failover path: primary -> mirror, return ONE result ----
+        if category in CATEGORY_FAILOVER:
+            return await self._failover_query(
+                category, CATEGORY_FAILOVER[category], params
+            )
+
+        # ---- Legacy path: query all sources in parallel ----
         sources_in_category = [
             (key, source) for key, source in self.sources.items()
             if source.category == cat_enum and source.sample_endpoint
         ]
-        
+
         if not sources_in_category:
             return {
                 "success": False,
                 "error": f"No sources with sample endpoints in category: {category}"
             }
-        
+
         tasks = []
         for source_id, source in sources_in_category:
-            tasks.append(self.proxy_request(source_id, source.sample_endpoint, params))
-        
+            endpoint = self._inject_location(source.sample_endpoint, params)
+            tasks.append(self.proxy_request(source_id, endpoint, None))
+
         responses = await asyncio.gather(*tasks, return_exceptions=True)
-        
+
         results = {
             "category": category,
             "timestamp": datetime.utcnow().isoformat(),
             "sources_queried": len(sources_in_category),
             "data": []
         }
-        
+
         for (source_id, source), response in zip(sources_in_category, responses):
             if isinstance(response, Exception):
                 results["data"].append({
@@ -588,7 +1101,7 @@ class DataAggregator:
                 })
             else:
                 results["data"].append(response)
-        
+
         return results
 
 
