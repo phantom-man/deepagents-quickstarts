@@ -200,3 +200,4 @@ Artifacts/**/*.jpeg
 credentials.json
 service-account*.json
 environmental_monitoring.db
+.adversary/
