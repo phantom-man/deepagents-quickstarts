@@ -1,0 +1,46 @@
+{
+ "type": "CLEAR",
+ "commit": "5d3aeeb01e0e9425964337837bebe7b569afa94e",
+ "when": "20260831-105905",
+ "files": {
+  ".githooks/.gitattributes": {
+   "sha": "77a9a685825b85360cf7b129be4ad5c349d48eaa36d2d3bc2a1eb1b7724deec4",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  },
+  ".githooks/adversary_audit.py": {
+   "sha": "28ebdc7b4162c932308fa70d1c249d57f04ce7d5954cd544fe1fbce03e9426db",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  },
+  ".githooks/adversary_baseline": {
+   "sha": "97b7f1cd950128e621f099bc11bc404dda058bd15598875c3fb9a24d4d07e41c",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  },
+  ".githooks/post-commit": {
+   "sha": "377b1254489c2fe84091aa3cc269f4083baa3d44d3781e47c635e88249387268",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  },
+  ".githooks/pre-commit": {
+   "sha": "72864701ba348f1f0486994283215aa3dd35341edc15b4ce9276ced457cd32b9",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  },
+  ".githooks/pre-push": {
+   "sha": "8d44759bf78782df62fbdcb27189abfd1b5ea96d03ac7ccd0c8d3c3609d7b761",
+   "model": "z-ai/glm-5.2",
+   "when": "20260831-105904",
+   "artifact": ".adversary\\reviews\\gate_20260831-105904.md"
+  }
+ },
+ "artifacts": {
+  ".adversary\\reviews\\gate_20260831-105904.md": "model: z-ai/glm-5.2 | usage: {'prompt_tokens': 7497, 'completion_tokens': 18259, 'total_tokens': 25756, 'cost': 0.0410385, 'is_byok': False, 'prompt_tokens_details': {'cached_tokens': 7360, 'cache_write_tokens': 0, 'audio_tokens': 0, 'video_tokens': 0}, 'cost_details': {'upstream_inference_cost': 0.0410385, 'upstream_inference_prompt_cost': 0.0008687, 'upstream_inference_completions_cost': 0.0401698}, 'completion_tokens_details': {'reasoning_tokens': 17510, 'image_tokens': 0, 'audio_tokens': 0}} | files: ['.githooks/.gitattributes', '.githooks/adversary_audit.py', '.githooks/adversary_baseline', '.githooks/post-commit', '.githooks/pre-commit', '.githooks/pre-push']\n\nLooking at this change set carefully \u2014 it installs an adversarial commit-gate's audit tripwire and hook shims into `.githooks/`, plus a `.gitignore` tweak for the transient clearance dir. I need to check the auditor's logic against the bytes and the hook contracts.\n\n**What I verified:**\n\n1. **`_changed_code` diff parsing**: `st = bits[0][0]` correctly strips similarity scores (`R100`\u2192`R`, `C75`\u2192`C`). `A`/`C`/`M` take `bits[1]` as the path (the only path for non-rename statuses \u2014 correct since `-M` alone never emits `C`). `R` takes `bits[2]` as the new path and only records `D:`-prefixed removals when old was code and new isn't. The `D:` prefix on removal keys prevents collision with bare-path file keys in `files.update(removals)`. Root-commit handling via `EMPTY_TREE` is correct.\n\n2. **`_audit_commit` note verification**: no-note \u2192 violation (rc\u22600 from `git notes show`), bad JSON \u2192 violation (`JSONDecodeError` \u2282 `ValueError`), missing/mismatched sha \u2192 violation, `OVERRIDE` type \u2192 override, unknown type \u2192 violation, `CLEAR` \u2192 clean. The `rows.get(key)` falsy-check (`if not row`) correctly catches both absent keys and `null`/falsy values.\n\n3. **`main` flow**: baseline resolution from file or `--baseline`, commit-existence check (`^{commit}`), `rev-list --reverse baseline..HEAD` range, exit codes 0/1/2 all correct. `os.path.abspath(a.repo)` + `rev-parse --show-toplevel` robustly finds the repo root.\n\n4. **`_is_code`**: `str.startswith(tuple)` works for `GATED_PREFIXES`. `os.path.splitext` correctly handles dotfiles (`.gitignore` \u2192 ext `\"\"`, not code; `.githooks/pre-commit` \u2192 caught by prefix; `adversary_audit.py` \u2192 `.py`, code). `.gitignore` change itself is not gated \u2014 by design, not a defect.\n\n5. **Hooks**: pre-commit is fail-closed (exit 1 if tool missing), post-commit is fail-open by design (can't block a completed commit; absence of note IS the signal), pre-push passes `$1` (remote name) and preserves stdin via `exec`. PYBIN fallback chain is correct shell logic.\n\n6. **`.gitattributes`**: scope is `.githooks/` directory \u2014 correct for forcing LF on shell hooks (CRLF would break `#!/bin/sh` on Git Bash).\n\n7. **No injection/safety issues**: `subprocess.run` uses list args (no shell), paths from `git diff` output flow into `git show rev:path` as single list elements.\n\n8. **`T` (type-change) status not handled** \u2014 but this mirrors the gate's `_changed_code_in_commit` (per the docstring + `audit_selftest.py` drift tripwire), so the auditor and notary agree. Not a divergence.\n\nNo real defect found in the code the change introduces or enables.\n\nVERDICT: CLEAR"
+ }
+}
