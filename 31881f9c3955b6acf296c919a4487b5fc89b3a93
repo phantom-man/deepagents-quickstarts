@@ -1,0 +1,16 @@
+{
+ "type": "CLEAR",
+ "commit": "31881f9c3955b6acf296c919a4487b5fc89b3a93",
+ "when": "20260904-084457",
+ "files": {
+  ".claude/settings.json": {
+   "sha": "6600901e321131a087d5511fed71bf727ed403b534a19511a57baaf298e14ff0",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260904-084456",
+   "artifact": ".adversary\\reviews\\gate_20260904-084456.md"
+  }
+ },
+ "artifacts": {
+  ".adversary\\reviews\\gate_20260904-084456.md": "model: z-ai/glm-5.3-flash | usage: {'prompt_tokens': 2752, 'completion_tokens': 1076, 'total_tokens': 3828, 'cost': 0.0004754, 'is_byok': False, 'prompt_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0, 'audio_tokens': 0, 'video_tokens': 0}, 'cost_details': {'upstream_inference_cost': 0.0004754, 'upstream_inference_prompt_cost': 0.0002064, 'upstream_inference_completions_cost': 0.000269}, 'completion_tokens_details': {'reasoning_tokens': 698, 'image_tokens': 0, 'audio_tokens': 0}} | files: ['.claude/settings.json']\n\nI traced the bootstrap semantics against the hook protocol and the author's claims:\n\n- **argv rebuild**: under `python -I -c <code> pre --level project`, `sys.argv` is `['-c', 'pre', '--level', 'project']`; `sys.argv = [p] + sys.argv[1:]` yields `[p, 'pre', '--level', 'project']` \u2014 correct for all three hook rows (pre/post/stop).\n- **Exit-code contract**: `except SystemExit: raise` preserves the gate's deliberate codes (including Stop's 2 = block); any other exception prints a traceback and exits 0 (fail-open, stated design); missing script exits 0 \u2014 the original brick (exit 2 on unopenable script = protocol BLOCK) is genuinely removed.\n- **Isolated mode**: `-I` drops cwd/`PYTHON*`/user-site from `sys.path`; the bootstrap re-inserts the gate's own directory, so the poisoned-cwd `json.py` scenario is closed. Residual risk: if the gate imports a third-party dep living only in user site-packages, `-I` would make it ImportError \u2192 caught \u2192 exit 0 \u2192 gate silently no-ops. That is fail-open (declared design), not a block, and the author's live selftest (28/28, real deny + clean Stop) indicates no such dep in practice.\n- **stdin/stderr**: hook JSON arrives on stdin and is untouched; traceback-on-crash goes to stderr with exit 0 (shown, non-blocking) \u2014 consistent with the protocol.\n- The G39 harness_guard rows still carrying the bare `python.exe <path>` form are explicitly out of scope for this commit and flagged by the author; not re-raised.\n\nNo caller/call-site breakage, no new block path, no unhandled branch that changes gate outcomes versus intent.\n\nVERDICT: CLEAR"
+ }
+}
