@@ -18,3 +18,16 @@ Not shippable: the composer node reports a false error on any single-track run w
 
 **[LOW] `_get_comms` check-then-set on a module global — PLAUSIBLE** - `line 52-58`
 - Async nodes on one loop cannot interleave inside the sync function; only Streamlit's multi-thread reruns could double-connect. Unverified because it needs the live GUI.
+
+## Fixed since this review
+- **HIGH `composer_node` unbound `audio_path`/`result` and duplicate asset — FIXED 2026-09-06**
+  (the commit carrying this note): the stray `assets.append(audio_path)` outside `if match` and
+  the unconditional trailing `state_update` re-build are deleted; each branch builds its update
+  once, as `cinematographer_node` does. TDD: `tests/test_composer_node_state_update.py` drives
+  the real node with `run_composer_task` stubbed at its module and progress comms silenced —
+  RED on the old bytes with the exact recorded shapes ("Audio Error: cannot access local
+  variable 'audio_path'…", the asset listed twice, the multi-track message overwritten by
+  "Audio Created: Track saved …t2.wav", "Audio Error: … 'result' …" when every track lacks a
+  prompt), GREEN now (4 tests). No remediation manifest exists in this repo; this record and
+  the commit message are the ledger.
+- The LOW `_get_comms` check-then-set stays open (needs the live GUI to trigger).

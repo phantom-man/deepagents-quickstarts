@@ -29,3 +29,20 @@ One confirmed HIGH that misrenders the file's own first-party schemas; the rest 
 **[LOW] Unguarded singleton — CONFIRMED** - `line 1377-1382`
 
 **[LOW] "Applied quality default overrides" logged even when nothing matched — CONFIRMED** - `line 192-195, 213-215`
+
+## Fixed since this review
+- **HIGH file-keyword heuristic before the type checks — FIXED 2026-09-06** (the commit carrying
+  this note): the file branch in `_infer_control_type` is now gated on `prop_type in ("string", "array")`
+  (untyped properties default to string, so `input_file` with only a description still renders
+  as FILE; arrays keep their file treatment so Replicate list-of-uri params such as `images` do
+  not regress to TEXT - pinned by a test that passed before the fix too); booleans and numbers fall through to their own branches. The record's second
+  suggestion (token-boundary keyword matching) was NOT taken — the type gate alone closes both
+  recorded misrenders and every real file parameter in the first-party schemas is string-typed;
+  boundary matching would change the rendering of other params and is a separate change.
+  TDD: `tests/test_schema_service_control_inference.py` — Veo `generate_audio` (boolean) is a
+  CHECKBOX with no AssetRequirement, Imagen `number_of_images` (integer 1-4) is a SLIDER, both
+  through `_parse_openapi_schema` over the Vertex provider's own schemas; four string file
+  params still render as IMAGE/AUDIO/VIDEO/FILE. RED on the old bytes (AUDIO_FILE / IMAGE_FILE),
+  GREEN now (9 tests).
+- The LOWs (output_type inference, aliasing copies, cache-write raise, duration regex,
+  singleton, misleading log) stay open.

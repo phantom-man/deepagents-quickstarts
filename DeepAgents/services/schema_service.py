@@ -1059,7 +1059,12 @@ class SchemaService:
             prop_format == "uri" or "url" in description or "file" in description
         )
 
-        if is_file_param or is_uri_format:
+        # Only string-typed (or untyped) properties and arrays of them can be
+        # file inputs: the keyword heuristic used to run first and misrendered
+        # this file's own schemas (Veo `generate_audio` boolean -> audio picker
+        # + bogus asset requirement; Imagen `number_of_images` integer -> image
+        # upload). Arrays keep their file treatment (Replicate list-of-uri params).
+        if prop_type in ("string", "array") and (is_file_param or is_uri_format):
             # Determine content type from name/description
             content_type = None
             for keyword, ctype in self.AUDIO_CONTENT_KEYWORDS.items():

@@ -1128,12 +1128,11 @@ async def composer_node(
                 "messages": [AIMessage(content=f"Audio Created: {result}")],
                 "audio_assets": assets,
             }
-            assets.append(audio_path)
 
-        state_update = {
-            "messages": [AIMessage(content=f"Audio Created: {result}")],
-            "audio_assets": assets,
-        }
+        # state_update is built once per branch above (as cinematographer_node
+        # does): a trailing re-build here overwrote the multi-track update and
+        # a stray `assets.append(audio_path)` outside `if match` raised
+        # UnboundLocalError on any single-track result without a path.
 
         # Smart routing: If cinematographer is disabled (audio-only workflow), go to end/editor
         cinematographer_disabled = not conf.get("cinematographer_active", True)
