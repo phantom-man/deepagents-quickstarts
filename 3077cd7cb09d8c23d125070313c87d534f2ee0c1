@@ -1,0 +1,22 @@
+{
+ "type": "CLEAR",
+ "commit": "3077cd7cb09d8c23d125070313c87d534f2ee0c1",
+ "when": "20260906-000034",
+ "files": {
+  "DeepAgents/gui/agent_runner.py": {
+   "sha": "29bd682dd9e91598ec7b08d1d885d794c808f76a6e83007bc7ec3caec0927b0d",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-000000",
+   "artifact": ".adversary\\reviews\\gate_20260906-000000.md"
+  },
+  "tests/test_agent_runner_cinematographer.py": {
+   "sha": "78f24ad84f2c0a75a22a0b9ff2db2cf4021617bf4a13ee56e456b0e2d6381619",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-000000",
+   "artifact": ".adversary\\reviews\\gate_20260906-000000.md"
+  }
+ },
+ "artifacts": {
+  ".adversary\\reviews\\gate_20260906-000000.md": "model: z-ai/glm-5.3-flash | usage: {'prompt_tokens': 9648, 'completion_tokens': 6773, 'total_tokens': 16421, 'cost': 0.00241685, 'is_byok': False, 'prompt_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0, 'audio_tokens': 0, 'video_tokens': 0}, 'cost_details': {'upstream_inference_cost': 0.00241685, 'upstream_inference_prompt_cost': 0.0007236, 'upstream_inference_completions_cost': 0.00169325}, 'completion_tokens_details': {'reasoning_tokens': 6054, 'image_tokens': 0, 'audio_tokens': 0}} | files: ['DeepAgents/gui/agent_runner.py', 'tests/test_agent_runner_cinematographer.py']\n\n## Review\n\n**Change scope verification.** The diff to `agent_runner.py` is deletions only (hunk `@@ -777,118 +777,8 @@`: 8 context lines + 110 deleted = 118 old / 8 new \u2014 internally consistent, no insertions). The deleted block is, as claimed, an unconditional second execution of the paid agent: at method-body level after the first block's `try/except`, it called `create_cinematographer_agent(...)` again, drove the generator again in `sync_cine_worker` (notably *without* `resume_history`/`user_feedback`), drained a queue, double-logged and double-yielded. Deleting it is the correct remediation for the double-spend/double-log bug.\n\n**Post-deletion integrity of `run_cinematographer`** (staged bytes, lines ~700\u2013784):\n- The method now ends cleanly at the `except Exception` block; no dangling references to `cine_queue`, `sync_cine_worker`, or the local `import threading` remain anywhere in the file.\n- `queue` top-level import: still used (`stream_agency_graph`, `stream_director`). `threading`: still locally imported where used. No dead imports created.\n- Exactly one `create_cinematographer_agent(` call site remains in the method, and it correctly forwards `resume_history`/`user_feedback` \u2014 the resume flow is intact (in fact *improved*: HEAD's second run ignored those params).\n- The `else: yield (\"Cinematographer\", event_type, payload)` passthrough for `done` etc. is unchanged; no consumer contract on event count exists in the visible code that the deletion breaks.\n\n**Test file audit:**\n- Monkeypatching `agent_runner_module.create_cinematographer_agent` is effective: the method resolves the name from module globals at call time (top-level import, method-body lookup).\n- `_runner_without_init` via `__new__` supplies every attribute the method touches (`session`/`session_id`, `config.get_agent_config`, `brain`, `comms.send_message`) \u2014 verified line by line against the method body; no attribute access can fall through to a real DB/network path.\n- Fake `run_agent` signature matches the real call (`director_output` positional + `mode`, `max_shots`, `duration_sec`, `resume_history`, `user_feedback` kwargs).\n- The assertions are meaningful, not vacuous: `factory_calls == 1`, `generator_runs == 1`, single output event, single log, single comms message. Traced against HEAD's bytes: the deleted block's worker would have made `factory_calls == 2` and `generator_runs == 2`, so the test genuinely fails pre-fix and passes post-fix \u2014 consistent with the author's TDD claim.\n- Test 2 exercises the `not director_output and not resume_history` guard, which returns before any attribute/config access \u2014 matches the asserted single error event.\n\n**Rebuttal cross-check:** Claim \"0 insertions\" \u2014 confirmed by diff. Claim \"`import queue` remains used\" \u2014 confirmed. Claim of fresh test evidence \u2014 the assertions' mechanics independently confirm the claimed fail-then-pass behavior.\n\nNo logic errors, broken call sites, unhandled paths, ordering regressions, or money-safety issues introduced. The change strictly removes duplicate paid execution and duplicate logging.\n\nVERDICT: CLEAR"
+ }
+}
