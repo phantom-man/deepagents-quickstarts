@@ -1,0 +1,34 @@
+{
+ "type": "CLEAR",
+ "commit": "fb3ef559b8291980a796af4abc68a70102e8bc42",
+ "when": "20260906-100813",
+ "files": {
+  "DeepAgents/graphs/agency_graph.py": {
+   "sha": "07690eabcc72f5dad39e0f8d178e2c88f318fcbcac6eecdb337078c0fe5d5dbe",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-100745",
+   "artifact": ".adversary\\reviews\\gate_20260906-100745.md"
+  },
+  "DeepAgents/services/schema_service.py": {
+   "sha": "f2c0bfcce65e794dfc931a01017826c4f3826fd1ffcd055cf9c09b93199f22bd",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-100745",
+   "artifact": ".adversary\\reviews\\gate_20260906-100745.md"
+  },
+  "tests/test_composer_node_state_update.py": {
+   "sha": "bb39c59dbedf1aa3dd149008def73a4bcdd9560d872cb6090afd46d96b660a86",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-100745",
+   "artifact": ".adversary\\reviews\\gate_20260906-100745.md"
+  },
+  "tests/test_schema_service_control_inference.py": {
+   "sha": "26cb5ec93bda23d11eaa56e3a0cb3150396548981d283e59745a6816f740b356",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-100745",
+   "artifact": ".adversary\\reviews\\gate_20260906-100745.md"
+  }
+ },
+ "artifacts": {
+  ".adversary\\reviews\\gate_20260906-100745.md": "model: z-ai/glm-5.3-flash | usage: {'prompt_tokens': 26017, 'completion_tokens': 18415, 'total_tokens': 44432, 'cost': 0.01311005, 'is_byok': False, 'prompt_tokens_details': {'cached_tokens': 0, 'cache_write_tokens': 0, 'audio_tokens': 0, 'video_tokens': 0}, 'cost_details': {'upstream_inference_cost': 0.01311005, 'upstream_inference_prompt_cost': 0.00390255, 'upstream_inference_completions_cost': 0.0092075}, 'completion_tokens_details': {'reasoning_tokens': 17345, 'image_tokens': 0, 'audio_tokens': 0}} | files: ['DeepAgents/graphs/agency_graph.py', 'DeepAgents/services/schema_service.py', 'tests/test_composer_node_state_update.py', 'tests/test_schema_service_control_inference.py']\n\n## Adversarial review \u2014 verification against staged bytes\n\n### 1. `composer_node` (agency_graph.py)\n\nI reconstructed the pre-diff bytes from the hunk and confirmed the described defects were real: the stray `assets.append(audio_path)` sat after the single-branch `state_update` and outside `if match` (UnboundLocalError on any pathless single-track result \u2192 swallowed by the node's `except` \u2192 \"Audio Error\", or a duplicated asset when a path existed), and the unconditional trailing `state_update` rebuild at try-level referenced `result`, which is unbound in the multi-track branch when no track has a prompt, and otherwise overwrote the \"Multi-Track Generation Complete\" update.\n\nPost-diff verification against the staged file:\n- `state_update` is assigned in **all** paths that reach the routing block: multi-track (`if assets:` / `else:`), single-track (always). The `composer_source == \"file\"` and composer-disabled paths return before it.\n- `assets` is defined in both branches (`list(dict.fromkeys(all_assets))` / `[]`) and is the only branch-local the routing block reads (`elif assets and has_video:`). `result` and `audio_path` have no remaining readers after their branch. No unbound-name path remains.\n- No consumer in the visible code depends on the removed behavior: nothing parses `\"Audio Created:\"` from messages; `editor_node` consumes `audio_assets[-1]` (duplicates were pollution, not contract), and routing is computed after the branch regardless.\n\n### 2. Tests as regression pins (test_composer_node_state_update.py)\n\n- **Seam is valid**: `composer_node` does `from ...composer_agent.agent import run_composer_task` *inside its try at call time*, so the `from`-import resolves the attribute from the module object after `monkeypatch.setattr(composer_agent_module, ...)` \u2014 the stub is picked up. Same for `ag._emit_progress` (module-global lookup inside both `composer_node` and `_route_from_handoffs`).\n- I walked all four tests through the new bytes: pathless result \u2192 `[\"Audio Created: \u2026\"]`, `audio_assets == []`, goto `director` (conf `{}` \u2192 cinematographer active \u2192 else-branch); pathed result \u2192 exactly one asset; multi-track with 2 prompts \u2192 \"Multi-Track Generation Complete (2 tracks)\" + `t1.wav`/`t2.wav`; all-promptless tracks \u2192 zero calls, exact \"Multi-track generation produced no assets\" content. All green on new bytes.\n- Red-on-old check: test 1 (UnboundLocalError\u2192\"Audio Error\"), test 2 (duplicate append \u2192 len 2), test 3 (trailing rebuild overwrites message), test 4 (`result` unbound \u2192 \"Audio Error\") \u2014 all four genuinely fail on the old bytes. The docstring's claims match the old bytes exactly.\n\n### 3. `_infer_control_type` (schema_service.py)\n\n- The HIDDEN and enum/`allOf` checks remain **before** the file branch, untouched; boolean/number/string branches below untouched. Only the file-branch gate narrowed.\n- **Untyped props**: `prop.get(\"type\", \"string\")` \u2192 file treatment preserved (verified with the `input_file` test case). **`anyOf` props** (no top-level `type`) also default to `\"string\"` \u2192 preserved. **Arrays** preserved (parametrized pin).\n- I swept every property of all first-party schemas in the file (both Vertex `VERTEX_SCHEMAS` and GenAI `GENAI_SCHEMAS`) for behavior deltas: only `generate_audio` (bool\u2192CHECKBOX, was AUDIO_FILE) and `number_of_images` (int\u2192SLIDER, was IMAGE_FILE) change; `duration_seconds`, `speaking_rate`, `pitch`, `temperature` were SLIDER before and after (their names carry no FILE_KEYWORDS and descriptions lack url/file); `audio_encoding`/`voice`/enums hit SELECT before the file branch in both versions. No unintended first-party regressions.\n- Callers: `_infer_control_type` has exactly one caller (`_parse_openapi_schema`); the AssetRequirement/`has_asset_requirements` flows degrade correctly (the removed bogus requirements were `required=False` either way).\n\n### Residual note (non-blocking, no demonstrated trigger)\n\nA JSON-Schema *type-array* param (`\"type\": [\"string\", \"null\"]`) carrying a file keyword would regress FILE\u2192TEXT under the new gate. I could not construct a real trigger: Replicate/Cog and pydantic v1/v2 emit scalar types or `anyOf` (which still defaults `prop_type` to `\"string\"` and keeps file treatment), and no first-party schema uses type arrays. Flagging for awareness only; it does not block.\n\nThe rebuttal's claims (staged file list, seam choice, red-on-old status, offline providers via unset `REPLICATE_API_TOKEN`, array/untyped preservation) all verified against the bytes above.\n\nVERDICT: CLEAR"
+ }
+}
