@@ -1,0 +1,62 @@
+{
+  "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\graphs\\agency_graph.py": {
+    "rel": "DeepAgents\\graphs\\agency_graph.py",
+    "modes": {
+      "bug": {
+        "sha": "f5957395338fb4e49a3f622d4501087fc5a9e4a7fd48fa9db42f28c941b58a9e",
+        "output": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\.colibri_reviews\\DeepAgents__graphs__agency_graph.py__bug__f5957395.md",
+        "reviewed_at": "2026-09-05 23:30",
+        "model": "claude-fable-5-1 (Phase-3 gate over grok-4.3)",
+        "cost": 0.0
+      }
+    }
+  },
+  "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\CommercialAgents\\composer_agent\\agent.py": {
+    "rel": "DeepAgents\\CommercialAgents\\composer_agent\\agent.py",
+    "modes": {
+      "bug": {
+        "sha": "b67324ebe2230c3bdff5689208c018cc659da2384149d2cd12c3707fcd52a95f",
+        "output": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\.colibri_reviews\\DeepAgents__CommercialAgents__composer_agent__agent.py__bug__b67324eb.md",
+        "reviewed_at": "2026-09-05 23:30",
+        "model": "claude-fable-5-1 (Phase-3 gate over grok-4.3)",
+        "cost": 0.0
+      }
+    }
+  },
+  "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\gui\\agent_runner.py": {
+    "rel": "DeepAgents\\gui\\agent_runner.py",
+    "modes": {
+      "bug": {
+        "sha": "11752ad46b8f339536592395c48b05bcad996a3590fa28f361a1359a14008daa",
+        "output": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\.colibri_reviews\\DeepAgents__gui__agent_runner.py__bug__11752ad4.md",
+        "reviewed_at": "2026-09-05 23:30",
+        "model": "claude-fable-5-1 (Phase-3 gate over grok-4.3)",
+        "cost": 0.0
+      }
+    }
+  },
+  "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\gui\\app.py": {
+    "rel": "DeepAgents\\gui\\app.py",
+    "modes": {
+      "bug": {
+        "sha": "aa8b1fe98f43e8a4325b47333ad968b2b5c6fc4e4c6ee72932ad34de2c253355",
+        "output": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\.colibri_reviews\\DeepAgents__gui__app.py__bug__aa8b1fe9.md",
+        "reviewed_at": "2026-09-05 23:30",
+        "model": "claude-fable-5-1 (Phase-3 gate over grok-4.3)",
+        "cost": 0.0
+      }
+    }
+  },
+  "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\DeepAgents\\services\\schema_service.py": {
+    "rel": "DeepAgents\\services\\schema_service.py",
+    "modes": {
+      "bug": {
+        "sha": "90858b9c552e1762731d6485c2dcb6f1a1e98bd30801cb7ef5899c8be7f2a6e7",
+        "output": "C:\\Users\\User\\source\\repos\\deepagents-quickstarts\\.colibri_reviews\\DeepAgents__services__schema_service.py__bug__90858b9c.md",
+        "reviewed_at": "2026-09-05 23:30",
+        "model": "claude-fable-5-1 (Phase-3 gate over z-ai/glm-5.3-flash)",
+        "cost": 0.0
+      }
+    }
+  }
+}
