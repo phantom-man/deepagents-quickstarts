@@ -22,3 +22,7 @@ Not shippable: every cinematographer run executes the paid generation twice.
 
 **[LOW] `"Error" in merged_path` assumes a str — PLAUSIBLE** - `line 702`
 - `merge_video_audio.invoke` return type not traced.
+
+## Fixed since this review
+- **HIGH `run_cinematographer` double execution — FIXED 2026-09-05** (the commit carrying this note): the trailing worker-thread block (old lines 785-894, the superseded draft with its commented-out design notes) is deleted; the synchronous block that already yields every event is the single execution path. TDD: `tests/test_agent_runner_cinematographer.py` drove the real method with a counting stub for `create_cinematographer_agent` — RED on the old bytes ("agent created 2 times"), GREEN after the deletion (factory called once, generator driven once, one logged output, one comms check-in); the no-context early return is covered too. No remediation manifest exists in this repo (same as the 2026-09-02 fixes in repo-memory/colibri); this record and the commit message are the ledger.
+- The three remaining items (poll swallow, research error path, merged_path type) are still open.
