@@ -1,0 +1,28 @@
+{
+ "type": "CLEAR",
+ "commit": "b7b7b03021efa56b89c7734a8217a4b0101c02e9",
+ "when": "20260906-223902",
+ "files": {
+  ".githooks/.gitattributes": {
+   "sha": "59bbdf10e9543338af010cfab368e9871403fb1718af441fba00844546184791",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-223803",
+   "artifact": ".adversary\\reviews\\gate_20260906-223803.md"
+  },
+  ".githooks/adversary_audit.py": {
+   "sha": "fb3078fbab0fdd82898817da4f3dcd4f6f75410a2816bfdc756a9bdd2199486c",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-223803",
+   "artifact": ".adversary\\reviews\\gate_20260906-223803.md"
+  },
+  ".githooks/adversary_rules_epoch": {
+   "sha": "b587bc58c1bc1351c3f4c82a612679365358fea782d7dc5f3b550ea4aace57c9",
+   "model": "z-ai/glm-5.3-flash",
+   "when": "20260906-223803",
+   "artifact": ".adversary\\reviews\\gate_20260906-223803.md"
+  }
+ },
+ "artifacts": {
+  ".adversary\\reviews\\gate_20260906-223803.md": "model: z-ai/glm-5.3-flash | usage: {'prompt_tokens': 7259, 'completion_tokens': 16097, 'total_tokens': 23356, 'cost': 0.004388195, 'is_byok': False, 'prompt_tokens_details': {'cached_tokens': 3008, 'cache_write_tokens': 0, 'audio_tokens': 0, 'video_tokens': 0}, 'cost_details': {'upstream_inference_cost': 0.004388195, 'upstream_inference_prompt_cost': 0.000363945, 'upstream_inference_completions_cost': 0.00402425}, 'completion_tokens_details': {'reasoning_tokens': 15190, 'image_tokens': 0, 'audio_tokens': 0}} | files: ['.githooks/.gitattributes', '.githooks/adversary_audit.py', '.githooks/adversary_rules_epoch']\n\nI attempted to refute this change across every axis the epoch mechanism claims to close. Findings from the analysis:\n\n**Core anchoring logic \u2014 holds.** The `moved` state triggers when the recorded sha is not an ancestor of *any single* add commit of the epoch file. The original add (E1, this very commit) pins the epoch at `fb3ef55`; any forward move to grandfather a later dirty commit C requires a recorded sha \u2265 C, which cannot be an ancestor of E1 \u2014 so `moved` fires and `main` turns it into a violation while both walkers apply the rule everywhere. I also checked the merge blind spot: `--diff-filter=A` does not emit diffs for merge commits, so an \"evil merge\" introduction of the epoch file is not listed in `adds` \u2014 but that does not open a hole, because the recorded sha must still clear the *listed* original add E1, which any forward-moved sha fails. Backward moves are strictly stricter (grandfathering shrinks) and only produce loud false alarms, not escapes.\n\n**Fail-closed states are genuinely fail-closed.** \"none\" (no file / no parseable line) \u2192 `_hook_names_apply` returns True; \"unreadable\" (shallow, log failure, adds-empty-but-in-HEAD) \u2192 True plus a `rules-epoch` violation row in `main`; deleted file \u2192 \"none\". A malformed/nonexistent recorded sha fails `merge-base` in every path \u2192 \"moved\" or rule-applies-everywhere. The adds-empty branch correctly distinguishes \"never committed\" (file absent from HEAD \u2192 trusted like the baseline, same local class) from truncation (in HEAD \u2192 unreadable).\n\n**Walker threading \u2014 consistent.** `hn` is computed once per commit and passed to every `_is_code` call including both legs of the rename branch; the `R` case (`_is_code(old, hn) and not _is_code(new, hn)`) correctly records removals when a hook file leaves code-class. The pre-existing `-z`/typechange parsing is untouched. The epoch-add commit itself lands under `GATED_PREFIXES` (`.githooks/`), so it is independently audited \u2014 the epoch mechanism cannot smuggle its own commit past the note requirement.\n\n**Mechanical details \u2014 verified.** `os.path.join(repo, RULES_EPOCH_FILE)` is well-formed on both platforms; `:(top)` + forward-slash replacement is correct for the `-C root` invocations; `split()`/`splitlines()` tolerate CRLF (and the LF pin in `.gitattributes` is belt-and-braces); `GIT_NO_REPLACE_OBJECTS` covers the `merge-base`/`log`/`cat-file` reads; the cache key (`normcase(abspath)`) is identical between `main`'s check and the per-commit walker calls, so state cannot diverge mid-run; `state == \"ok\"` implies a non-None sha in every return path, so `merge-base --is-ancestor rev, sha` never receives `None`.\n\n**Points I considered and rejected as blocks:**\n- *Shallow clones* make the audit fail \u2014 but this auditor already required full history pre-change (`baseline^{commit}` verification exits 2 on shallow), so no new incompatibility, and it's a documented deliberate fail-closed decision.\n- *Misleading \"git log failed\" message* in the `unreadable` row (shallow and HEAD-inconsistent cases also land there) \u2014 cosmetic.\n- *An epoch can never legitimately move forward again* without triggering `moved` \u2014 that is the stated design semantics, not a defect in this change.\n- *Full history-rewrite smuggling* (rebase a dirty hook-file commit ahead of a re-add with a self-referential epoch) requires forging the re-add commit's note and detaching every replayed code commit's notes \u2014 inside the design's documented honest-limits boundary (local note forgery), which predates this change.\n- Whether `fb3ef55...` is a genuine ancestor of the epoch-adding commit is unverifiable from the staged bytes, but every failure mode of a bad value is loud (permanent `moved` violation + rule applied everywhere), not silent.\n\nNo defect introduced or enabled that survives the documented trust model.\n\nVERDICT: CLEAR"
+ }
+}
